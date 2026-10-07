@@ -1,0 +1,107 @@
+flowchart TB
+  subgraph LEGEND["PISTON v2 - ideal test drive journey - how to read"]
+    direction LR
+    L1{{"Hexagon - system state, tracked as a funnel metric"}}
+    L2["Default - booked hub TD"]
+    L3["Orange - walk-in only"]
+    L4["Blue - VTD over video"]
+    L5["Pink border - changed after review"]
+    L6["IDs like S1 match the PISTON Screen Spec - source, screen, entry and exit for every step - claude.ai/artifact/TWiP1PVT2sEx7vsug4dbH5"]
+  end
+
+  subgraph PLAN["P - PLAN the visit - before arrival - call centre, consumer app, system"]
+    direction LR
+    P1(["P1 Capture TD intent - app, call or chatbot - name, mobile, email"]) --> P1S{{"BOOKING INITIATED"}}
+    P1S --> P2{"P2 Hub TD or VTD - pick a slot"}
+    P2 -->|"Hub TD"| P2H{{"ORDER BOOKED"}}
+    P2 -->|"VTD"| P2V{{"VTD BOOKED - link sent, operator allocated"}}
+    P2H --> P3["P3 Pre-arrival - reminders, DL upload, car prep, DA pre-assigned"]
+    P2V --> P3
+    P1S -.->|"No slot picked"| P4["P4 Follow-up and nurture"]
+    P3 -.->|"No-show"| P4
+    P4 -.->|"Rebooked"| P2
+  end
+
+  subgraph INTRO["I - INTRODUCE - warm welcome - receptionist or VTD operator"]
+    direction LR
+    I1B(["I1 Booked customer arrives - Mark arrived, DA gets a heads-up"]) --> I2["I2 Welcome - seat, tea or coffee, explain today - no screen"]
+    I1W(["I1 Walk-in arrives - drive-by, referral or ad - new visit"]) --> I2
+    I1V(["I1 VTD customer joins the call"]) --> I1VS{{"CUSTOMER JOINED CALL"}}
+    I1VS --> I2V["I2 On-camera welcome"]
+  end
+
+  subgraph SIGNIN["S - SIGN-IN - receptionist - no TD consent here"]
+    direction LR
+    S1{"S1 Check-in - has a booking?"} -->|"Yes"| S1B["OTP to booked mobile, DL already uploaded, recording consent"]
+    S1 -->|"No - walk-in"| S1W["Name, mobile, email, how they heard, OTP, scan DL, recording consent"]
+    S1B --> S1S{{"CHECKED IN - recording on"}}
+    S1W --> S1S
+    S1S --> S2["S2 Assign DA by daily capacity"]
+    S2 --> S2S{{"DA ASSIGNED"}}
+    S1V["S1 OTP verified on the call, recording consent"] --> S1VS{{"VTD CHECKED IN"}}
+  end
+
+  subgraph TAILOR["T - TAILOR - handshake, then car finding - the DA owns the customer from here"]
+    direction LR
+    T1["T1 Handshake - DA meets the customer at the desk"] --> T1S{{"MET CUSTOMER"}}
+    T1S --> T2["T2 Needs - booked prefilled from the booking, walk-in from scratch"]
+    T2 --> T3["T3 Recommend and compare - booked car pinned, live matches beside it"]
+    T3 --> T4["T4 Quality promise - inspection, warranty, return, finance"]
+    T4 --> T5{"T5 Drive today?"}
+    T5 -->|"Yes"| T5S{{"ORDER BOOKED for a walk-in, or cars added - prep raised"}}
+    T5 -->|"Not today"| T5F{{"FOLLOW-UP SCHEDULED - shortlist shared"}}
+    TV["T2 to T5 for VTD - car finding over screen share"] --> TVS(["Car on camera"])
+  end
+
+  subgraph ROAD["O - ON THE ROAD - DA - consent right after TD start"]
+    direction LR
+    O1["O1 Walk to the car - ready at the bay"] --> O2["O2 Walkaround - exterior, interior, bonnet, boot"]
+    O2 --> O3{{"O3 TD STARTED - car, plate, odometer"}}
+    O3 --> O4{{"O4 TD CONSENT SIGNED - e-sign on the tablet, one per car"}}
+    O4 --> O5["O5 Drive - features live, objections tagged"]
+    O5 --> O6{{"O6 TD CONDUCTED"}}
+    O6 --> O7{"Another car?"}
+    O7 -->|"Yes - next car"| O1
+    O7 -->|"No"| O8(["Head to debrief"])
+    O4 -.->|"Consent refused"| O8
+    OV["O2 for VTD - live video walkaround and drive clip - no TD consent"] --> OVS{{"VTD CONDUCTED"}}
+  end
+
+  subgraph NEXT["N - NEXT STEP - no visit ends without one - DA, then RM"]
+    direction LR
+    AI[("AI context engine - recording since check-in")] -.->|"Pre-fills the debrief"| N1["N1 Debrief and decision"]
+    N1 --> N1D{"Decision?"}
+    N1D -->|"Ready to buy"| N2["N2 Collect token - QR, bank transfer or link"]
+    N2 --> N2S{{"TOKEN PAID - confirmed by the gateway"}}
+    N2S --> N3[["N3 Handoff to delivery - documents, finance, VAS, delivery"]]
+    N1D -->|"Needs time"| N4{{"N4 FOLLOW-UP SCHEDULED - date agreed"}}
+    N4 --> N5["N5 Follow-up call by the RM"]
+    N5 -.->|"Re-engaged"| N1D
+    N1D -->|"Another car or a hub TD"| N6{{"N6 NEW TD BOOKED - restarts at Plan"}}
+    N1D -->|"Not interested"| N7{{"N7 DROPPED - reason"}}
+    N5 -->|"No answer after 3 tries"| N7
+  end
+
+  PLAN --> INTRO
+  INTRO --> SIGNIN
+  SIGNIN --> TAILOR
+  TAILOR --> ROAD
+  ROAD --> NEXT
+
+  classDef state fill:#F1EFFF,stroke:#4736FE,stroke-width:2px,color:#15132B
+  classDef walkin fill:#FFF4E5,stroke:#E08A3C,color:#15132B
+  classDef vtd fill:#E6F4FF,stroke:#2F7BD8,color:#15132B
+  classDef good fill:#E3F6EC,stroke:#1FAA59,stroke-width:2px,color:#15132B
+  classDef warn fill:#FFF6E0,stroke:#C9820A,stroke-width:2px,color:#15132B
+  classDef bad fill:#FDECEC,stroke:#D14343,stroke-width:2px,color:#15132B
+  classDef changed fill:#FFFFFF,stroke:#D6336C,stroke-width:3px,color:#15132B
+  classDef changedstate fill:#F1EFFF,stroke:#D6336C,stroke-width:3px,color:#15132B
+
+  class P1S,P2H,O3,O6,T5S,L1 state
+  class I1W,S1W,L3 walkin
+  class P2V,I1V,I1VS,I2V,S1V,S1VS,TV,TVS,OV,OVS,L4 vtd
+  class N2S,N3 good
+  class T5F,N4,N5,N6 warn
+  class N7 bad
+  class S2,T1,T2,T3,L5 changed
+  class S1S,S2S,T1S,O4 changedstate
