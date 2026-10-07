@@ -1,0 +1,32 @@
+<title>PISTON Screen Spec</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="piston.css">
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.462.0/dist/umd/lucide.js"></script>
+
+<header class="pv-top">
+  <div class="pv-brand">
+    <div class="pv-letters" id="pv-letters" aria-label="Jump to a phase"></div>
+    <div class="pv-title"><b>PISTON v2 &middot; screen at each step</b><span>Ideal test drive journey on the Leadverse UI system</span></div>
+  </div>
+  <div class="pv-seg" id="pv-tracks" role="tablist" aria-label="Track"></div>
+  <div class="pv-spacer"></div>
+  <div class="pv-seg" id="pv-views" role="tablist" aria-label="View"></div>
+</header>
+
+<main class="pv-main">
+  <section class="pv-view pv-walk on" id="view-walk">
+    <nav class="pv-rail" id="pv-rail" aria-label="Journey steps"></nav>
+    <section class="pv-stagewrap" aria-label="Screen">
+      <div class="pv-stagehead" id="pv-stagehead"></div>
+      <div class="pv-stage" id="pv-stage"></div>
+      <div class="pv-stagefoot" id="pv-stagefoot"></div>
+    </section>
+    <aside class="pv-spec" id="pv-spec" aria-label="Step spec"></aside>
+  </section>
+  <section class="pv-view" id="view-blueprint"><div class="pv-doc" id="pv-blueprint"></div></section>
+  <section class="pv-view" id="view-changes"><div class="pv-doc" id="pv-changes"></div></section>
+</main>
+
+<script src="piston-data.js"></script>
+<script src="piston-screens.js"></script>
+<script src="piston.js"></script>
