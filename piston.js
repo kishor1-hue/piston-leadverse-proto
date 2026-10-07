@@ -328,8 +328,13 @@ function stepLink(id, label) { return `<button class="linklike" data-step="${id}
 function renderChanges() {
   $("#pv-changes").innerHTML = `<div class="wrap">
     <h1 class="doc-h">What changed after review</h1>
-    <p class="doc-sub">Three notes on the PISTON board. Here is what each one does to the journey, and to the Leadverse Test Drive Console built earlier.</p>
+    <p class="doc-sub">Three notes on the PISTON board, and one on how the calling team works. Here is what each one does to the journey, and to the Leadverse Test Drive Console built earlier.</p>
     <div class="chg-cards">
+      <div class="chg-card"><div class="q">&ldquo;Capture intent should be its own persona task&rdquo;</div><h4>The booking call becomes a Tasks persona</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">P1 Capture intent on the lead page &rarr; P2 Pick a slot</span><span class="k">After</span><span class="seq"><em>P1 Lead in queue &rarr; P2 Welcome &rarr; P3 Contact &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book</em></span></div>
+        <p>No lead, no call: every lead with a mobile number lands as a TD booking call task. The agent captures the name, then email and mobile, and that creates the order (BOOKING INITIATED). Then the pitch, then car discovery with likes and dislikes, then the final car and TD or VTD, then the slot. Booking closes the task.</p>
+        <p>A callback or no answer sends the task back to the queue. It resumes at the step where the call stopped.</p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">${stepLink("P1", "Queue")}${stepLink("P3", "Contact")}${stepLink("P5", "Discovery")}${stepLink("P7", "Book")}</div></div>
       <div class="chg-card"><div class="q">&ldquo;TD consent sign-off after TD start&rdquo;</div><h4>The TD consent moves to the car</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">S Check-in: OTP, DL, <em>TD declaration</em>, recording consent</span><span class="k">After</span><span class="seq">O3 Start TD &rarr; <em>O4 Consent</em> &rarr; O5 Drive</span></div>
         <p>Consent is about one drive in one car, so it needs the car, plate and start odometer that only exist once the TD starts. Not every visitor drives, so asking at the desk adds friction for nothing. It is signed once per car. A VTD needs none.</p>
@@ -350,6 +355,7 @@ function renderChanges() {
     <div class="bp-scroll"><table class="cmp-tbl">
       <thead><tr><th style="width:150px;">Who</th><th>Console today</th><th>PISTON v2 screens</th><th>Effect</th></tr></thead>
       <tbody>
+        <tr><td><b>Calling agent</b></td><td class="seq">Not in the Console</td><td class="seq">P1 Queue &rarr; P2 Welcome &rarr; P3 Contact &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book</td><td>A new persona in Tasks (b2c-lead-td-booking-by-cc). The order is created on the call and booked at its last step.</td></tr>
         <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign DA</td><td class="seq">I1 New walk-in &rarr; S1 Check-in &rarr; S2 Assign DA</td><td>Car choice and order creation move to the DA, after the handshake. The visit exists before the order.</td></tr>
         <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign DA</td><td class="seq">I1 Mark arrived &rarr; S1 Check-in &rarr; S2 Assign DA</td><td>Adds an arrival event and recording consent. No TD consent at the desk.</td></tr>
         <tr><td><b>DA</b></td><td class="seq">Conduct TD &rarr; Select VAS &rarr; Confirm VAS &rarr; Payment &rarr; Token paid</td><td class="seq">T1 Handshake &rarr; T2&ndash;T5 Car finding &rarr; O1&ndash;O6 Test drive &rarr; N1 Debrief &rarr; N2 Token &rarr; N3 Handoff</td><td>The DA's journey starts at the handshake and now covers car finding and the drive itself. VAS moves into the delivery journey.</td></tr>
@@ -370,6 +376,7 @@ function renderChanges() {
       <div><b>The DA's device</b>These screens assume a tablet for the DA on the floor. Leadverse is desktop-first today, so this is new layout work.</div>
       <div><b>Recording consent</b>The screens assume a customer can say no and still get the full visit, with AI notes off.</div>
       <div><b>No valid licence</b>The screens allow car finding and block the drive. Confirm this, and whether a home-country licence is accepted.</div>
+      <div><b>An order before the car is final</b>P3 creates the order from name, mobile and email, with the lead's car of interest, and P6 can change the car. Confirm OMS allows that, or move order creation to P6 when the lead has no car yet.</div>
     </div>
   </div>`;
 }

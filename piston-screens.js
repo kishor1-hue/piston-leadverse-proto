@@ -171,11 +171,110 @@ function qrSvg() {
 
 // ================================================================== screens
 const SCREENS = {
-  // ------------------------------------------------------------ P · Plan
-  P1: (t) => leadScreen(t, 1),
-  P2: (t) => leadScreen(t, 2),
+  // ------------------------------------------------------------ P · Plan: the TD booking call, a persona task
+  P1: (t) => {
+    const rows = [
+      ["booked", "Fatima Al Suwaidi", "Consumer app", "Nissan Altima SV", "4 min", "0 of 3"],
+      ["vtd", "Khalid Al Jaberi", "Chatbot", "Toyota Camry GLE", "9 min", "0 of 3"],
+      ["", "Hamad Al Ketbi", "Website", "Kia Sportage", "26 min", "1 of 3", "Callback 4:00 PM"],
+      ["", "Sana Malik", "Missed call", "&mdash;", "1 h", "2 of 3", "Callback tomorrow"],
+    ];
+    const body = `<div class="lv-body">
+      <div class="proto-note">${ic("sparkles")}<div><b>A persona task of its own.</b> Every lead with a mobile number lands here as a TD booking call. The agent works it as a journey: welcome, contact, pitch, discovery, finalize, book. Booking the slot closes the task.</div></div>
+      <div class="list-head"><div><h2>Tasks</h2><div class="sub">Lead &middot; TD booking call &middot; Reem Khalifa</div></div></div>
+      <div class="toolbar"><div class="search">${ic("search")}<input placeholder="Search tasks" aria-label="Search tasks"></div><div class="select" style="border-color:var(--lv); color:var(--lv);">TD booking call ${ic("chevron-down")}</div></div>
+      <div class="viewtabs"><span class="vt active">Queue &middot; 12</span><span class="vt">Callbacks &middot; 3</span><span class="vt">Closed today &middot; 27</span></div>
+      <div class="dtable"><table><thead><tr><th>Lead</th><th>Source</th><th>Car of interest</th><th>Waiting</th><th>Attempts</th><th></th></tr></thead><tbody>
+      ${rows.map(([trk, nm, src, car, wait, att, cb]) => `<tr class="${trk === t ? "hl" : ""}">
+        <td><div class="cust"><div class="av">${inits(nm)}</div><div class="nm">${nm}</div></div></td>
+        <td><span class="chip neutral">${src}</span></td><td>${car}</td><td>${wait}</td><td>${att}</td>
+        <td>${cb ? `<span class="chip warn">${ic("clock")}${cb}</span>` : `<button class="rowbtn ${trk === t ? "primary" : ""}" ${trk === t ? `data-go="P2"` : ""}>${ic("phone")}Call now</button>`}</td></tr>`).join("")}
+      </tbody></table></div></div>`;
+    return deskShell({ active: "tasks", who: "cc", crumb: `<b>Tasks</b> <span style="color:var(--faint); font-weight:400;">&middot; TD booking call</span>`, body });
+  },
+
+  P2: (t) => {
+    const p = PEOPLE[t], first = p.name.split(" ")[0];
+    const car = PCARS[p.car].title;
+    const body = `<div class="jcard"><h3>Welcome</h3><div class="desc">Open the call. The name comes first, nothing else yet.</div>
+      <div class="script">${ic("quote")}<p>&ldquo;Hi, this is Reem from CARS24. Am I speaking with ${first}? ${t === "vtd" ? `You asked our chatbot about a video viewing of the ${car}.` : `You were looking at the ${car} in our app.`} Is now a good time for a few minutes?&rdquo;</p></div>
+      <div class="fld-row" style="margin-top:8px;"><label for="c-name">Name</label><div style="display:flex; align-items:center; gap:8px;"><input class="box" id="c-name" value="${p.name}" style="max-width:260px;"><span class="prefill">${ic("sparkles")}From the ${t === "vtd" ? "chatbot" : "app profile"}</span></div></div>
+      <div class="fld-row"><label>Language</label>${chips("lang", ["Arabic", "English", "Hindi", "Urdu", "Other"], [t === "vtd" ? "English" : "Arabic"])}</div>
+    </div>`;
+    return callTask(t, 0, { secs: "00:18", body,
+      bottom: bar("Exit: name confirmed", [["No answer or call back", "P9", "", "phone-forwarded"], ["Wrong number", "N7", "", "circle-x"], ["Name confirmed", "P3", "primary", "arrow-right"]]) });
+  },
 
   P3: (t) => {
+    const p = PEOPLE[t];
+    const body = `<div class="jcard"><h3>Email and mobile</h3><div class="desc">These basic details create the order.</div>
+      <div class="fld-row"><label>Mobile</label><span class="okline">${ic("circle-check")}${p.phone} &middot; from the lead</span></div>
+      <div class="fld-row"><label>Same on WhatsApp?</label>${chips("wa", ["Yes", "No, another number"], ["Yes"])}</div>
+      <div class="fld-row"><label for="c-mail">Email</label><div style="display:flex; align-items:center; gap:8px;"><input class="box" id="c-mail" value="${p.email}" style="max-width:260px;">${t === "vtd" ? `<span class="chip neutral">Typed on the call</span>` : `<span class="prefill">${ic("sparkles")}From the app profile</span>`}</div></div>
+      <div style="margin-top:10px;">${sw(true, "Booking updates on WhatsApp", "Confirmation, reminders and the video link go to this number.")}</div>
+      <div class="notebar info" style="margin-top:12px;">${ic("file-plus")}Next creates the order in OMS as BOOKING INITIATED, with the ${PCARS[p.car].title}. The car can still change at Finalize.</div>
+    </div>`;
+    return callTask(t, 1, { secs: "01:02", body, bottom: bar("Exit: email and mobile confirmed, order created", [["Create order and continue", "P4", "primary", "file-plus"]]) });
+  },
+
+  P4: (t) => {
+    const pts = [
+      ["clipboard-check", "Every car inspected", "The inspection report is shared before you decide", true],
+      ["shield-check", "Warranty included", "Terms apply", true],
+      ["rotate-ccw", "Return window", "Change your mind within the return window", true],
+      ["landmark", "Finance and trade-in", "Monthly plans, and we can take your current car", false],
+      ["layout-grid", "Live stock to choose from", "Filter by budget, body type and more", false],
+      ["video", "Test drive your way", "At a hub, or on a video call", false],
+    ];
+    const body = `<div class="jcard"><h3>Why CARS24</h3><div class="desc">Tick each point as you cover it. Move on once the customer is interested.</div>
+      <div class="pitch">${pts.map(([icon, k, s, done]) => `<button class="zone ${done ? "done" : ""}" data-zone>${ic(icon)}<b>${k}</b><span>${s}</span></button>`).join("")}</div>
+      <div class="fld-row" style="margin-top:10px;"><label>Customer</label>${chips("rx", ["Interested", "Has questions", "Not now", "Not interested"], ["Interested"])}</div>
+      <div class="fld-row"><label>Objections</label>${chips("multi", ["Price", "Trust", "Finance", "Already bought"], ["Price"])}</div>
+    </div>`;
+    return callTask(t, 2, { secs: "03:40", order: true, body,
+      bottom: bar("Exit: customer interested", [["Not now: call back", "P9", "", "phone-forwarded"], ["Not interested", "N7", "", "circle-x"], ["Interested: show cars", "P5", "primary", "arrow-right"]]) });
+  },
+
+  P5: (t) => {
+    const p = PEOPLE[t], n = p.needs;
+    const cards = t === "vtd"
+      ? [["c2", "like", "Viewed 4 times"], ["c1", "like", ""], ["c3", "pass", ""]]
+      : [["c1", "like", "Viewed 3 times"], ["c3", "like", ""], ["c2", "pass", ""]];
+    const body = `<div class="jcard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;"><h3>What does ${p.name.split(" ")[0]} like?</h3><span class="prefill">${ic("sparkles")}Filters from ${t === "vtd" ? "the chat" : "app browsing"}</span></div>
+      <div class="desc">Describe each car on the call. Every answer narrows the next cards.</div>
+      <div class="chips-row" style="margin-bottom:12px;">${[n.budget, ...n.body, n.trans].map(x => `<span class="pick on">${x}</span>`).join("")}<span class="pick">${ic("plus")}Filter</span></div>
+      <div class="pcar-grid">${cards.map(([cid, v, note]) => likeCard(cid, v, note)).join("")}</div>
+      <div class="compare-bar"><span>2 liked &middot; 1 disliked</span><button class="btn">${ic("send")}Send liked cars on WhatsApp</button></div>
+    </div>`;
+    return callTask(t, 3, { secs: "06:12", order: true, body,
+      bottom: bar("Exit: liked cars shortlisted", [["Nothing fits: alert and call back", "P9", "", "bell"], ["Next: finalize", "P6", "primary", "arrow-right"]]) });
+  },
+
+  P6: (t) => {
+    const p = PEOPLE[t], vtd = t === "vtd";
+    const liked = vtd ? ["c2", "c1"] : ["c1", "c3"];
+    const body = `<div class="jcard"><h3>Finalize the car and the test drive</h3><div class="desc">Pick from the cars ${p.name.split(" ")[0]} liked.</div>
+      <div class="sectlabel">Final car</div>
+      <div class="radio-list">${liked.map((cid, i) => `<label class="radio-opt ${i === 0 ? "checked" : ""}"><input type="radio" name="p6car" ${i === 0 ? "checked" : ""}> ${PCARS[cid].title} &middot; ${aed(PCARS[cid].price)} <span style="margin-left:auto; font-size:11.5px; color:var(--faint);">${i === 0 ? "Car of interest" : "Liked on this call"}</span></label>`).join("")}</div>
+      <div class="sectlabel">Test drive</div>
+      <div class="seg2" data-tabs><button class="${vtd ? "" : "on"}" data-tab="hub">${ic("store")}Hub test drive</button><button class="${vtd ? "on" : ""}" data-tab="vtd">${ic("video")}Video test drive</button></div>
+      <p style="font-size:12.5px; color:var(--muted); margin:10px 0 0; line-height:1.5;">${vtd ? "This car can be shown on video from Studio 1." : "This car is at Al Quoz hub."}</p>
+      <div class="okline" style="margin-top:12px;">${ic("circle-check")}Order ${p.id} &middot; car set to ${PCARS[liked[0]].title}</div>
+    </div>`;
+    return callTask(t, 4, { secs: "08:31", order: true, body, bottom: bar("Exit: car and TD type final", [["Next: pick a slot", "P7", "primary", "calendar"]]) });
+  },
+
+  P7: (t) => {
+    const p = PEOPLE[t], vtd = t === "vtd";
+    const body = `<div class="jcard"><h3>Book the ${vtd ? "video" : "hub"} test drive</h3><div class="desc">Slots for the ${PCARS[p.car].title}${vtd ? " on video" : " at Al Quoz hub"}. Booking closes this task.</div>
+      ${slotPicker(vtd ? "vtd" : "hub", vtd ? "3:00 PM" : "2:30 PM", false)}
+    </div>`;
+    return callTask(t, 5, { secs: "09:47", order: true, body,
+      bottom: bar("Exit: slot booked, calling task closed", [["No slot works: call back", "P9", "", "phone-forwarded"], ["Book test drive", "P8", "primary", "calendar-check"]]) });
+  },
+
+  P8: (t) => {
     const rows = [
       ["booked", "Fatima Al Suwaidi", "BK-88213", "Today, 2:30 PM", "Nissan Altima SV", "Hub", [1, 0, 1, 1], ["Raise prep", "wrench"]],
       ["vtd", "Khalid Al Jaberi", "BK-88190", "Today, 3:00 PM", "Toyota Camry GLE", "Virtual", [2, 1, 1, 1], ["Open video room", "video"]],
@@ -197,28 +296,28 @@ const SCREENS = {
     return deskShell({ active: "testdrives", who: "receptionist", crumb: `<b>Test Drives</b>`, body });
   },
 
-  P4: (t) => {
-    const p = PEOPLE[t];
+  P9: (t) => {
+    const p = PEOPLE[t], first = p.name.split(" ")[0];
     const rows = [
-      [p.name, t === "vtd" ? "VTD booking started 26 h ago, no slot picked" : "Booking started 26 h ago, no slot picked", "Attempt 1 of 3", "warn", true],
-      ["Hamad Al Ketbi", "No-show, hub TD today 11:00 AM", "Attempt 2 of 3", "bad"],
-      ["Sana Malik", "Asked to be called after payday", "Due tomorrow", "neutral"],
+      [p.name, "Busy, call after work", "Today, 5:30 PM", "1 of 3", true, "Welcome"],
+      ["Hamad Al Ketbi", "No answer", "Today, 4:00 PM", "2 of 3", false, "Welcome"],
+      ["Sana Malik", "Call after payday", "Tomorrow, 10:00 AM", "2 of 3", false, "Discovery"],
     ];
     const body = `<div class="lv-body">
-      <div class="list-head"><div><h2>Tasks</h2><div class="sub">Lead &middot; TD follow-up</div></div></div>
-      <div class="toolbar"><div class="search">${ic("search")}<input placeholder="Search tasks" aria-label="Search tasks"></div><div class="select" style="border-color:var(--lv); color:var(--lv);">TD follow-up ${ic("chevron-down")}</div></div>
-      <div class="viewtabs"><span class="vt">Order</span><span class="vt active">Lead</span><span class="vt">Contact</span></div>
-      <div class="dtable"><table><thead><tr><th>Customer</th><th>Why</th><th>Attempts</th><th></th></tr></thead><tbody>
-      ${rows.map(([nm, why, att, tone, hl]) => `<tr class="${hl ? "hl" : ""}"><td><div class="cust"><div class="av">${inits(nm)}</div><div class="nm">${nm}</div></div></td><td>${why}</td><td><span class="chip ${tone}">${att}</span></td><td><button class="kebab">${ic("more-vertical")}</button></td></tr>`).join("")}
+      <div class="list-head"><div><h2>Tasks</h2><div class="sub">Lead &middot; TD booking call &middot; Reem Khalifa</div></div></div>
+      <div class="viewtabs"><span class="vt">Queue &middot; 12</span><span class="vt active">Callbacks &middot; 3</span><span class="vt">Closed today &middot; 27</span></div>
+      <div class="dtable"><table><thead><tr><th>Lead</th><th>Why</th><th>Callback</th><th>Attempts</th><th>Resumes at</th></tr></thead><tbody>
+      ${rows.map(([nm, why, when, att, hl, step]) => `<tr class="${hl ? "hl" : ""}"><td><div class="cust"><div class="av">${inits(nm)}</div><div class="nm">${nm}</div></div></td><td>${why}</td><td>${when}</td><td><span class="chip ${att.startsWith("2") ? "warn" : "neutral"}">${att}</span></td><td>${step}</td></tr>`).join("")}
       </tbody></table></div>
-      <div class="jcard" style="margin-top:16px;"><h3>Call ${p.name.split(" ")[0]}</h3><div class="desc">Last note: ${t === "vtd" ? "asked the chatbot for a video viewing of the Camry" : "viewed the Altima 3 times, asked about finance"}. Outcome moves the task.</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn primary" data-go="P2">${ic("calendar-check")}Rebooked: pick a slot</button>
-          <button class="btn">${ic("phone-missed")}No answer: try again</button>
+      <div class="jcard" style="margin-top:16px;"><h3>Call ${first} back</h3><div class="desc">The task resumes at Welcome, where the last call stopped. After 3 attempts it closes as dropped.</div>
+        <div class="fld-row"><label>Move the callback</label>${chips("cbk", ["In 2 hours", "This evening", "Tomorrow morning", "Pick a time"], ["This evening"])}</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn primary" data-go="P2">${ic("phone")}Call now</button>
+          <button class="btn">${ic("phone-missed")}No answer: try later</button>
           <button class="btn" data-go="N7">${ic("circle-x")}Not interested</button>
         </div></div>
     </div>`;
-    return deskShell({ active: "tasks", who: "cc", crumb: `<b>Tasks</b> <span style="color:var(--faint); font-weight:400;">&middot; TD follow-up</span>`, body });
+    return deskShell({ active: "tasks", who: "cc", crumb: `<a>Tasks</a> / <b>TD booking call</b> <span style="color:var(--faint); font-weight:400;">&middot; Callbacks</span>`, body });
   },
 
   // ------------------------------------------------------------ I · Introduce
@@ -271,8 +370,7 @@ const SCREENS = {
           <div class="fld"><label for="w-dl">UAE driving licence</label><input class="box" id="w-dl" value="${p.dl}"></div>
         </div>
         <div class="fld-row" style="margin-top:6px;"><label>How did they hear of us?</label>${chips("src", ["Drive-by", "Referral", "Social ad", "Search", "Radio or outdoor", "Other"], ["Drive-by"])}</div>
-        <div class="fld-row"><label>DL scan</label><span class="okline">${ic("scan-line")}Scanned &middot; valid until Mar 2027</span></div>
-        <div class="fld-row"><label>Home-country DL</label><span style="font-size:13px; font-weight:600;">${p.homeDl}</span></div>
+        <div class="fld-row"><label>DL scan</label><div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;"><span class="okline">${ic("scan-line")}Scanned &middot; valid until Mar 2027</span><span style="font-size:12.5px; color:var(--muted);">Home-country DL: <b style="color:var(--ink);">${p.homeDl}</b></span></div></div>
         <div class="fld-row"><label>Mobile OTP</label>${otpBlock(p.phone, "5190")}</div>
         <div style="margin-top:10px;">${sw(true, "Recording consent", "Ahmed agrees to record today's conversation for AI notes and service quality. Saying no doesn't change the visit.")}</div>
       </div>`
@@ -616,10 +714,10 @@ const SCREENS = {
   N6: (t) => {
     const p = PEOPLE[t];
     const car = t === "vtd" ? PCARS.c2 : t === "walkin" ? PCARS.c3 : PCARS.c2;
-    const body = `<div class="jcard"><h3>${t === "vtd" ? "Book a hub test drive" : "Book another drive"}</h3><div class="desc">${t === "vtd" ? "Khalid wants to drive the Camry. Same slot picker as P2." : `${car.title} for ${p.name.split(" ")[0]}. Same slot picker as P2.`}</div>
+    const body = `<div class="jcard"><h3>${t === "vtd" ? "Book a hub test drive" : "Book another drive"}</h3><div class="desc">${t === "vtd" ? "Khalid wants to drive the Camry. Same slot picker as P7." : `${car.title} for ${p.name.split(" ")[0]}. Same slot picker as P7.`}</div>
       ${slotPicker("hub", "4:00 PM")}</div>`;
     return daScreen(t, { stage: "next-step", idx: 1, subs: ["Debrief", "Book"], id: t === "walkin" ? "BK-89004" : null, body,
-      bottom: bar("Exit: slot confirmed", [["Confirm booking", "P3", "primary", "calendar-check"]]) });
+      bottom: bar("Exit: slot confirmed", [["Confirm booking", "P8", "primary", "calendar-check"]]) });
   },
 
   N7: (t) => {
@@ -651,39 +749,50 @@ const SCREENS = {
 
 function kv(k, v) { return `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
 
-function slotPicker(mode, onSlot) {
+function slotPicker(mode, onSlot, typeRow = true) {
   const slots = [["10:00 AM", "3 left"], ["11:30 AM", "1 left", "low"], ["1:00 PM", "Full", "full"], ["2:30 PM", "2 left"], ["3:00 PM", "2 left"], ["4:00 PM", "3 left"], ["5:30 PM", "1 left", "low"], ["7:00 PM", "2 left"]];
-  return `<div class="fld-row"><label>Type</label><div class="seg2" data-tabs><button class="${mode === "hub" ? "on" : ""}" data-tab="hub">${ic("store")}Hub test drive</button><button class="${mode === "vtd" ? "on" : ""}" data-tab="vtd">${ic("video")}Video test drive</button></div></div>
+  return `${typeRow ? `<div class="fld-row"><label>Type</label><div class="seg2" data-tabs><button class="${mode === "hub" ? "on" : ""}" data-tab="hub">${ic("store")}Hub test drive</button><button class="${mode === "vtd" ? "on" : ""}" data-tab="vtd">${ic("video")}Video test drive</button></div></div>` : ""}
     <div class="fld-row"><label>Where</label><span style="font-size:13px; font-weight:600;">${mode === "vtd" ? "Video call, link by WhatsApp" : "Al Quoz hub, Dubai"}</span></div>
     <div class="fld-row"><label>Day</label>${chips("dday", ["Today", "Thu 8 Oct", "Fri 9 Oct", "Sat 10 Oct"], ["Today"])}</div>
     <div class="slots" style="margin-top:10px;">${slots.map(([s, left, cls]) => `<button class="slot ${cls || ""} ${s === onSlot ? "on" : ""}" ${cls === "full" ? "disabled" : `data-pick="slot"`}>${s}<span>${left}</span></button>`).join("")}</div>
     <p style="font-size:12px; color:var(--muted); margin:12px 0 0; line-height:1.5;">A slot shows as free only when a ${mode === "vtd" ? "video operator" : "DA"} and the car are both free. Today this comes from the slot planner; the target is the central Appointment Service.</p>`;
 }
 
-function leadScreen(t, stepNo) {
+// ---- the TD booking call: a Tasks persona worked as a six-step journey while on the call
+const CALL_TASK = { booked: "TK-6120", vtd: "TK-6127" };
+const CALL_STEPS = ["Welcome", "Contact", "Pitch", "Discovery", "Finalize", "Book"];
+
+function leadPane(t) {
   const p = PEOPLE[t];
   const viewed = t === "vtd" ? [["c2", "Viewed 4 times"], ["c1", "Viewed once"]] : [["c1", "Viewed 3 times"], ["c3", "Viewed once"]];
-  const leadPane = `<div class="leftpane">
+  return `<div class="leftpane">
     <div class="lp-head"><div><div class="lp-av">${inits(p.name)}</div><div class="lp-name">${p.name}</div><span class="chip neutral">${p.source}</span></div><button class="kebab">${ic("more-vertical")}</button></div>
-    <div class="lp-tabs"><span class="active">Contact</span><span>Activity</span><span>Orders</span></div>
-    <div class="lp-section"><div class="stitle">DETAILS &amp; CONTACT</div>${lpf("Lead ID", "LD-55120")}${lpf("Phone", p.phone)}${lpf("Email", p.email.replace("@", "@<wbr>"))}${lpf("Language", p.language)}${lpf("Owner", "Reem Khalifa")}</div></div>`;
-  const activity = `<div class="scr-pad">
-    <div class="list-head"><div><h2>${p.name}</h2><div class="sub">Lead &middot; ${p.source} &middot; created today 9:12 AM</div></div></div>
-    <div class="sectlabel">Activity</div>
-    <div class="tl">${viewed.map(([cid, n]) => `<div>${ic("eye")}<div><b>${PCARS[cid].title}</b><span>${n} in the app</span></div></div>`).join("")}
-      <div>${ic("phone")}<div><b>${t === "vtd" ? "Chatbot" : "Called in"} &middot; 9:12 AM</b><span>${t === "vtd" ? "Asked for a video viewing" : "Asked about finance options"}</span></div></div></div></div>`;
-  const step1 = `<div class="sectlabel">Customer</div>
-    <div class="fld-row"><label>Name</label><div style="display:flex; align-items:center; gap:8px;"><span style="font-size:13px; font-weight:600;">${p.name}</span><span class="prefill">${ic("sparkles")}From the app profile</span></div></div>
-    <div class="fld-row"><label>Mobile</label>${otpBlock(p.phone, "7731")}</div>
-    <div class="fld-row"><label>Email</label><span style="font-size:13px; font-weight:600;">${p.email}</span></div>
-    <div class="sectlabel">Car</div>
-    <div class="radio-list">${viewed.map(([cid, n], i) => `<label class="radio-opt ${i === 0 ? "checked" : ""}"><input type="radio" name="p1car" ${i === 0 ? "checked" : ""}> ${PCARS[cid].title} <span style="margin-left:auto; font-size:11.5px; color:var(--faint);">${n}</span></label>`).join("")}</div>
-    <p style="font-size:12px; color:var(--muted); margin:12px 0 0;">The order is created as BOOKING INITIATED once the mobile is verified.</p>`;
-  const sheet = `<div class="dim"></div><div class="sheet">
-    <div class="sheet-head"><h4>Book a test drive</h4><span style="font-size:12px; color:var(--faint);">Step ${stepNo} of 2</span></div>
-    <div class="sheet-body">${stepNo === 1 ? step1 : slotPicker(t === "vtd" ? "vtd" : "hub", t === "vtd" ? "3:00 PM" : "2:30 PM")}</div>
-    <div class="sheet-foot">${stepNo === 1
-      ? `<button class="btn" data-go="P4">${ic("phone-forwarded")}Not ready: call back</button><button class="btn primary" data-go="P2">Continue to slot ${ic("arrow-right")}</button>`
-      : `<button class="btn" data-go="P4">${ic("phone-forwarded")}No slot works: call back</button><button class="btn primary" data-go="P3">${ic("calendar-check")}Confirm booking</button>`}</div></div>`;
-  return deskShell({ active: "leads", who: "cc", crumb: `<a>Leads</a> / <b>${p.name}</b>`, body: `<div class="scr-body">${leadPane}${activity}${sheet}</div>` });
+    <div class="lp-tabs"><span class="active">Lead</span><span>Activity</span><span>Orders</span></div>
+    <div class="lp-section"><div class="stitle">LEAD</div>${lpf("Lead ID", t === "vtd" ? "LD-55127" : "LD-55120")}${lpf("Mobile", p.phone)}${lpf("Source", p.source)}${lpf("Created", "Today, 9:12 AM")}</div>
+    <div class="lp-section"><div class="stitle">CARS VIEWED</div>${viewed.map(([cid, n]) => lpf(PCARS[cid].title.replace(/^\d{4} /, ""), n)).join("")}</div>
+  </div>`;
+}
+
+function callTask(t, idx, { body, bottom, secs, order }) {
+  const p = PEOPLE[t];
+  const steps = CALL_STEPS.map((label, i) => {
+    const cls = i < idx ? "done" : i === idx ? "active" : "";
+    const dot = i < idx ? `<i data-lucide="check" class="icon" style="width:13px;height:13px;"></i>` : (i + 1);
+    return `<div class="step ${cls}"><div class="step-btn"><span class="dot">${dot}</span><span class="lbl">${label}</span></div></div>`;
+  }).join("");
+  const callbar = `<div class="callbar"><span class="cb-ic">${ic("phone-call")}</span><div><b>On call with ${p.name.split(" ")[0]}</b><span>${p.phone} &middot; ${secs}</span></div><span class="rec-pill"><i></i>Recording</span>
+    <div class="cb-btns"><span>${ic("mic-off")}</span><span>${ic("pause")}</span><span class="end">${ic("phone-off")}</span></div></div>`;
+  const head = `<div class="jbar"><div class="task-head"><span class="chip lv">${ic("phone")}TD booking call</span><span class="task-meta">${CALL_TASK[t]} &middot; attempt 1 of 3</span>${order ? `<span class="hex" style="margin-left:auto;">BOOKING INITIATED &middot; ${p.id}</span>` : ""}</div><div class="stepper">${steps}</div></div>`;
+  const content = `<div class="scr-body">${leadPane(t)}<div class="journey-main">${callbar}${head}<div class="journey-body">${body}</div><div class="bottombar">${bottom}</div></div></div>`;
+  return deskShell({ active: "tasks", who: "cc", crumb: `<a>Tasks</a> / <a>TD booking call</a> / <b>${p.name}</b>`, body: content });
+}
+
+function likeCard(cid, verdict, note) {
+  const c = PCARS[cid];
+  return `<div class="pcar ${verdict === "like" ? "sel" : ""}" data-car="${cid}">
+    <div class="th" style="background:${c.color}">${ic("car")}${note ? `<span class="tag chip neutral">${note}</span>` : ""}</div>
+    <div class="bd"><div class="t">${c.title}</div><div class="p">${aed(c.price)}</div><div class="m">${c.km} &middot; ${c.body} &middot; ${c.drive}</div></div>
+    <div class="ft"><span></span><a href="${c.url}" target="_blank" rel="noopener">Full listing ${ic("external-link")}</a></div>
+    <div class="likes"><button class="pick ${verdict === "like" ? "on" : ""}" data-pick="lk-${cid}">${ic("thumbs-up")}Like</button><button class="pick ${verdict === "pass" ? "on" : ""}" data-pick="lk-${cid}">${ic("thumbs-down")}Dislike</button></div>
+  </div>`;
 }
