@@ -261,7 +261,7 @@ function mountSignature(root) {
     ctx = canvas.getContext("2d");
     ctx.scale(2, 2);
     ctx.lineWidth = 2.4; ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.strokeStyle = "#101828";
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--v-ink").trim() || "#101828";
   };
   size();
   // the screen is CSS-scaled; map pointer positions back into canvas space
