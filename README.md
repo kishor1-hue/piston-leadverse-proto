@@ -1,8 +1,19 @@
 # PISTON: the ideal test drive journey on Leadverse
 
-A screen spec for CARS24 UAE's ideal test-drive journey, drawn in the Leadverse TD Journey design. PISTON stands for its six phases: **P**lan, **I**ntroduce, **S**ign-in, **T**ailor, **O**n the road, **N**ext step.
+A screen spec for CARS24's ideal test-drive journey in the UAE and Australia, drawn in the Leadverse TD Journey design. PISTON stands for its six phases: **P**lan, **I**ntroduce, **S**ign-in, **T**ailor, **O**n the road, **N**ext step.
 
 Every step has its **source**, its **screen**, its **entry conditions** and its **exit conditions**, for three tracks: booked hub TD, walk-in hub TD and video TD. One level below that, every screen has its **anatomy**: numbered parts (shown as pins on the screen), the fields it captures, the actions it fires and the states it can be in.
+
+## Markets and the two ways to check in
+
+The journey is built once and configured per market. Switch **UAE** or **Australia** at the top: people, cars, money, documents, hub and copy follow the market.
+
+After Mark arrived, the customer checks in one of two ways, in any market:
+
+- **At the desk**: the receptionist fills the check-in with the customer on the desk tablet. Default in the UAE (and India).
+- **By link**: Mark arrived sends a one-time link on WhatsApp and email. It opens a form-only page on the customer's own phone, with no Leadverse and no login. Each answer syncs to the visit as it is given, and submitting checks the customer in. Default in Australia.
+
+On S1 by link, the stage shows the receptionist's panel and the customer's phone side by side. Fill the form on the phone and watch the answers land in the panel. **Screen only** shows both larger. The *What changed* view lists what is set per market and the decisions still open.
 
 No build step. Plain HTML, CSS and JavaScript. All people, cars and numbers are mock data.
 
@@ -20,14 +31,14 @@ python3 -m http.server 8000
 - **Fields**: every field on every screen in one data dictionary.
 - **What changed**: the review notes applied, what they do to the Test Drive Console, and the decisions still open.
 
-Deep links: `#booked-S1`, `#walkin-T2`, `#vtd-O2`, `#blueprint`, `#fields`, `#changes`.
+Deep links: `#booked-S1`, `#walkin-T2`, `#vtd-O2`, `#blueprint`, `#fields`, `#changes`. Prefix `au-` for Australia (`#au-booked-S1`), and add `-desk` or `-link` when the check-in way differs from the market default (`#booked-S1-link`).
 
 ## Files
 
 - `index.html`: the page.
-- `piston-data.js`: the spec. Tracks, flows, phases and the 33 steps, plus mock people and cars.
+- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 33 steps, plus mock people and cars per market and the copy layer for Australia.
 - `piston-anatomy.js`: parts, fields, actions and states for every screen.
-- `piston-screens.js`: one Leadverse screen per step.
+- `piston-screens.js`: one Leadverse screen per step, plus the customer's phone page for check-in by link.
 - `piston.js`: the viewer.
 - `piston.css`: the viewer and the TD Journey components.
 - `style.css`: shared Leadverse tokens and base styles, also used by the Test Drive Console.

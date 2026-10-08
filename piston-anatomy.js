@@ -1,7 +1,8 @@
 // ---- PISTON: one level deeper than the screen ----
 // For every step: the numbered parts of its screen (pins on the screen), the fields it captures,
 // the actions it fires, and the states it can be in. Part keys match data-part="key" in piston-screens.js.
-// An entry can be keyed by track like the step spec: { hub, booked, walkin, vtd, all }.
+// An entry can be keyed like the step spec: by track { hub, booked, walkin, vtd, all }, market { ae, au }
+// or check-in way { desk, link }.
 // API names marked "DAP today" exist in DAP; "Proposed" ones do not exist yet.
 
 const SHARED_PARTS = {
@@ -11,6 +12,41 @@ const SHARED_PARTS = {
   foot: ["Footer actions", "SHELL_CTAS", "Previous, then the step's exits. The primary one fires the main exit and refetches the journey"],
   call: ["Call bar", "TELEPHONY", "Live call with recording, mute, hold and end. Click-to-call through the telephony provider"],
   video: ["Video panel", "IFRAME_RENDERER", "The video call, recorded and transcribed"],
+};
+
+// S1 by link: the receptionist's panel (pins 1 to 6) and the customer's phone (the ph- parts)
+const SELF_CHECKIN_BASE = {
+  parts: [["lead", null, null, "Status pill moves from Link sent to Filling in check-in to Checked in, live"],
+    ["stages", null, null, "Check-in shows Link sent, then Filling; done when the form is submitted, and DL verify turns current"],
+    ["link-status", "Link status", "LINK_STATUS", "Sent, delivered, opened, filling, submitted, each with its time"],
+    ["answers", "Answers, synced live", "SYNC_LIST", "Each answer lands here as the customer gives it; anything already known is filled in"],
+    ["link-actions", "Link actions", "BUTTON_GROUP", "Resend, show the link as a QR, or check the customer in at the desk"],
+    ["foot", null, null, "Proceed to DL verify unlocks only when the form is submitted"],
+    ["ph-msg", "Message with the link", "NOTIFICATION", "WhatsApp template and email, sent by Mark arrived. One link per visit, no personal data in it"],
+    ["ph-form", "About today", "PUBLIC_FORM", "A form-only page on the customer's phone. No Leadverse, no login. Rendered from the same form schema as the desk modal"],
+    ["ph-licence", "Licence", "UPLOAD", "Shows the licence already on file, or takes photos of both sides"],
+    ["ph-consent", "Consent", "RADIO", "Recording consent with no default choice, and the market's privacy wording"],
+    ["ph-done", "You're checked in", "SUCCESS", "Who meets them and where, and a link to browse cars while they wait"]],
+  actions: [["Open check-in", "Proposed: checkin.link_opened", "Panel: Opened"],
+    ["Next, on each part", "Proposed: checkin.section_saved. Answers autosave, so nothing is lost if the customer stops", "Panel: answers appear"],
+    ["Check in", "Proposed: checkin.submitted, through the same check-in API as the desk, with channel = link", "CHECKED IN; S2"],
+    ["Resend link", "Notification engine: a new token; the old link stops working", "Panel: Sent again"],
+    ["Check in at the desk", "Opens the desk modal with what the customer already filled", "S1 at the desk"]],
+  states: [["Link sent", "Waiting for the customer to open it"], ["Filling", "1 or 2 of 3 parts saved; answers appear as they are given"],
+    ["Not opened in 5 min", "Amber nudge on the visit and on the Today list"], ["Submitted", "CHECKED IN; Proceed to DL verify unlocks"],
+    ["Link expired or already used", "The page says so and points to the front desk; nothing can be changed from it"]],
+};
+const SELF_CHECKIN = {
+  booked: { ...SELF_CHECKIN_BASE,
+    fields: [["Check-in link", "One-time token", "Yes", "Created at Mark arrived (I1)", "Tied to this visit and to the contact it went to; works until the visit ends"],
+      ["Visit purpose", "Text", "Read only", "Booking", "Test drive"], ["Accompanied by", "Chips", "No", "Customer", "Just me, partner, family, a friend"],
+      ["Paying by", "Chips", "No", "Customer", "Cash, finance, not sure yet"], ["Area", "Text", "No", "Booking, prefilled", "Emirate and area"],
+      ["Licence", "Image", "No", "Docs, on file from P8", "Needed to drive; checked at S2"], ["Recording consent", "Yes or no", "Yes", "Customer", "No default; no turns AI notes off for this visit"]] },
+  walkin: { ...SELF_CHECKIN_BASE,
+    fields: [["Check-in link", "One-time token", "Yes", "Created at Add lead (I1)", "Sent to the mobile and email just added"],
+      ["Purpose of visit", "Option cards", "Yes", "Customer", "Only buy or test drive continues to a DA; the others go to their desk"],
+      ["Accompanied by", "Chips", "No", "Customer", ""], ["Paying by", "Chips", "No", "Customer", "Cash, finance, not sure yet"], ["Area", "Text", "No", "Customer", "Emirate and area"],
+      ["Licence front and back", "Image", "No", "Phone camera, saved to Docs", "Can be scanned at S2 instead"], ["Recording consent", "Yes or no", "Yes", "Customer", "No default"]] },
 };
 
 const ANATOMY = {
@@ -84,15 +120,20 @@ const ANATOMY = {
   // ------------------------------------------------------------ I · Introduce
   I1: {
     booked: {
-      parts: [["table", "Today's visits", "TABLE", "Bookings and walk-ins at this hub today"], ["mark-arrived", "Mark arrived", "ROW_ACTION", "Logs the arrival time"]],
-      fields: [["Status", "Chip", "Read only", "Visit", "Expected, arrived, checked in, TD conducted, token paid"]],
-      actions: [["Mark arrived", "Proposed: visit.arrived event; the pre-assigned DA gets a heads-up", "I2"]],
-      states: [["Early", "Arrived before the slot shows Early"], ["Late", "15 min past the slot without arrival shows Late"]],
+      parts: [["table", "Today's visits", "TABLE", "Bookings and walk-ins at this hub today. By link, each row shows the customer's check-in as it happens"], ["mark-arrived", "Mark arrived", "ROW_ACTION", "Logs the arrival time and opens the check-in choice"],
+        ["checkin-way", "How will they check in?", "CHOICE_POPOVER", "Send check-in link or Check in at the desk. The market's default is picked; the receptionist can switch for this visit"]],
+      fields: [["Status", "Chip", "Read only", "Visit", "Expected, arrived, checking in, checked in, TD conducted, token paid"],
+        ["Check-in way", "Link or desk", "Yes", "Market default (tenant config)", "Australia: link. UAE: desk. Can be changed per visit"]],
+      actions: [["Mark arrived, with Send check-in link", "Proposed: visit.arrived, then checkin.link_sent on WhatsApp and email; the pre-assigned DA gets a heads-up", "I2, then S1 by link"],
+        ["Mark arrived, with Check in at the desk", "Proposed: visit.arrived; the pre-assigned DA gets a heads-up", "I2, then S1 at the desk"]],
+      states: [["Early", "Arrived before the slot shows Early"], ["Late", "15 min past the slot without arrival shows Late"], ["No mobile or email", "Send check-in link is disabled; the desk is the only way"]],
     },
     walkin: {
-      parts: [["add-lead-btn", "New walk-in", "BUTTON", "Opens the Add lead drawer"], ["add-lead", "Add lead information", "DRAWER_FORM", "First name, last name, email, mobile. From the TD Journey file"], ["table", "Today's visits", "TABLE", "The new walk-in appears at the top"]],
-      fields: [["First name", "Text", "Yes", "Typed", ""], ["Last name", "Text", "Yes", "Typed", ""], ["Email ID", "Email", "No", "Typed", "Valid format"], ["Mobile number", "Phone", "Yes", "Typed", "UAE mobile; checked for an existing lead first"]],
-      actions: [["Add lead", "Lead service: create the lead (dedupe on mobile); visit created", "I2"]],
+      parts: [["add-lead-btn", "New walk-in", "BUTTON", "Opens the Add lead drawer"], ["add-lead", "Add lead information", "DRAWER_FORM", "First name, last name, email, mobile. From the TD Journey file"],
+        ["checkin-way", "How will they check in?", "CHOICE", "The same choice as for a booking; the link goes to the mobile and email just typed"], ["table", "Today's visits", "TABLE", "The new walk-in appears at the top"]],
+      fields: [["First name", "Text", "Yes", "Typed", ""], ["Last name", "Text", "Yes", "Typed", ""], ["Email ID", "Email", "No", "Typed", "Valid format"], ["Mobile number", "Phone", "Yes", "Typed", "UAE mobile; checked for an existing lead first"],
+        ["Check-in way", "Link or desk", "Yes", "Market default (tenant config)", "Australia: link. UAE: desk"]],
+      actions: [["Add lead", "Lead service: create the lead (dedupe on mobile); visit created; by link, checkin.link_sent", "I2"]],
       states: [["Duplicate", "Mobile already exists: open that lead instead"]],
     },
     vtd: {
@@ -102,30 +143,35 @@ const ANATOMY = {
       states: [["Not joined", "10 min after the slot: callback (P9)"]],
     },
   },
-  I2: { parts: [], fields: [], actions: [], states: [["No screen", "A human moment. The arrival time from I1 starts the clock"]] },
+  I2: { parts: [], fields: [], actions: [], states: { hub: { desk: [["No screen", "A human moment. The arrival time from I1 starts the clock"]],
+    link: [["No screen", "A human moment. The check-in link is already on the customer's phone"], ["Nothing arrived", "After a minute, the receptionist offers the desk instead"]] },
+    vtd: [["No screen", "A human moment. The arrival time from I1 starts the clock"]] } },
 
   // ------------------------------------------------------------ S · Sign-in
   S1: {
-    booked: {
+    booked: { desk: {
       parts: [["lead"], ["stages", null, null, "Check-in is the current stage"], ["empty", "Not checked in yet", "EMPTY_STATE", "Shows until check-in is done; Start check-in opens the modal"],
+        ["send-link", "Send a check-in link instead", "LINK_BUTTON", "The other way to check in: the customer fills the same form on their phone"],
         ["details", "Check-in details", "MODAL_FORM", "Hub, accompanied by, financial interest, area; prefilled from the booking"], ["consent", "Recording consent", "TOGGLE", "Switches AI notes and transcription on or off for the visit"],
         ["otp", "OTP", "OTP_INPUT", "Shown after Send OTP"], ["checked", "You're all checked in", "SUCCESS", "Tells the customer their DA is coming"],
         ["qr", "Browse QR", "QR", "Customer browses cars while waiting; liked cars show up in T3"], ["gpt"], ["foot"]],
       fields: [["Visit purpose", "Select", "Yes", "Booking (prefilled)", "Buy or test drive"], ["Hub", "Select", "Yes", "Booking (prefilled)", "Hubs in the customer's emirate"],
         ["Accompanied by", "Select", "No", "Asked", "Alone, spouse, family, friend"], ["Financial interest", "Select", "No", "Asked", "Cash, loan EMI, not sure"],
         ["Area", "Select", "No", "Asked", "Emirate and area; replaces the pincode in the Figma"], ["Recording consent", "Toggle", "Yes", "Asked", "No turns AI notes off for this visit"], ["OTP", "6 digits", "Yes", "User auth", "3 tries; resend after 30 s"]],
-      actions: [["Send OTP", "User auth: OTP to the booked mobile", "OTP step"], ["Verify OTP", "User auth verify; DAP today: POST /customer-check-in/{customerId}", "CHECKED IN; checked-in step with the QR"], ["Continue to DL verify", "None", "S2"]],
+      actions: [["Send OTP", "User auth: OTP to the booked mobile", "OTP step"], ["Verify OTP", "User auth verify; DAP today: POST /customer-check-in/{customerId}", "CHECKED IN; checked-in step with the QR"], ["Continue to DL verify", "None", "S2"],
+        ["Send a check-in link instead", "Proposed: checkin.link_sent; the visit switches to by link", "S1 by link"]],
       states: [["Not checked in", "Empty state with Start check-in"], ["Wrong OTP", "Tries left shown; after 3, an Emirates ID check"], ["Checked in", "Success with the browse QR"]],
-    },
-    walkin: {
-      parts: [["lead"], ["stages"], ["empty", "Not checked in yet", "EMPTY_STATE", "Start check-in opens the modal"], ["details", "Check-in details", "MODAL_FORM", "Hub, accompanied by, financial interest, area"],
+    }, link: SELF_CHECKIN.booked },
+    walkin: { desk: {
+      parts: [["lead"], ["stages"], ["empty", "Not checked in yet", "EMPTY_STATE", "Start check-in opens the modal"], ["send-link", "Send a check-in link instead", "LINK_BUTTON", "The customer fills the same form on their phone"], ["details", "Check-in details", "MODAL_FORM", "Hub, accompanied by, financial interest, area"],
         ["consent", "Recording consent", "TOGGLE", "Switches AI notes and transcription on or off"], ["otp", "OTP", "OTP_INPUT", "Shown after Send OTP"], ["checked", "You're all checked in", "SUCCESS", "With the browse QR"],
         ["qr", "Browse QR", "QR", "Liked cars show up for the DA"], ["purpose", "Purpose of visit", "OPTION_CARDS", "From the TD Journey file's onboarding questions"], ["gpt"], ["foot"]],
       fields: [["Hub", "Select", "Yes", "Logged-in hub", ""], ["Accompanied by", "Select", "No", "Asked", ""], ["Financial interest", "Select", "No", "Asked", "Cash, loan EMI, not sure"], ["Area", "Select", "No", "Asked", "Emirate and area"],
         ["Recording consent", "Toggle", "Yes", "Asked", ""], ["OTP", "6 digits", "Yes", "User auth", "3 tries"], ["Purpose of visit", "Option cards", "Yes", "Asked", "Only Buy / Test drive continues; others go to their desk"]],
-      actions: [["Send OTP", "User auth: OTP to the lead's mobile", "OTP step"], ["Verify OTP", "User auth verify; check-in recorded", "CHECKED IN"], ["Continue to DL verify", "Purpose saved on the visit", "S2"]],
+      actions: [["Send OTP", "User auth: OTP to the lead's mobile", "OTP step"], ["Verify OTP", "User auth verify; check-in recorded", "CHECKED IN"], ["Continue to DL verify", "Purpose saved on the visit", "S2"],
+        ["Send a check-in link instead", "Proposed: checkin.link_sent to the lead's mobile and email", "S1 by link"]],
       states: [["Other purpose", "Drop-off, pickup, service or selling: routed to that desk"], ["Wrong OTP", "Tries left shown"]],
-    },
+    }, link: SELF_CHECKIN.walkin },
     vtd: {
       parts: [["video"], ["stages"], ["otp", "OTP", "OTP_INPUT", "The customer reads the code out on the call"], ["consent", "Recording consent", "TOGGLE", "Asked on camera"], ["foot"]],
       fields: [["OTP", "6 digits", "Yes", "User auth", "3 tries"], ["Recording consent", "Toggle", "Yes", "Asked", "No turns AI notes off"]],
@@ -328,6 +374,7 @@ const ANATOMY = {
   // ------------------------------------------------------------ M · Oversight
   M1: {
     parts: [["alert", "Live alert", "ALERT", "A step past its target, with the fix"], ["kpis", "Headline numbers", "KPI_CARDS", "Visits, token paid, conversion, arrival to handshake"],
+      ["by-link", "Checked in by link", "KPI_CARD", "How many check-ins came from the customer's phone; a market where the link is the default shows most of them here"],
       ["funnel", "State funnel", "FUNNEL", "Every hexagon on the board, with time from the last state"], ["outcomes", "Outcomes", "CHIPS", "How visits ended"]],
     fields: [["State counts", "Number", "Read only", "State events", ""], ["Time between states", "Minutes", "Read only", "Event timestamps", "Median"]],
     actions: [["Reassign DA", "Assign DA modal", "S3"]],
@@ -337,14 +384,15 @@ const ANATOMY = {
 
 // resolve one step's anatomy for a track: merges the track entry with "all" and expands shared parts
 function anatomyFor(stepId, track) {
-  const raw = ANATOMY[stepId];
+  const raw = ctxResolve(ANATOMY[stepId], track);
   if (!raw) return { parts: [], fields: [], actions: [], states: [] };
-  const keyed = ["all", "booked", "walkin", "vtd", "hub"].some(k => k in raw);
+  const keyed = TRACK_KEYS.some(k => k in raw);
   let a = raw;
   if (keyed) {
-    const specific = raw[track] || (track !== "vtd" ? raw.hub : null) || {};
-    a = { ...(raw.all || {}), ...specific };
+    const specific = ctxResolve(raw[track] || (track !== "vtd" ? raw.hub : null) || {}, track);
+    a = { ...ctxResolve(raw.all || {}, track), ...specific };
   }
+  a = { parts: pick(a.parts, track), fields: pick(a.fields, track), actions: pick(a.actions, track), states: pick(a.states, track) };
   const parts = (a.parts || []).map(([key, label, widget, note]) => {
     const s = SHARED_PARTS[key] || [];
     return { key, label: label || s[0] || key, widget: widget || s[1] || "", note: note || s[2] || "" };

@@ -1,9 +1,11 @@
 // ---- PISTON v2: one level deeper ----
 // Every step of the ideal test-drive journey with its source, screen, entry and exit conditions,
-// per track (booked hub TD, walk-in hub TD, video TD). Mock people and numbers are examples only.
+// per track (booked hub TD, walk-in hub TD, video TD), per market (UAE, Australia) and per check-in way
+// (at the desk, or by a link the customer fills on their own phone). Mock people and numbers are examples only.
 //
-// A field can be a plain value, or an object keyed by track: { booked, walkin, vtd, hub, all }.
-// "hub" covers booked + walk-in. pick() resolves it for the active track.
+// A field can be a plain value, or an object keyed by track { booked, walkin, vtd, hub, all },
+// by market { ae, au } or by check-in way { desk, link }, nested in any order. "hub" covers booked + walk-in.
+// pick() resolves all three for the active context.
 
 const TRACKS = {
   booked: { key: "booked", label: "Booked hub TD", short: "Booked", who: "Fatima Al Suwaidi" },
@@ -11,13 +13,40 @@ const TRACKS = {
   vtd:    { key: "vtd",    label: "Video TD", short: "VTD", who: "Khalid Al Jaberi" },
 };
 
+// ---------------------------------------------------------------- markets and check-in ways
+// One journey, configured per market. Both ways to check in exist in every market; the market only sets the default.
+//   desk: the receptionist checks the customer in on the visit page, with the customer at the desk tablet
+//   link: Mark arrived sends a one-time link on WhatsApp and email; the customer fills a form-only page on their phone
+const MARKETS = {
+  ae: { key: "ae", label: "UAE", checkin: "desk", tenant: "cars24-ae" },
+  au: { key: "au", label: "Australia", checkin: "link", tenant: "cars24-au" },
+};
+const CHECKIN_WAYS = {
+  desk: { key: "desk", label: "At the desk", icon: "monitor" },
+  link: { key: "link", label: "By link", icon: "smartphone" },
+};
+
+// the context keyed values resolve against; the viewer sets it
+const CTX = { market: "ae", mode: "desk" };
+const MODE_KEYS = ["desk", "link"], MARKET_KEYS = ["ae", "au"], TRACK_KEYS = ["all", "booked", "walkin", "vtd", "hub"];
+
+// resolves check-in-way and market keys only (the check-in way applies to hub tracks; video TD always uses desk)
+function ctxResolve(val, track) {
+  while (val && typeof val === "object" && !Array.isArray(val)) {
+    if (MODE_KEYS.some(k => k in val)) { const m = track === "vtd" ? "desk" : CTX.mode; val = m in val ? val[m] : val.desk; continue; }
+    if (MARKET_KEYS.some(k => k in val)) { val = CTX.market in val ? val[CTX.market] : val.ae; continue; }
+    break;
+  }
+  return val;
+}
+
 function pick(val, track) {
+  val = ctxResolve(val, track);
   if (val == null || typeof val !== "object" || Array.isArray(val)) return val;
-  const keyed = ["all", "booked", "walkin", "vtd", "hub"].some(k => k in val);
-  if (!keyed) return val;
-  if (track in val) return val[track];
-  if (track !== "vtd" && "hub" in val) return val.hub;
-  return val.all;
+  if (!TRACK_KEYS.some(k => k in val)) return val;
+  if (track in val) return pick(val[track], track);
+  if (track !== "vtd" && "hub" in val) return pick(val.hub, track);
+  return pick(val.all, track);
 }
 
 // ---------------------------------------------------------------- flow level
@@ -60,8 +89,10 @@ const PHASES = [
   { id: "P", name: "Plan", when: "Before arrival", owner: "Calling team, then the system",
     entry: "A lead with a mobile number. Self-serve app bookings skip the call and start at P8", exit: "Order booked and the calling task closed, then ready for the visit" },
   { id: "I", name: "Introduce", when: "First 3 minutes", owner: { hub: "Receptionist", vtd: "VTD operator" },
-    entry: { hub: "Customer walks in", vtd: "Customer opens the video link" }, exit: "Arrival logged, customer welcomed" },
-  { id: "S", name: "Sign-in", when: "Front desk", owner: { hub: "Receptionist", vtd: "VTD operator" },
+    entry: { hub: "Customer walks in", vtd: "Customer opens the video link" },
+    exit: { hub: { desk: "Arrival logged, customer welcomed", link: "Arrival logged, check-in link sent, customer welcomed" }, vtd: "Arrival logged, customer welcomed" } },
+  { id: "S", name: "Sign-in", when: { hub: { desk: "Front desk", link: "Customer's phone, then the front desk" }, vtd: "Front desk" },
+    owner: { hub: { desk: "Receptionist", link: "Customer on their phone, then the receptionist" }, vtd: "VTD operator" },
     entry: "Customer welcomed", exit: { hub: "CHECKED IN, DL VERIFIED and DA ASSIGNED. No TD consent here", vtd: "VTD CHECKED IN" } },
   { id: "T", name: "Tailor", when: { hub: "Handshake, then car finding", vtd: "Car finding over screen share" }, owner: { hub: "DA, from the handshake to the close", vtd: "VTD operator" },
     entry: { hub: "DA ASSIGNED", vtd: "VTD CHECKED IN" }, exit: { hub: "Cars confirmed for today and prep raised, or a follow-up", vtd: "Car confirmed for the video walkaround" } },
@@ -206,78 +237,152 @@ const STEPS = [
   // ============================== I · Introduce
   { id: "I1", phase: "I", name: "Arrival", tracks: ["booked", "walkin", "vtd"],
     owner: { hub: "Receptionist", vtd: "VTD operator" }, device: { hub: "desktop", vtd: "video" },
-    purpose: { hub: "Log the moment the customer arrives. It starts the clock and gives the DA a heads-up.", vtd: "Know the customer is on the call and start the clock." },
+    purpose: { hub: "Log the moment the customer arrives and pick how they check in. It starts the clock and gives the DA a heads-up.", vtd: "Know the customer is on the call and start the clock." },
     source: {
       trigger: { booked: "Booked customer walks in", walkin: "Customer walks in without a booking", vtd: "Customer opens the video link" },
-      data: { booked: ["Today's bookings (OMS + slot planner)"], walkin: ["Add lead drawer: first name, last name, email, mobile", "The visit is created here, before any order"], vtd: ["Video provider: join event"] },
+      data: {
+        booked: ["Today's bookings (OMS + slot planner)", "Market default for check-in: at the desk in the UAE, by link in Australia"],
+        walkin: ["Add lead drawer: first name, last name, email, mobile", "The visit is created here, before any order", "Market default for check-in: at the desk in the UAE, by link in Australia"],
+        vtd: ["Video provider: join event"],
+      },
     },
     entry: { booked: ["ORDER BOOKED for today at this hub"], walkin: ["None. Anyone can walk in"], vtd: ["VTD BOOKED", "Within 15 min of the slot"] },
     exits: {
-      booked: [{ when: "Receptionist taps Mark arrived; the pre-assigned DA gets a heads-up", to: "I2" }],
-      walkin: [{ when: "Lead added from the Add lead drawer; the visit is created", to: "I2" }],
+      booked: [
+        { when: "Mark arrived with Send check-in link: WhatsApp and email go out now, and the pre-assigned DA gets a heads-up", to: "I2", mode: "link" },
+        { when: "Mark arrived with Check in at the desk: the pre-assigned DA gets a heads-up", to: "I2", mode: "desk" },
+      ],
+      walkin: [
+        { when: "Lead added with Send check-in link: the visit is created and the link goes to the mobile and email just added", to: "I2", mode: "link" },
+        { when: "Lead added with Check in at the desk: the visit is created", to: "I2", mode: "desk" },
+      ],
       vtd: [{ when: "Customer is in the call", to: "I2", state: "CUSTOMER JOINED CALL" }, { when: "Not joined 10 min after the slot", to: "P9" }],
     },
     state: { hub: null, vtd: "CUSTOMER JOINED CALL" },
     screen: { name: { hub: "Test Drives &rsaquo; Today", vtd: "VTD console &rsaquo; Waiting room" }, build: "extend",
-      pattern: { booked: "Test Drives queue + Mark arrived row action", walkin: "Test Drives queue + Add lead drawer (first name, last name, email, mobile)", vtd: "Video panel embedded with IFRAME_RENDERER" },
+      pattern: { booked: "Test Drives queue + Mark arrived, which asks how the customer checks in: by link or at the desk", walkin: "Test Drives queue + Add lead drawer (first name, last name, email, mobile) with the same check-in choice", vtd: "Video panel embedded with IFRAME_RENDERER" },
       route: { hub: "/test-drives?view=today", vtd: "/test-drives/BK-88190?stage=video" } },
-    dap: { hub: "DAP has no arrival event. Its first timestamp is check-in.", vtd: "VTD work orders already move ASSIGNED, then CUSTOMER_JOINED_CALL." },
+    dap: {
+      ae: { hub: "DAP has no arrival event. Its first timestamp is check-in.", vtd: "VTD work orders already move ASSIGNED, then CUSTOMER_JOINED_CALL." },
+      au: { hub: "Customers already check themselves in with a form today. Here that form goes out the moment arrival is logged, tied to the visit, so its answers land in the panel.", vtd: null },
+    },
+    changed: { hub: "Mark arrived now asks how the customer checks in: a link to their phone (default in Australia) or at the desk (default in the UAE). Either way works in both markets." },
   },
   { id: "I2", phase: "I", name: "Welcome", tracks: ["booked", "walkin", "vtd"],
     owner: { hub: "Receptionist", vtd: "VTD operator" }, device: "none",
-    purpose: { hub: "Greet, seat, offer tea, coffee or water, and explain today: check-in, car match, test drive.", vtd: "A warm on-camera welcome and a plan for the call." },
-    source: { trigger: "Arrival logged in I1", data: ["None"] },
-    entry: ["Arrival logged"],
-    exits: [{ when: "Customer is settled and ready", to: "S1" }],
+    purpose: {
+      hub: { desk: "Greet, seat, offer tea, coffee or water, and explain today: check-in, car match, test drive.", link: "Greet, seat, offer tea, coffee or water, and point to the check-in link that just arrived on their phone." },
+      vtd: "A warm on-camera welcome and a plan for the call.",
+    },
+    source: { trigger: "Arrival logged in I1", data: { hub: { desk: ["None"], link: ["The check-in link sent at I1, on WhatsApp and email"] }, vtd: ["None"] } },
+    entry: { hub: { desk: ["Arrival logged"], link: ["Arrival logged", "Check-in link sent"] }, vtd: ["Arrival logged"] },
+    exits: { hub: { desk: [{ when: "Customer is settled and ready", to: "S1" }], link: [{ when: "Customer is seated with the link open, or about to open it", to: "S1" }] }, vtd: [{ when: "Customer is settled and ready", to: "S1" }] },
     state: null,
     screen: { name: "No screen, by design", build: "none",
-      pattern: "A human moment. The only system touch is the arrival time from I1, which starts the arrival-to-handshake clock.", route: null },
+      pattern: { hub: { desk: "A human moment. The only system touch is the arrival time from I1, which starts the arrival-to-handshake clock.", link: "A human moment. The check-in link is already on the customer's phone, so the receptionist only points to it. The arrival time from I1 starts the clock." },
+        vtd: "A human moment. The only system touch is the arrival time from I1, which starts the arrival-to-handshake clock." },
+      route: null },
     moments: {
-      hub: ["Greet by name if booked, or welcome a walk-in", "Offer a seat and tea, coffee or water", "Explain today: check-in, a DA to find the right car, the test drive, then the next step"],
+      hub: {
+        desk: ["Greet by name if booked, or welcome a walk-in", "Offer a seat and tea, coffee or water", "Explain today: check-in, a DA to find the right car, the test drive, then the next step"],
+        link: ["Greet by name if booked, or welcome a walk-in", "Point to the check-in message on WhatsApp or email: about 2 minutes, from the seat", "Offer tea, coffee or water, and the guest Wi-Fi", "Nothing arrived within a minute? Offer to check them in at the desk instead"],
+      },
       vtd: ["Welcome on camera, check sound and video", "Explain the call: check-in, car finding on screen, a live walkaround, then the next step"],
     },
-    target: { hub: "Check-in starts within 3 minutes of arrival", vtd: "Check-in starts within 2 minutes of joining" },
+    target: { hub: { desk: "Check-in starts within 3 minutes of arrival", link: "Link opened within 3 minutes of arrival" }, vtd: "Check-in starts within 2 minutes of joining" },
   },
 
   // ============================== S · Sign-in
   // The check-in flow follows the Leadverse TD Journey file: details, OTP, a "you're checked in" screen with a QR
   // to browse cars while waiting, and onboarding questions starting with the purpose of the visit.
   { id: "S1", phase: "S", name: "Check-in", tracks: ["booked", "walkin", "vtd"],
-    owner: { hub: "Receptionist, with the customer on the desk tablet", vtd: "VTD operator" }, device: { hub: "desktop", vtd: "video" },
-    purpose: { hub: "Confirm who the customer is, why they came, and whether the conversation can be recorded. The TD consent comes later, at the car.", vtd: "Confirm who the customer is and ask about recording." },
+    owner: { hub: { desk: "Receptionist, with the customer on the desk tablet", link: "Customer, on their own phone. The receptionist watches it sync" }, vtd: "VTD operator" },
+    device: { hub: { desk: "desktop", link: "pair" }, vtd: "video" },
+    purpose: {
+      hub: {
+        desk: "Confirm who the customer is, why they came, and whether the conversation can be recorded. The TD consent comes later, at the car.",
+        link: "The customer checks in from their seat, on a form-only page on their own phone. Each answer syncs to the visit as it is given, so the receptionist steps in only if something is stuck. The TD consent still comes later, at the car.",
+      },
+      vtd: "Confirm who the customer is and ask about recording.",
+    },
     source: {
-      trigger: { hub: "Receptionist taps Start check-in on the visit", vtd: "Operator starts the call" },
+      trigger: { hub: { desk: "Receptionist taps Start check-in on the visit", link: "Customer opens the check-in link sent at arrival (I1)" }, vtd: "Operator starts the call" },
       data: {
-        booked: ["OMS order and CDP profile, prefilled", "User auth: OTP to the booked mobile", "Hub and visit purpose from the booking"],
-        walkin: ["Add lead drawer from I1: name, mobile, email", "User auth: OTP", "Onboarding questions: purpose of visit, accompanied by, financial interest, area"],
+        booked: {
+          desk: ["OMS order and CDP profile, prefilled", "User auth: OTP to the booked mobile", "Hub and visit purpose from the booking"],
+          link: ["Check-in link: a one-time token for this visit, sent on WhatsApp and email at I1", "OMS order: the page shows the first name, the car, the slot and the hub, nothing else", "The same check-in form as the desk modal: who is with them, paying by, area, licence, recording consent", "Docs: the licence uploaded before the visit (P8)"],
+        },
+        walkin: {
+          desk: ["Add lead drawer from I1: name, mobile, email", "User auth: OTP", "Onboarding questions: purpose of visit, accompanied by, financial interest, area"],
+          link: ["Check-in link to the mobile and email from Add lead (I1)", "The same check-in form as the desk modal, starting with the purpose of the visit", "Licence photos taken on the phone, saved to Docs"],
+        },
         vtd: ["OMS order, prefilled", "OTP read out on the call"],
       },
     },
-    entry: { booked: ["Arrival logged", "Customer at the desk"], walkin: ["Walk-in lead added"], vtd: ["Customer in the call"] },
+    entry: {
+      booked: { desk: ["Arrival logged", "Customer at the desk"], link: ["Arrival logged with Send check-in link", "A mobile or email on the booking"] },
+      walkin: { desk: ["Walk-in lead added"], link: ["Walk-in lead added with Send check-in link"] },
+      vtd: ["Customer in the call"],
+    },
     exits: {
-      booked: [
-        { when: "OTP verified, recording consent answered", to: "S2", state: "CHECKED IN" },
-        { when: "OTP fails 3 times: receptionist checks Emirates ID", to: "S2" },
-      ],
-      walkin: [
-        { when: "OTP verified, purpose is buy or test drive, recording consent answered", to: "S2", state: "CHECKED IN" },
-        { when: "Purpose is drop-off, pickup, service or selling: routed to that desk", to: null },
-        { when: "OTP fails 3 times: receptionist checks Emirates ID", to: "S2" },
-      ],
+      booked: {
+        desk: [
+          { when: "OTP verified, recording consent answered", to: "S2", state: "CHECKED IN" },
+          { when: "OTP fails 3 times: receptionist checks Emirates ID", to: "S2" },
+        ],
+        link: [
+          { when: "Customer submits the form: answers synced, mobile proven by the link itself", to: "S2", state: "CHECKED IN" },
+          { when: "Not opened 5 min after arrival, or the customer asks for help: the receptionist checks them in at the desk, and anything filled carries over", to: "S1", mode: "desk" },
+          { when: "Link expired or sent to the wrong contact: fix the contact and resend; the old link stops working", to: "S1" },
+        ],
+      },
+      walkin: {
+        desk: [
+          { when: "OTP verified, purpose is buy or test drive, recording consent answered", to: "S2", state: "CHECKED IN" },
+          { when: "Purpose is drop-off, pickup, service or selling: routed to that desk", to: null },
+          { when: "OTP fails 3 times: receptionist checks Emirates ID", to: "S2" },
+        ],
+        link: [
+          { when: "Form submitted with purpose buy or test drive", to: "S2", state: "CHECKED IN" },
+          { when: "Purpose is drop-off, pickup, service or selling: routed to that desk", to: null },
+          { when: "Not opened 5 min after arrival: the receptionist checks them in at the desk, and anything filled carries over", to: "S1", mode: "desk" },
+        ],
+      },
       vtd: [{ when: "OTP verified on the call, recording consent answered", to: "T2", state: "VTD CHECKED IN" }],
     },
     state: { hub: "CHECKED IN", vtd: "VTD CHECKED IN" },
-    screen: { name: { hub: "Visit &rsaquo; Check-in modal", vtd: "VTD console &rsaquo; Check-in" }, build: "extend",
-      pattern: { hub: "Modal flow on the visit page: details, OTP, checked in with a browse QR, onboarding questions", vtd: "Video panel + OTP widget" },
-      route: { booked: "/test-drives/BK-88213?stage=check-in", walkin: "/test-drives/VS-2041?stage=check-in", vtd: "/test-drives/BK-88190?stage=video&step=check-in" } },
-    dap: "POST /customer-check-in creates the work order. There is no recording consent and no purpose question in DAP.",
-    changed: { hub: "TD consent removed from check-in (now O4). Check-in follows the Leadverse TD Journey modals, with the visit purpose and a browse QR.", vtd: "TD consent removed from check-in (now O4)." },
+    screen: { name: { hub: { desk: "Visit &rsaquo; Check-in modal", link: "Customer check-in page + Visit &rsaquo; Self check-in" }, vtd: "VTD console &rsaquo; Check-in" },
+      build: { hub: { desk: "extend", link: "new" }, vtd: "extend" },
+      pattern: {
+        hub: {
+          desk: "Modal flow on the visit page: details, OTP, checked in with a browse QR, onboarding questions",
+          link: "A public, form-only page on the customer's phone: no Leadverse, no login, only the check-in form, rendered from the same form schema as the desk modal. The visit page shows the link status and each answer as it syncs.",
+        },
+        vtd: "Video panel + OTP widget",
+      },
+      route: { booked: "/test-drives/BK-88213?stage=check-in", walkin: "/test-drives/VS-2041?stage=check-in", vtd: "/test-drives/BK-88190?stage=video&step=check-in" },
+      phone: { hub: { link: { ae: "cars24.ae/check-in/7Kq2Xw", au: "cars24.com.au/check-in/7Kq2Xw" } } } },
+    dap: {
+      ae: { hub: { desk: "POST /customer-check-in creates the work order. There is no recording consent and no purpose question in DAP.", link: "DAP has no self check-in: the receptionist always checks the customer in. POST /customer-check-in creates the work order." },
+        vtd: "POST /customer-check-in creates the work order. There is no recording consent and no purpose question in DAP." },
+      au: { hub: { link: "Customers already fill a check-in form themselves today. Here the same form opens from the arrival link and syncs to the visit, so the panel has the answers before the DA meets them.", desk: null }, vtd: null },
+    },
+    changed: {
+      hub: {
+        desk: "TD consent removed from check-in (now O4). Check-in follows the Leadverse TD Journey modals, with the visit purpose and a browse QR. A link to the customer's phone is now the other way to check in.",
+        link: "New way to check in: a one-time link at arrival opens a form-only page on the customer's phone, and each answer syncs to the visit. Default in Australia, available in the UAE.",
+      },
+      vtd: "TD consent removed from check-in (now O4).",
+    },
   },
   { id: "S2", phase: "S", name: "DL verify", tracks: ["booked", "walkin"],
     owner: "Receptionist", device: "desktop",
     purpose: "Check the driving licence against the customer before anyone talks about cars. A visit can go on without one, but nobody drives without one.",
     source: { trigger: "Check-in done",
-      data: { booked: ["Docs: DL uploaded before the visit (P8)", "OCR: name, number, expiry", "Emirates ID name for the match"], walkin: ["DL scan or upload at the desk, front and back", "OCR: name, number, expiry", "Home-country DL if needed"] } },
+      data: {
+        booked: ["Docs: DL uploaded before the visit (P8)", "OCR: name, number, expiry", "Emirates ID name for the match"],
+        walkin: { desk: ["DL scan or upload at the desk, front and back", "OCR: name, number, expiry", "Home-country DL if needed"], link: ["DL photos from the check-in form, front and back", "OCR: name, number, expiry", "Home-country DL if needed"] },
+      } },
     entry: ["CHECKED IN"],
     exits: [
       { when: "DL valid, name matches, not expired", to: "S3", state: "DL VERIFIED" },
@@ -572,15 +677,38 @@ function stepById(id) { return STEPS.find(s => s.id === id); }
 function stepsForTrack(track) { return STEPS.filter(s => s.tracks.includes(track)); }
 function phaseById(id) { return PHASES.find(p => p.id === id); }
 
+// ---------------------------------------------------------------- market tables
+// The UAE values below are the base. applyMarket() swaps each registered table's contents in place, so every
+// screen reads the active market without knowing about markets. In the build these come from tenant config.
+const MARKET_TABLES = [];
+function marketTable(table, byMarket) {
+  MARKET_TABLES.push({ table, base: JSON.parse(JSON.stringify(table)), byMarket: byMarket || {} });
+  return table;
+}
+function applyMarket(m) {
+  CTX.market = m;
+  MARKET_TABLES.forEach(({ table, base, byMarket }) => {
+    const next = JSON.parse(JSON.stringify(byMarket[m] || base));
+    if (Array.isArray(table)) { table.length = 0; next.forEach(x => table.push(x)); return; }
+    Object.keys(table).forEach(k => delete table[k]);
+    Object.assign(table, next);
+  });
+}
+
 // ---------------------------------------------------------------- mock entities for the screens
-const PCARS = {
+const PCARS = marketTable({
   c1: { id: "c1", title: "2023 Nissan Altima SV", price: 62900, km: "18,400 km", body: "Sedan", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#DCE3EA", url: "https://www.cars24.ae/buy-used-nissan-altima-cars-dubai/", plate: "Dubai P 48213", bay: "Bay 2" },
   c2: { id: "c2", title: "2022 Toyota Camry GLE", price: 71500, km: "24,100 km", body: "Sedan", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E5DED0", url: "https://www.cars24.ae/buy-used-toyota-camry-cars-dubai/", plate: "Dubai K 30190", bay: "Studio 1" },
   c3: { id: "c3", title: "2023 Hyundai Tucson", price: 68200, km: "12,900 km", body: "SUV", drive: "4WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#D9E2DC", url: "https://www.cars24.ae/buy-used-hyundai-tucson-cars-dubai/", plate: "Dubai R 77105", bay: "Bay 4" },
   c4: { id: "c4", title: "2022 Kia Sportage", price: 59900, km: "31,200 km", body: "SUV", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E6D9D9", url: "https://www.cars24.ae/buy-used-kia-sportage-cars-dubai/", plate: "Dubai M 21877", bay: "Bay 1" },
-};
+}, { au: {
+  c1: { id: "c1", title: "2021 Mazda3 G20 Evolve", price: 27990, km: "41,200 km", body: "Sedan", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#DCE3EA", url: "https://www.cars24.com.au/", plate: "VIC 1QZ 4KT", bay: "Bay 2" },
+  c2: { id: "c2", title: "2022 Toyota Camry Ascent Hybrid", price: 36490, km: "38,900 km", body: "Sedan", drive: "2WD", fuel: "Hybrid", trans: "Automatic", seats: 5, color: "#E5DED0", url: "https://www.cars24.com.au/", plate: "VIC 2BR 7LM", bay: "Studio 1" },
+  c3: { id: "c3", title: "2022 Hyundai Tucson Elite", price: 34990, km: "29,500 km", body: "SUV", drive: "AWD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#D9E2DC", url: "https://www.cars24.com.au/", plate: "VIC 1TX 9PW", bay: "Bay 4" },
+  c4: { id: "c4", title: "2022 Kia Sportage S", price: 31490, km: "33,800 km", body: "SUV", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E6D9D9", url: "https://www.cars24.com.au/", plate: "VIC 1KS 3RD", bay: "Bay 1" },
+} });
 
-const PEOPLE = {
+const PEOPLE = marketTable({
   booked: { name: "Fatima Al Suwaidi", phone: "050 123 4567", email: "fatima.s@example.com", id: "BK-88213", visit: "BK-88213", nationality: "UAE", language: "Arabic", dl: "DXB-882134", source: "Consumer app", slot: "Today, 2:30 PM", car: "c1",
     needs: { budget: "AED 55k&ndash;70k", body: ["Sedan", "SUV"], fuel: "Petrol", trans: "Automatic", drive: "2WD", usage: ["City", "Family weekends"], must: ["Apple CarPlay"] },
     picks: [["c1", 94, "Booked car &middot; in budget &middot; CarPlay"], ["c3", 88, "SUV, more boot space &middot; in budget"], ["c2", 81, "Sedan &middot; AED 1,500 over budget"]] },
@@ -590,9 +718,19 @@ const PEOPLE = {
   vtd: { name: "Khalid Al Jaberi", phone: "055 987 1230", email: "khalid.j@example.com", id: "BK-88190", visit: "BK-88190", nationality: "UAE", language: "English", dl: "AUH-190552", source: "Chatbot", slot: "Today, 3:00 PM", car: "c2",
     needs: { budget: "AED 65k&ndash;75k", body: ["Sedan"], fuel: "Petrol", trans: "Automatic", drive: "2WD", usage: ["Commute to Dubai"], must: ["Adaptive cruise"] },
     picks: [["c2", 93, "Booked car &middot; adaptive cruise"], ["c1", 84, "Sedan &middot; AED 8,600 cheaper"]] },
-};
+}, { au: {
+  booked: { name: "Emily Carter", phone: "0412 345 678", email: "emily.c@example.com", id: "BK-88213", visit: "BK-88213", nationality: "Australia", language: "English", dl: "048 219 345 (VIC)", source: "Consumer app", slot: "Today, 2:30 PM", car: "c1",
+    needs: { budget: "$25k&ndash;35k", body: ["Sedan", "SUV"], fuel: "Petrol", trans: "Automatic", drive: "2WD", usage: ["City", "Family weekends"], must: ["Apple CarPlay"] },
+    picks: [["c1", 94, "Booked car &middot; in budget &middot; CarPlay"], ["c3", 88, "SUV, more boot space &middot; in budget"], ["c2", 81, "Sedan &middot; $1,490 over budget"]] },
+  walkin: { name: "Jack Thompson", phone: "0433 210 987", email: "jack.t@example.com", id: "BK-89004", visit: "VS-2041", nationality: "Australia", language: "English", dl: "061 774 208 (VIC)", homeDl: null, source: "Drive-by", car: "c4",
+    needs: { budget: "$27k&ndash;33k", body: ["SUV"], fuel: "Petrol", trans: "Automatic", drive: "2WD", usage: ["Family", "Long drives"], must: ["7 airbags", "Rear camera"] },
+    picks: [["c4", 92, "SUV &middot; in budget &middot; rear camera"], ["c3", 86, "SUV, AWD &middot; $1,990 over budget"], ["c1", 70, "Sedan &middot; in budget"]] },
+  vtd: { name: "Liam Walsh", phone: "0455 876 210", email: "liam.w@example.com", id: "BK-88190", visit: "BK-88190", nationality: "Australia", language: "English", dl: "773 1094 (ACT)", source: "Chatbot", slot: "Today, 3:00 PM", car: "c2",
+    needs: { budget: "$32k&ndash;38k", body: ["Sedan"], fuel: "Hybrid", trans: "Automatic", drive: "2WD", usage: ["Commute to the city"], must: ["Adaptive cruise"] },
+    picks: [["c2", 93, "Booked car &middot; adaptive cruise"], ["c1", 84, "Sedan &middot; $8,500 cheaper"]] },
+} });
 
-const PSTAFF = {
+const PSTAFF = marketTable({
   receptionist: { name: "Kishor", init: "K", role: "RECEPTIONIST" },
   da: { name: "Omar Hassan", init: "OH", role: "COMMON_DA" },
   operator: { name: "Sara Ibrahim", init: "SI", role: "VIRTUAL_DA" },
@@ -600,14 +738,104 @@ const PSTAFF = {
   cc: { name: "Reem Khalifa", init: "RK", role: "Call centre" },
   rm: { name: "Rania Haddad", init: "RH", role: "RM" },
   prep: { name: "Bilal Raza", init: "BR", role: "PREP_USER" },
-};
+}, { au: {
+  receptionist: { name: "Kishor", init: "K", role: "RECEPTIONIST" },
+  da: { name: "Josh Miller", init: "JM", role: "COMMON_DA" },
+  operator: { name: "Priya Sharma", init: "PS", role: "VIRTUAL_DA" },
+  manager: { name: "Aaliya Patel", init: "AP", role: "DATL" },
+  cc: { name: "Chloe Davis", init: "CD", role: "Call centre" },
+  rm: { name: "Grace Lee", init: "GL", role: "RM" },
+  prep: { name: "Tom Nguyen", init: "TN", role: "PREP_USER" },
+} });
 
-const PDAS = [
+const PDAS = marketTable([
   { id: "da1", name: "Omar Hassan", role: "COMMON_DA", lang: "Arabic, English", status: "AVAILABLE", today: 6, max: 10, score: 92, pre: true },
   { id: "da2", name: "Layla Ahmed", role: "HUB_DA", lang: "English, Hindi", status: "AVAILABLE", today: 3, max: 10, score: 88 },
   { id: "da5", name: "Faisal Noor", role: "HUB_DA", lang: "Arabic, Urdu", status: "ON_BREAK", today: 5, max: 10, score: 84 },
   { id: "da4", name: "Yusuf Khan", role: "HOME_DA", lang: "English", status: "AVAILABLE", today: 10, max: 10, score: 75 },
-];
+], { au: [
+  { id: "da1", name: "Josh Miller", role: "COMMON_DA", lang: "English", status: "AVAILABLE", today: 6, max: 10, score: 92, pre: true },
+  { id: "da2", name: "Mia Wilson", role: "HUB_DA", lang: "English, Mandarin", status: "AVAILABLE", today: 3, max: 10, score: 88 },
+  { id: "da5", name: "Ben Clarke", role: "HUB_DA", lang: "English, Hindi", status: "ON_BREAK", today: 5, max: 10, score: 84 },
+  { id: "da4", name: "Sam Patel", role: "HOME_DA", lang: "English", status: "AVAILABLE", today: 10, max: 10, score: 75 },
+] });
 
-function aed(n) { return "AED " + n.toLocaleString("en-US"); }
+// market strings the screens read directly
+const MK = marketTable({
+  hub: "Al Quoz hub", hubFull: "Al Quoz hub, Dubai", site: "cars24.ae", credit: "AECB score", idDoc: "Emirates ID", area: "Area",
+  langs: ["Arabic", "English", "Hindi", "Urdu", "Other"],
+  budgets: ["Under AED 55k", "AED 55k&ndash;65k", "AED 55k&ndash;70k", "AED 65k&ndash;75k", "AED 75k+"],
+  usage: ["City", "Family", "Family weekends", "Long drives", "Commute to Dubai", "Off-road"],
+  token: 5000, privacy: "privacy notice",
+}, { au: {
+  hub: "Melbourne hub", hubFull: "Melbourne hub, VIC", site: "cars24.com.au", credit: "Credit score", idDoc: "Licence state", area: "Suburb",
+  langs: ["English", "Mandarin", "Vietnamese", "Hindi", "Other"],
+  budgets: ["Under $25k", "$25k&ndash;35k", "$27k&ndash;33k", "$32k&ndash;38k", "$40k+"],
+  usage: ["City", "Family", "Family weekends", "Long drives", "Commute to the city", "Off-road"],
+  token: 1000, privacy: "privacy collection notice",
+} });
+
+function money(n) { return CTX.market === "au" ? "$" + n.toLocaleString("en-AU") : "AED " + n.toLocaleString("en-US"); }
 function inits(name) { return (name || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase(); }
+
+// ---------------------------------------------------------------- copy layer
+// The screens are written once, with UAE copy. For another market, localize() swaps the copy that is not already
+// data (people in sentences, places, documents, money in sentences). In the build this is tenant config, not a table.
+const COPY = {
+  au: [
+    // places and rules
+    ["Al Quoz hub, Dubai", "Melbourne hub, VIC"], ["at Al Quoz hub", "at the Melbourne hub"], ["Al Quoz &middot; today", "Melbourne hub &middot; today"], ["Al Quoz", "the Melbourne hub"],
+    ["Dubai RTA (example)", "VicRoads (example)"], ["UAE traffic laws", "Victorian road rules"], ["traffic fines during this drive", "traffic fines and tolls during this drive"],
+    ["CARS24 UAE", "CARS24 Australia"], ["Payment service: Noon, DAPI, CBD UAE", "Payment service: the Australian payment gateway"],
+    ["IBAN", "BSB and account"], ["AE07 0331 0000 0123 4567 890", "000-000 &middot; 1234 5678 (example)"],
+    // documents and formats
+    ["Name matches the Emirates ID", "Name matches the booking"], ["checks Emirates ID by hand", "checks photo ID by hand"], ["checks Emirates ID", "checks photo ID"],
+    ["Emirates ID name for the match", "Booking name for the match"], ["OCR against the Emirates ID", "OCR against the booking"], ["an Emirates ID check", "a photo ID check"], ["Emirates ID", "Photo ID"],
+    ["UAE mobile, 05X XXX XXXX", "AU mobile, 04XX XXX XXX"], ["UAE mobile", "AU mobile"], ["Hubs in the customer's emirate", "Hubs in the customer's state"],
+    ["Emirate and area", "Suburb and postcode"], ["Arabic, English, Hindi, Urdu, other", "English, Mandarin, Vietnamese, Hindi, other"], ["AED bands", "AUD bands"],
+    // money and finance words in sentences
+    ["Camry: AED 1,500 over budget", "Camry: $1,490 over budget"], ["AED 18,000", "$7,500"], ["AED 1,200", "$450"], ["AED 1,000", "$500"], ["AED 3,000 less", "$1,500 less"],
+    ["Monthly salary", "Monthly income"], ["Existing EMI", "Existing repayments"], ["Loan EMI", "Car finance"], ["loan EMI", "car finance"], ["EMI, down payment", "repayments, deposit"],
+    ["an EMI estimate", "a repayment estimate"], ["Wants EMI options", "Wants finance options"], ["salary, existing EMI", "income, existing repayments"],
+    ["Salary and existing EMI", "Income and existing repayments"], ["payment mode, salary, EMI", "payment mode, income, repayments"],
+    // cars named in sentences
+    ["Nissan Altima SV", "Mazda3 G20 Evolve"], ["Nissan Altima", "Mazda3"], ["Altima", "Mazda3"], ["Camry GLE", "Camry Ascent Hybrid"], ["Tucson: 4WD for long drives", "Tucson: AWD for long drives"],
+    // people named in sentences and lists
+    ["Fatima Al Suwaidi", "Emily Carter"], ["Fatima", "Emily"], ["fatima.s@example.com", "emily.c@example.com"],
+    ["Ahmed Saleh", "Jack Thompson"], ["Layla Ahmed", "Mia Wilson"], ["Ahmed", "Jack"], ["Saleh", "Thompson"],
+    ["Khalid Al Jaberi", "Liam Walsh"], ["Khalid", "Liam"], ["khalid.j@example.com", "liam.w@example.com"],
+    ["Omar Hassan", "Josh Miller"], ["Omar", "Josh"], ["Bilal Raza", "Tom Nguyen"], ["Bilal", "Tom"], ["Reem Khalifa", "Chloe Davis"], ["Reem", "Chloe"],
+    ["Rania Haddad", "Grace Lee"], ["Sara Ibrahim", "Priya Sharma"], ["Sara", "Priya"], ["Faisal Noor", "Ben Clarke"], ["Yusuf Khan", "Sam Patel"],
+    ["Hamad Al Ketbi", "Oliver Brown"], ["hamad.k@example.com", "oliver.b@example.com"], ["Sana Malik", "Sophie Martin"], ["Maryam Rashidi", "Ava Robinson"],
+    ["Noora Al Shamsi", "Isla Thomas"], ["Hamdan Saeed", "Noah White"], ["Aisha Al Mazrouei", "Ruby Hall"], ["Rashid Al Falasi", "Ethan King"],
+    ["050 123 4567", "0412 345 678"], ["055 987 1230", "0455 876 210"], ["052 445 9981", "0421 778 093"], ["050 774 2210", "0438 552 761"],
+  ],
+};
+const COPY_RE = {};
+function localize(html) {
+  const pairs = COPY[CTX.market];
+  if (!pairs || !html) return html;
+  if (!COPY_RE[CTX.market]) {
+    const keys = pairs.map(p => p[0]).sort((a, b) => b.length - a.length);
+    COPY_RE[CTX.market] = { re: new RegExp(keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g"), map: Object.fromEntries(pairs) };
+  }
+  const { re, map } = COPY_RE[CTX.market];
+  return html.replace(re, (m) => map[m]);
+}
+
+// ---------------------------------------------------------------- what is configured per market (for the docs view)
+// [setting, UAE, India, Australia]. India is listed for the decision; the screens show the UAE and Australia.
+const MARKET_CONFIG = [
+  ["Check-in default", "At the desk: the receptionist checks the customer in", "At the desk", "By link: the customer checks in on their own phone"],
+  ["The other way", "By link, picked per visit", "By link, picked per visit", "At the desk, picked per visit"],
+  ["Link sent on", "WhatsApp and email", "WhatsApp and email", "WhatsApp and email (SMS to decide)"],
+  ["Proof of mobile", "Desk: OTP. Link: the one-time link itself", "Same", "Same"],
+  ["Identity document", "Emirates ID", "To confirm", "Driver licence; no national ID"],
+  ["Credit check", "AECB", "CIBIL", "Credit bureau to confirm"],
+  ["Currency", "AED", "INR", "AUD, shown as $"],
+  ["Address on the form", "Emirate and area", "Pincode", "Suburb and postcode"],
+  ["Mobile format", "05X XXX XXXX", "+91", "04XX XXX XXX"],
+  ["Privacy wording", "Privacy notice", "To confirm", "Privacy collection notice"],
+  ["Road rules on the TD consent", "UAE traffic laws", "To confirm", "State road rules, fines and tolls"],
+  ["Hub in these screens", "Al Quoz, Dubai", "Not shown", "Melbourne, VIC"],
+];

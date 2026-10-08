@@ -11,12 +11,17 @@ const isHub = (t) => t !== "vtd";
 const first = (t) => PEOPLE[t].name.split(" ")[0];
 
 // ================================================================== mock context for the lead pane
-const VISIT = {
+const VISIT = marketTable({
   booked: { id: "BK-88213", src: "Consumer app", owner: "Reem Khalifa", aecb: "742 &middot; Good", pre: "Eligible", area: "Al Barsha, Dubai", dl: "Verified", eid: "On file" },
   walkin: { id: "VS-2041", order: "BK-89004", src: "Drive-by", owner: "Omar Hassan", aecb: "Not checked yet", pre: "Not checked yet", area: "Deira, Dubai", dl: "Verified", eid: "Scanned" },
   vtd: { id: "BK-88190", src: "Chatbot", owner: "Reem Khalifa", aecb: "768 &middot; Very good", pre: "Eligible", area: "Khalifa City, Abu Dhabi", dl: "Not needed for video", eid: "On file" },
-};
-const STAFF_AV = { receptionist: "K", da: "OH", operator: "SI", manager: "AP", cc: "RK", rm: "RH" };
+}, { au: {
+  booked: { id: "BK-88213", src: "Consumer app", owner: "Chloe Davis", aecb: "742 &middot; Very good", pre: "Eligible", area: "Richmond, VIC 3121", dl: "Verified", eid: "VIC" },
+  walkin: { id: "VS-2041", order: "BK-89004", src: "Drive-by", owner: "Josh Miller", aecb: "Not checked yet", pre: "Not checked yet", area: "Footscray, VIC 3011", dl: "Verified", eid: "VIC" },
+  vtd: { id: "BK-88190", src: "Chatbot", owner: "Chloe Davis", aecb: "768 &middot; Very good", pre: "Eligible", area: "Canberra, ACT 2600", dl: "Not needed for video", eid: "ACT" },
+} });
+const STAFF_AV = marketTable({ receptionist: "K", da: "OH", operator: "SI", manager: "AP", cc: "RK", rm: "RH" },
+  { au: { receptionist: "K", da: "JM", operator: "PS", manager: "AP", cc: "CD", rm: "GL" } });
 
 const PILL = {
   P1: ["grey", "New lead"], P2: ["grey", "New lead"], P3: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
@@ -29,7 +34,32 @@ const PILL = {
 };
 const PILL_VTD = { I1: ["violet", "In waiting room"], S1: ["red", "Not checked-in"], T2: ["violet", "On video"], T3: ["violet", "On video"], T4: ["violet", "On video"], T5: ["violet", "On video"], O2: ["red", "Video live"], O6: ["green", "Video TD done"] };
 
-const AI = {
+const AI_AU = {
+  booked: {
+    P: ["Viewed the Mazda3 3 times in the app", "Asked about finance options", "Evening calls work best"],
+    I: ["High intent: booked the Mazda3 for 2:30 PM", "Licence uploaded before the visit", "Lives nearby, in Richmond"],
+    S: ["High intent: booked the Mazda3 for 2:30 PM", "Licence uploaded before the visit", "Lives nearby, in Richmond", "Asked about finance before the visit"],
+    T: ["Family car for weekends and the city", "Likely finance: asked about repayments", "Tucson is the closest alternative"],
+    O: ["Engaged on the drive", "Price question against the Camry", "Wants CarPlay: shown at the walkaround"],
+    N: ["High urgency: would reserve today", "Wants finance options and the service history", "Main objection: price against the Camry"],
+  },
+  walkin: {
+    I: ["New customer, came in as a drive-by", "No app history yet"],
+    S: ["New customer, came in as a drive-by", "No app history yet", "Lives in Footscray"],
+    T: ["Family of four, long drives on weekends", "Budget $27k to $33k", "Paying cash"],
+    O: ["Liked the space and the rear camera", "Compares the price with the Tucson"],
+    N: ["Cash buyer, wants to reserve today", "Asked for the service history"],
+  },
+  vtd: {
+    P: ["Asked the chatbot for a video viewing", "Lives in Canberra, interstate from the hub", "Viewed the Camry 4 times"],
+    I: ["Booked a video TD of the Camry", "Lives in Canberra, interstate"],
+    S: ["Booked a video TD of the Camry", "Lives in Canberra, interstate"],
+    T: ["Commutes to the city daily", "Wants adaptive cruise"],
+    O: ["Clean interior noted", "Wants to feel it on the road"],
+    N: ["Likely to book a hub drive this week", "Finance customer"],
+  },
+};
+const AI = marketTable({
   booked: {
     P: ["Viewed the Altima 3 times in the app", "Asked about finance options", "Evening calls work best"],
     I: ["High intent: booked the Altima for 2:30 PM", "DL uploaded before the visit", "Prefers Arabic"],
@@ -53,7 +83,7 @@ const AI = {
     O: ["Clean interior noted", "Wants to feel it on the road"],
     N: ["Likely to book a hub drive this week", "Finance customer"],
   },
-};
+}, { au: AI_AU });
 
 // ================================================================== shell: icon rail + header
 function rail(active, manager, who) {
@@ -81,13 +111,13 @@ const crumbOf = (...parts) => parts.map((p, i) => i === parts.length - 1 ? `<b>$
 // ================================================================== lead pane
 function leadPane(t, stepId, opts = {}) {
   const p = PEOPLE[t], v = VISIT[t];
-  const [tone, label] = (t === "vtd" && PILL_VTD[stepId]) || PILL[stepId] || ["grey", "Open"];
+  const [tone, label, pillAttrs] = opts.pill || (t === "vtd" && PILL_VTD[stepId]) || PILL[stepId] || ["grey", "Open"];
   const ai = (AI[t] && (AI[t][stepId[0]] || AI[t].S)) || [];
   const isLead = stepId[0] === "P" && stepId !== "P8";
   const idLabel = isLead ? "Lead ID" : t === "walkin" && !opts.ordered ? "Visit ID" : "Order ID";
   const idVal = isLead ? (t === "vtd" ? "LD-55127" : "LD-55120") : t === "walkin" && opts.ordered ? v.order : v.id;
   return `<aside class="v2-lead" data-part="lead">
-    <div class="v2-lh"><span class="v2-av lg">${inits(p.name)}</span><div><b>${p.name}</b><span class="v2-pill ${tone}">${label}</span></div>
+    <div class="v2-lh"><span class="v2-av lg">${inits(p.name)}</span><div><b>${p.name}</b><span class="v2-pill ${tone}"${pillAttrs ? " " + pillAttrs : ""}>${label}</span></div>
       <div class="v2-lh-ic">${ic("square-pen")}${ic("menu")}</div></div>
     <div class="v2-ltabs"><span class="on">${ic("user")}Contact</span><span>${ic("wallet")}Finance</span><span>${ic("file-text")}Documents</span><span>${ic("history")}Activity</span></div>
     <div class="v2-lscroll">
@@ -101,9 +131,9 @@ function leadPane(t, stepId, opts = {}) {
         <div class="v2-f"><div><small>${isLead ? "Lead owner" : "DA"}</small><b>${isLead ? v.owner : t === "vtd" ? "Sara Ibrahim" : ["S1", "S2", "I1", "I2"].includes(stepId) ? "Not assigned yet" : "Omar Hassan"}</b></div></div>
       </div>
       <div class="v2-sec">Finance</div>
-      <div class="v2-group"><div class="v2-f"><div><small>AECB score</small><b>${v.aecb}</b></div></div><div class="v2-f"><div><small>Pre-approval</small><b>${v.pre}</b></div></div></div>
+      <div class="v2-group"><div class="v2-f"><div><small>${MK.credit}</small><b>${v.aecb}</b></div></div><div class="v2-f"><div><small>Pre-approval</small><b>${v.pre}</b></div></div></div>
       <div class="v2-sec">Documents</div>
-      <div class="v2-group"><div class="v2-f"><div><small>Driving licence</small><b>${["S1", "S2", "I1", "I2"].includes(stepId) && t !== "vtd" ? "To verify" : v.dl}</b></div></div><div class="v2-f"><div><small>Emirates ID</small><b>${v.eid}</b></div></div></div>
+      <div class="v2-group"><div class="v2-f"><div><small>Driving licence</small><b${opts.dlAttrs ? " " + opts.dlAttrs : ""}>${opts.dl || (["S1", "S2", "I1", "I2"].includes(stepId) && t !== "vtd" ? "To verify" : v.dl)}</b></div></div><div class="v2-f"><div><small>${MK.idDoc}</small><b>${v.eid}</b></div></div></div>
     </div>
   </aside>`;
 }
@@ -118,8 +148,9 @@ function stageSub(t, name, state, stepId) {
   if (state === "todo") return "Pending";
   const done = state === "done";
   const walk = t === "walkin";
+  const self = isHub(t) && CTX.mode === "link";
   switch (name) {
-    case "Check-in": return done ? (t === "vtd" ? "3:01 PM" : walk ? "2:44 PM" : "2:27 PM") : "In progress";
+    case "Check-in": return done ? (t === "vtd" ? "3:01 PM" : `${self ? "Self &middot; " : ""}${walk ? "2:44 PM" : "2:27 PM"}`) : self ? "Link sent" : "In progress";
     case "DL verify": return done ? "Verified" : "Scan or upload";
     case "Car finding": return done ? (walk ? "1 car" : t === "vtd" ? "Camry" : "2 cars") : stepId === "S3" ? "Assigning DA" : t === "vtd" ? "On screen share" : "With Omar";
     case "TD live": return done ? (walk ? "1/1 done" : "2/2 done") : stepId === "O6" ? (walk ? "1/1 done" : "1/2 done") : (walk ? "0/1 done" : "0/2 done");
@@ -128,12 +159,18 @@ function stageSub(t, name, state, stepId) {
   }
   return "";
 }
-function stageBar(t, stepId) {
+// opts.sync: the self check-in panel, where Check-in turns done and DL verify current when the customer submits
+function stageBar(t, stepId, opts = {}) {
   const names = VISIT_STAGES[isHub(t) ? "hub" : "vtd"];
   const cur = STAGE_AT[isHub(t) ? "hub" : "vtd"][stepId] ?? 0;
+  const hooks = opts.sync ? [
+    [`data-cls-submitted="cur>done"`, `data-on-opened="Filling" data-on-submitted="Self &middot; ${opts.sync}"`],
+    [`data-cls-submitted="todo>cur"`, `data-on-submitted="Up next"`],
+  ] : [];
   return `<div class="v2-stages" data-part="stages">${names.map((n, i) => {
     const state = i < cur ? "done" : i === cur ? "cur" : "todo";
-    return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${stageSub(t, n, state, stepId)}</span></div>`;
+    const [a, b] = hooks[i] || [];
+    return `<div class="v2-stg ${state}"${a ? " " + a : ""}><span class="c">${ic("square-check")}</span><b>${n}</b><span${b ? " " + b : ""}>${stageSub(t, n, state, stepId)}</span></div>`;
   }).join("")}</div>`;
 }
 
@@ -165,7 +202,7 @@ function foot(t, id, hint, buttons) {
   return `<div class="v2-foot" data-part="foot">
     <button class="v2-btn" ${prev ? `data-go="${prev}"` : "disabled"}>${ic("arrow-left")}Previous</button>
     <span class="v2-hint">${hint}</span>
-    <div class="v2-foot-r">${buttons.map(([label, go, kind, icon, after]) => `<button class="v2-btn ${kind || ""}" ${go ? `data-go="${go}"` : ""}>${icon && !after ? ic(icon) : ""}${label}${icon && after ? ic(icon) : ""}</button>`).join("")}</div>
+    <div class="v2-foot-r">${buttons.map(([label, go, kind, icon, after, attrs]) => `<button class="v2-btn ${kind || ""}" ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon && !after ? ic(icon) : ""}${label}${icon && after ? ic(icon) : ""}</button>`).join("")}</div>
   </div>`;
 }
 function head2(title, desc, right) {
@@ -175,11 +212,11 @@ function subSteps(list, idx) {
   return `<div class="v2-substeps">${list.map((x, i) => `<span class="${i < idx ? "done" : i === idx ? "on" : ""}">${i < idx ? ic("check") : ""}${x}</span>`).join("")}</div>`;
 }
 // the visit page: lead pane | stage bar + content + footer | CarGPT
-function visit({ t, id, ordered, title, desc, right, body, footer, gptOpts, overlay, who = "da", crumb }) {
+function visit({ t, id, ordered, title, desc, right, body, footer, gptOpts, overlay, who = "da", crumb, leadOpts, stageOpts }) {
   const p = PEOPLE[t];
   const content = `<div class="v2-body">
-    ${leadPane(t, id, { ordered })}
-    <section class="v2-center">${stageBar(t, id)}<div class="v2-content">${head2(title, desc, right)}${body}</div>${footer}</section>
+    ${leadPane(t, id, { ordered, ...(leadOpts || {}) })}
+    <section class="v2-center">${stageBar(t, id, stageOpts)}<div class="v2-content">${head2(title, desc, right)}${body}</div>${footer}</section>
     ${gptOpts === false ? "" : gpt(who, gptOpts || {})}
     ${overlay || ""}
   </div>`;
@@ -195,12 +232,12 @@ function videoPanel({ main, pip, share }) {
     <div class="ctrls"><span>${ic("mic")}</span><span>${ic("video")}</span><span>${ic("screen-share")}</span><span class="end">${ic("phone-off")}</span></div>
   </div>`;
 }
-const khalidTile = `<div class="who"><span class="big">KA</span>Khalid &middot; camera on</div>`;
+const vtdTile = () => `<div class="who"><span class="big">${inits(PEOPLE.vtd.name)}</span>${first("vtd")} &middot; camera on</div>`;
 const carTile = (cid) => `<div class="who">${ic("car")}Yard camera &middot; ${PCARS[cid].title}</div>`;
 function vtdVisit({ id, title, desc, right, body, footer, video, overlay }) {
   const t = "vtd";
   const content = `<div class="v2-body">
-    <div class="v2-vcol">${video || videoPanel({ main: khalidTile, pip: "You &middot; Sara" })}</div>
+    <div class="v2-vcol">${video || videoPanel({ main: vtdTile(), pip: "You &middot; Sara" })}</div>
     <section class="v2-center">${stageBar(t, id)}<div class="v2-content">${head2(title, desc, right)}${body}</div>${footer}</section>
     ${overlay || ""}
   </div>`;
@@ -230,7 +267,7 @@ function carRow(cid, { check, selected, oid, badge, sub, right, part, likes } = 
   return `<div class="v2-car ${selected ? "sel" : ""}" ${part ? `data-part="${part}"` : ""} ${check ? "data-toggle-sel" : ""}>
     ${check ? `<span class="ck">${ic("check")}</span>` : ""}
     <span class="ph" style="background:${c.color}">${ic("car")}</span>
-    <div class="mid">${oid ? `<span class="oid">Order ID: ${oid} ${ic("copy")}</span>` : ""}<div class="tt">${c.title}${ic("chevron-right")}</div><div class="sub">${sub || `${aed(c.price)} &middot; ${c.km} &middot; ${c.body}`}</div></div>
+    <div class="mid">${oid ? `<span class="oid">Order ID: ${oid} ${ic("copy")}</span>` : ""}<div class="tt">${c.title}${ic("chevron-right")}</div><div class="sub">${sub || `${money(c.price)} &middot; ${c.km} &middot; ${c.body}`}</div></div>
     <div class="rt">${badge || ""}${likes ? `<span class="v2-likes"><button class="v2-chip ${likes === "like" ? "on" : ""}" data-pick="lk-${cid}">${ic("thumbs-up")}Like</button><button class="v2-chip ${likes === "pass" ? "on" : ""}" data-pick="lk-${cid}">${ic("thumbs-down")}Dislike</button></span>` : ""}${right || `<span class="v2-ib">${ic("more-vertical")}</span>`}</div>
   </div>`;
 }
@@ -318,7 +355,7 @@ const SCREENS = {
       body: `<div class="v2-script" data-part="script">${ic("quote")}<p>&ldquo;Hi, this is Reem from CARS24. Am I speaking with ${first(t)}? ${t === "vtd" ? `You asked our chatbot about a video viewing of the ${car}.` : `You were looking at the ${car} in our app.`} Is now a good time for a few minutes?&rdquo;</p></div>
         <div class="v2-card" style="margin-top:10px;">
           ${row("Name", `<div class="v2-inline"><input class="v2-input" id="c-name" value="${p.name}"><span class="v2-tag ai">${ic("sparkles")}From the ${t === "vtd" ? "chatbot" : "app profile"}</span></div>`, "name")}
-          ${row("Language", chips("lang", ["Arabic", "English", "Hindi", "Urdu", "Other"], [t === "vtd" ? "English" : "Arabic"]), "lang")}
+          ${row("Language", chips("lang", MK.langs, [p.language.split(",")[0].trim()]), "lang")}
         </div>`,
       hint: "Exit: name confirmed", buttons: [["Call back later", "P9", "", "phone-forwarded"], ["Wrong number", "N7", "", "circle-x"], ["Name confirmed", "P3", "primary", "arrow-right", true]],
       cards: [["Say next", "message-square", `<p>Confirm the name, then ask for the email.</p>`], ["Lead signals", "sparkles", `<p>${t === "vtd" ? "Chatbot lead, asked for a video viewing." : "Viewed the Altima 3 times. Asked about finance."}</p>`]] });
@@ -372,7 +409,7 @@ const SCREENS = {
     const p = PEOPLE[t], vtd = t === "vtd";
     const liked = vtd ? ["c2", "c1"] : ["c1", "c3"];
     return callTask(t, 4, "P6", { secs: "08:31", title: "Finalize the car and the test drive", desc: `Pick from the cars ${first(t)} liked.`,
-      body: `<div class="v2-card" data-part="final-car"><div class="v2-sec" style="margin-top:0;">Final car</div>${liked.map((cid, i) => `<button class="v2-radio ${i === 0 ? "on" : ""}" data-pick="fc"><i class="dot"></i>${PCARS[cid].title} &middot; ${aed(PCARS[cid].price)}<span class="v2-r-note">${i === 0 ? "Car of interest" : "Liked on this call"}</span></button>`).join("")}</div>
+      body: `<div class="v2-card" data-part="final-car"><div class="v2-sec" style="margin-top:0;">Final car</div>${liked.map((cid, i) => `<button class="v2-radio ${i === 0 ? "on" : ""}" data-pick="fc"><i class="dot"></i>${PCARS[cid].title} &middot; ${money(PCARS[cid].price)}<span class="v2-r-note">${i === 0 ? "Car of interest" : "Liked on this call"}</span></button>`).join("")}</div>
         <div class="v2-card" data-part="td-type"><div class="v2-sec" style="margin-top:0;">Test drive</div>
           <div class="v2-seg2" data-tabs><button class="${vtd ? "" : "on"}" data-tab="hub">${ic("store")}Hub test drive</button><button class="${vtd ? "on" : ""}" data-tab="vtd">${ic("video")}Video test drive</button></div>
           <p class="v2-small">${vtd ? "This car can be shown on video from Studio 1." : "This car is at Al Quoz hub."}</p></div>
@@ -426,22 +463,34 @@ const SCREENS = {
         body: `<div class="v2-card" data-part="waiting"><div class="v2-kvs">${kv("Car", "2022 Toyota Camry GLE")}${kv("Booked via", "Chatbot")}${kv("Language", "English")}${kv("Car on camera", "Studio 1, helper ready")}</div></div>`,
         footer: foot(t, "I1", "Exit: customer in the call", [["Admit and start the call", "I2", "primary", "video"]]) });
     }
-    const walk = t === "walkin";
+    const walk = t === "walkin", p = PEOPLE[t];
+    const viaLink = CTX.mode === "link";
     const rows = [
-      ["booked", "Fatima Al Suwaidi", "050 123 4567", "2:30 PM", "Nissan Altima SV", "Omar Hassan", pill("amber", "Expected"), `<button class="v2-btn ${walk ? "" : "primary"} sm" ${walk ? "" : `data-go="I2" data-part="mark-arrived"`}>${ic("door-open")}Mark arrived</button>`],
+      ["booked", "Fatima Al Suwaidi", "050 123 4567", "2:30 PM", "Nissan Altima SV", "Omar Hassan", pill("amber", "Expected"), `<button class="v2-btn ${walk ? "" : "primary"} sm" ${walk ? "" : `data-part="mark-arrived"`}>${ic("door-open")}Mark arrived</button>`],
       ["", "Khalid Al Jaberi", "055 987 1230", "3:00 PM", "Toyota Camry GLE", "Sara Ibrahim", pill("violet", "Video"), `<button class="v2-btn sm">${ic("video")}Open video room</button>`],
       ["", "Maryam Rashidi", "052 445 9981", "4:15 PM", "Hyundai Tucson", "Layla Ahmed", pill("amber", "Expected"), `<button class="v2-btn sm">${ic("door-open")}Mark arrived</button>`],
       ["", "Hamdan Saeed", "Walk-in", "1:10 PM", "Kia Sportage", "Faisal Noor", pill("green", "TD conducted"), ""],
       ["", "Aisha Al Mazrouei", "050 774 2210", "11:00 AM", "Nissan Altima SV", "Layla Ahmed", pill("green", "Token paid"), ""],
     ];
+    // by link, the list shows each customer's check-in as it happens on their phone
+    if (viaLink) rows.splice(1, 0, ["", "Noora Al Shamsi", "Walk-in", "2:20 PM", "Kia Sportage", "Not assigned", pill("violet", `${ic("smartphone")}Checking in &middot; 2 of 3`), ""]);
+    // the check-in choice: the market sets the default, the receptionist can pick the other way for this visit
+    const way = (mode, icon, title, text, tag) => `<button class="v2-way ${CTX.mode === mode ? "on" : ""}" data-pick="ci-way" data-mode-val="${mode}"><span class="ic">${ic(icon)}</span><span class="tx"><b>${title}</b><small>${text}</small></span><span class="v2-tag">${tag}</span></button>`;
+    const ways = (to) => way("link", "send", "Send check-in link", `WhatsApp and email to ${to}. They fill it on their phone while seated.`, "Default in Australia")
+      + way("desk", "monitor", "Check in at the desk", "You fill it in with them on the desk tablet.", "Default in the UAE");
     const drawer = walk ? `<div class="v2-dim"></div><div class="v2-drawer" data-part="add-lead">
         <div class="v2-dh"><h4>Add lead information</h4><p>Starts a walk-in visit. The order comes later, with the DA.</p></div>
         <div class="v2-db">${inp("First name", "Ahmed", "w-fn")}${inp("Last name", "Saleh", "w-ln")}${inp("Email ID", PEOPLE.walkin.email, "w-em")}${inp("Mobile number", PEOPLE.walkin.phone, "w-mb")}
-          <p class="v2-small">Mobile is checked for an existing lead first, so the same customer is not added twice.</p></div>
-        <div class="v2-df"><button class="v2-btn">Cancel</button><button class="v2-btn primary" data-go="I2">Add lead</button></div></div>` : "";
+          <p class="v2-small">Mobile is checked for an existing lead first, so the same customer is not added twice.</p>
+          <div class="v2-ways sm" data-part="checkin-way"><b class="v2-q">How will ${first(t)} check in?</b>${ways("this mobile and email")}</div></div>
+        <div class="v2-df"><button class="v2-btn">Cancel</button><button class="v2-btn primary" data-go="I2" data-mode-from="ci-way">Add lead</button></div></div>`
+      : `<div class="v2-pop" data-part="checkin-way">
+        <div class="v2-pop-h"><span class="v2-av">${inits(p.name)}</span><div><b>${p.name} has arrived</b><small>Booked for 2:30 PM &middot; How will ${first(t)} check in?</small></div></div>
+        <div class="v2-ways">${ways(p.phone)}</div>
+        <div class="v2-pop-f"><button class="v2-btn">Cancel</button><button class="v2-btn primary" data-go="I2" data-mode-from="ci-way">${ic("door-open")}Mark arrived</button></div></div>`;
     return page({ who: "receptionist", active: "testdrives", crumb: crumbOf("Test Drives", "Today"), title: "Test Drives", sub: "Today's bookings and walk-ins at Al Quoz",
       actions: `<button class="v2-btn primary" ${walk ? `data-part="add-lead-btn"` : ""}>${ic("user-plus")}New walk-in</button>`,
-      extra: { top: `<div class="v2-note">${ic("sparkles")}<span><b>Arrival is its own event.</b> Mark arrived starts the arrival-to-handshake clock and gives the pre-assigned DA a heads-up. A walk-in starts with Add lead, before any order exists.</span></div>` },
+      extra: { top: `<div class="v2-note">${ic("sparkles")}<span><b>Arrival is its own event.</b> Mark arrived starts the arrival-to-handshake clock, gives the pre-assigned DA a heads-up and asks one thing: does the customer check in on their own phone, by link, or at the desk? A walk-in starts with Add lead, before any order exists.</span></div>` },
       tools: toolsRow("Search by name, order ID or mobile", [["Filters", "list-filter"], ["Today", "chevron-down"]]),
       tabs: [["Today &middot; 6", true], ["Hub &middot; 5"], ["Virtual &middot; 1"], ["Upcoming &middot; 14"]],
       table: table(["Customer", "Slot", "Car", "DA", "Status", ""], rows.map(([trk, nm, ph, slot, car, da, st, act]) => ({ hl: trk === t, cells: [cust(nm, ph), slot, car, da, st, act] })), "table"),
@@ -460,6 +509,7 @@ const SCREENS = {
           <div style="margin-top:10px;">${toggle(true, "Recording consent", "Khalid agrees to record this call for AI notes and service quality. Saying no doesn't stop the call.", "consent")}</div>`,
         footer: foot(t, "S1", "Exit: OTP verified, recording answered", [["Check in and start car finding", "T2", "primary", "arrow-right", true]]) });
     }
+    if (CTX.mode === "link") return selfCheckin(t);
     const walk = t === "walkin";
     const hub = "Al Quoz hub, Dubai";
     const purposes = [["car-front", "Buy / Test drive a car", "#FEF3F2", "#D92D20"], ["package", "Drop off your car", "#F2F4F7", "#475467"], ["key-round", "Car pickup", "#EFF8FF", "#1570EF"], ["wrench", "Pre-booked service", "#ECFDF3", "#079455"], ["banknote", "Sell to CARS24", "#FFFAEB", "#DC6803"], ["message-circle", "Others", "#F4F3FF", "#6938EF"]];
@@ -470,7 +520,7 @@ const SCREENS = {
           ${walk ? "" : sel("Visit purpose", "Buy / Test drive a car (from the booking)")}
           ${sel("Hub", hub)}
           <div class="v2-grid2">${sel("Accompanied by", walk ? "Alone" : "Spouse")}${sel("Financial interest", walk ? "Cash" : "Loan EMI")}</div>
-          ${sel("Area", VISIT[t].area)}
+          ${sel(MK.area, VISIT[t].area)}
           ${toggle(true, "Recording consent", `${first(t)} agrees to record today's conversation for AI notes and service quality. Saying no doesn't change the visit.`, "consent")}
         </div>
         <div class="v2-mf"><span class="v2-small" style="margin:0; align-self:center;">OTP goes to ${p.phone}</span><button class="v2-btn primary wide" data-step-to="ci:otp">Send OTP</button></div>
@@ -493,26 +543,27 @@ const SCREENS = {
         <div class="v2-mf"><button class="v2-btn" data-step-to="ci:checked">${ic("arrow-left")}Previous</button><button class="v2-btn primary" data-go="S2">Continue to DL verify${ic("arrow-right")}</button></div>
       </div>` : ""}`;
     return visit({ t, id: "S1", who: "receptionist", title: `${first(t)} has not checked in yet`, desc: "Check-in isn't complete yet. Start it below; the customer can fill it on the desk tablet.",
-      body: `<div class="v2-empty" data-part="empty"><span class="v2-empty-ic">${ic("log-in")}</span><b>Check-in isn't complete yet</b><p>Click the button below to begin the check-in.</p><button class="v2-btn primary" data-open-flow="ci">Start check-in${ic("arrow-right")}</button></div>`,
+      body: `<div class="v2-empty" data-part="empty"><span class="v2-empty-ic">${ic("log-in")}</span><b>Check-in isn't complete yet</b><p>Click the button below to begin the check-in.</p><button class="v2-btn primary" data-open-flow="ci">Start check-in${ic("arrow-right")}</button><button class="v2-linkbtn" data-mode-set="link" data-part="send-link">${ic("send")}Or send ${first(t)} a check-in link instead</button></div>`,
       footer: foot(t, "S1", "Exit: OTP verified, recording answered", [["Proceed to DL verify", "S2", "primary", "arrow-right", true]]),
       gptOpts: { cards: [["Before you start", "sparkles", `<p>${walk ? "New walk-in. Ask the purpose of the visit first." : "Booked for 2:30 PM. DL uploaded 2 days ago, so DL verify should take a minute."}</p>`]] },
       overlay: modal });
   },
 
   S2: (t) => {
-    const p = PEOPLE[t], walk = t === "walkin";
-    return visit({ t, id: "S2", who: "receptionist", title: "Upload driving licence and verify identification", desc: "Upload or scan both sides. The licence is linked to the contact once verified.",
+    const p = PEOPLE[t], walk = t === "walkin", viaLink = CTX.mode === "link";
+    const got = walk ? (viaLink ? "from the check-in form" : "scanned now") : "uploaded 2 days ago";
+    return visit({ t, id: "S2", who: "receptionist", title: "Upload driving licence and verify identification", desc: viaLink && walk ? "Both sides came in with the check-in form. Check the photo against the customer." : "Upload or scan both sides. The licence is linked to the contact once verified.",
       body: `<div class="v2-uploads" data-part="upload">
-          ${["Front", "Back"].map(side => `<div class="v2-drop done"><span class="v2-dl">${ic("id-card")}<i>${side}</i></span><div><b>DL ${side.toLowerCase()} &middot; ${walk ? "scanned now" : "uploaded 2 days ago"}</b><small>dl-${side.toLowerCase()}.jpg &middot; 1.2 MB</small></div><span class="v2-ib">${ic("refresh-cw")}</span></div>`).join("")}
+          ${["Front", "Back"].map(side => `<div class="v2-drop done"><span class="v2-dl">${ic("id-card")}<i>${side}</i></span><div><b>DL ${side.toLowerCase()} &middot; ${got}</b><small>dl-${side.toLowerCase()}.jpg &middot; 1.2 MB</small></div><span class="v2-ib">${ic("refresh-cw")}</span></div>`).join("")}
         </div>
         <div class="v2-card" data-part="ocr"><div class="v2-sec" style="margin-top:0;">Read from the licence</div>
           <div class="v2-kvs">${kv("Name", p.name)}${kv("Licence no.", p.dl)}${kv("Expiry", walk ? "14 Mar 2027" : "02 Jun 2028")}${kv("Issued by", "Dubai RTA (example)")}</div>
-          ${walk ? `<div class="v2-row" style="margin-top:6px;"><label>Home-country DL</label><div><b class="v2-b">${p.homeDl}</b></div></div>` : ""}
+          ${walk && p.homeDl ? `<div class="v2-row" style="margin-top:6px;"><label>Home-country DL</label><div><b class="v2-b">${p.homeDl}</b></div></div>` : ""}
         </div>
         <div class="v2-card" data-part="checks"><div class="v2-sec" style="margin-top:0;">Checks</div>
           <div class="v2-checks"><span class="ok">${ic("circle-check")}Name matches the Emirates ID</span><span class="ok">${ic("circle-check")}Not expired</span><button class="v2-check2" data-zone>${ic("square")}Photo matches the customer (receptionist)</button></div></div>`,
       footer: foot(t, "S2", "Exit: DL verified, or flagged browse only", [["No valid DL: browse only", "S3", "", "eye"], ["Verify and continue", "S3", "primary", "arrow-right", true]]),
-      gptOpts: { cards: [["OCR", "scan-line", `<p>All fields read with high confidence. ${walk ? "Home-country DL noted for the record." : "Matches the copy uploaded before the visit."}</p>`]], transcribing: TRANSCRIBING[t] } });
+      gptOpts: { cards: [["OCR", "scan-line", `<p>All fields read with high confidence. ${walk ? (p.homeDl ? "Home-country DL noted for the record." : "Read from the photos on the check-in form.") : "Matches the copy uploaded before the visit."}</p>`]], transcribing: TRANSCRIBING[t] } });
   },
 
   S3: (t) => {
@@ -539,6 +590,7 @@ const SCREENS = {
   T1: (t) => {
     const p = PEOPLE[t], walk = t === "walkin";
     const ctx = walk ? [pill("amber", "Walk-in"), pill("green", "DL verified"), pill("grey", p.language), pill("grey", "Drive-by")] : [pill("violet", "Booked"), pill("grey", PCARS[p.car].title), pill("green", "DL verified"), pill("grey", p.language)];
+    if (CTX.mode === "link") ctx.push(pill("violet", `${ic("smartphone")}Checked in by link`));
     return page({ who: "da", active: "testdrives", crumb: crumbOf("Test Drives", "My queue"), title: "My queue", sub: "Omar Hassan &middot; 6 of 10 test drives today",
       actions: pill("green", `${ic("circle-dot")}Available`),
       extra: { top: `<div class="v2-wait" data-part="wait-card"><span class="v2-av lg">${inits(p.name)}</span>
@@ -554,11 +606,11 @@ const SCREENS = {
   T2: (t) => {
     const p = PEOPLE[t], n = p.needs, pre = t !== "walkin";
     const body = `<div class="v2-card" data-part="needs">
-        ${row("Budget", chips("budget", ["Under AED 55k", "AED 55k&ndash;65k", "AED 55k&ndash;70k", "AED 65k&ndash;75k", "AED 75k+"], [n.budget]))}
+        ${row("Budget", chips("budget", MK.budgets, [n.budget]))}
         ${row("Body type", chips("multi", ["Sedan", "SUV", "Hatchback", "Pickup"], n.body))}
         ${row("Transmission", chips("trans", ["Automatic", "Manual"], [n.trans]))}
         ${row("Drive", chips("drive", ["2WD", "4WD"], [n.drive]))}
-        ${row("Mostly for", chips("multi", ["City", "Family", "Family weekends", "Long drives", "Commute to Dubai", "Off-road"], n.usage))}
+        ${row("Mostly for", chips("multi", MK.usage, n.usage))}
         ${row("Must-haves", chips("multi", ["Apple CarPlay", "Rear camera", "7 airbags", "Adaptive cruise", "Sunroof", "7 seats"], n.must))}
         ${row("Paying by", chips("pay", ["Cash", "Finance", "Not sure yet"], [t === "walkin" ? "Cash" : "Finance"]))}
       </div>`;
@@ -567,7 +619,7 @@ const SCREENS = {
       right: `<div data-part="prefill">${pre ? `<span class="v2-tag ai">${ic("sparkles")}Prefilled</span>` : `<span class="v2-tag">Captured in conversation</span>`}</div>`,
       body, footer: foot(t, "T2", "Exit: budget and body type captured", buttons),
       cards: [["Ask next", "message-square", `<p>${t === "walkin" ? "&ldquo;How many people usually ride with you?&rdquo;" : "&ldquo;Is the Altima still the one, or should we look at an SUV too?&rdquo;"}</p>`], ["From before the visit", "history", `<p>${t === "walkin" ? "First visit, no app account. Came in as a drive-by." : t === "vtd" ? "Viewed the Camry 4 times." : "Viewed the Altima 3 times. Asked about finance on the call."}</p>`]],
-      video: isHub(t) ? null : videoPanel({ main: khalidTile, pip: "You &middot; Sara", share: "Sharing your screen" }) });
+      video: isHub(t) ? null : videoPanel({ main: vtdTile(), pip: "You &middot; Sara", share: "Sharing your screen" }) });
   },
 
   T3: (t) => {
@@ -577,22 +629,22 @@ const SCREENS = {
       const booked = t !== "walkin" && cid === p.car;
       return carRow(cid, { check: true, selected: sel3.includes(cid), oid: booked ? p.id : null, part: i === 0 ? "car-rows" : null,
         badge: `${booked ? `<span class="v2-badge booked">Booked</span>` : ""}${!booked && i === 1 && t === "booked" ? `<span class="v2-badge booked">Liked while waiting</span>` : ""}<span class="v2-badge match">${match}% match</span>`,
-        sub: `${aed(PCARS[cid].price)} &middot; ${PCARS[cid].km} &middot; ${why}` });
+        sub: `${money(PCARS[cid].price)} &middot; ${PCARS[cid].km} &middot; ${why}` });
     }).join("");
     const drawer = `<div class="v2-dim" data-drawer-dim hidden></div><div class="v2-drawer" id="addcars" hidden>
       <div class="v2-dh"><h4>Add cars for booking</h4><p>Live stock at Al Quoz. Pick cars to add to today's drives.</p><div class="v2-search inline" style="margin-top:10px;">${ic("search")}<span>Search order ID, car name&hellip;</span></div>
         <div class="v2-chips" style="margin-top:8px;"><span class="v2-chip">${ic("save")}Saved filters</span><span class="v2-chip">${ic("list-filter")}Filters</span><span class="v2-chip">Sort by${ic("chevron-down")}</span></div></div>
-      <div class="v2-db">${["c4", "c2", "c3"].map((cid, i) => carRow(cid, { check: true, selected: i === 0, sub: `${aed(PCARS[cid].price)} &middot; ${PCARS[cid].bay}`, right: " " })).join("")}</div>
+      <div class="v2-db">${["c4", "c2", "c3"].map((cid, i) => carRow(cid, { check: true, selected: i === 0, sub: `${money(PCARS[cid].price)} &middot; ${PCARS[cid].bay}`, right: " " })).join("")}</div>
       <div class="v2-df"><button class="v2-btn" data-close="addcars">Cancel</button><button class="v2-btn primary" data-close="addcars">Add cars</button></div></div>`;
     const cmp = (t === "booked" ? ["c1", "c3"] : t === "walkin" ? ["c4", "c3"] : ["c2", "c1"]);
     const compare = `<div class="v2-modal" id="cmpx" hidden style="z-index:7;"><div class="v2-mh"><div><h4>Compare cars</h4><p>Side by side, from live stock.</p></div><span class="v2-ib box x" data-close="cmpx">${ic("x")}</span></div>
-      <div class="v2-mb"><table class="v2-cmp"><thead><tr><th></th>${cmp.map(id => `<th>${PCARS[id].title}</th>`).join("")}</tr></thead><tbody>${[["Price", c => aed(c.price)], ["Odometer", c => c.km], ["Body", c => c.body], ["Drive", c => c.drive], ["Seats", c => c.seats], ["Bay", c => c.bay]].map(([k, fn]) => `<tr><td>${k}</td>${cmp.map(id => `<td>${fn(PCARS[id])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+      <div class="v2-mb"><table class="v2-cmp"><thead><tr><th></th>${cmp.map(id => `<th>${PCARS[id].title}</th>`).join("")}</tr></thead><tbody>${[["Price", c => money(c.price)], ["Odometer", c => c.km], ["Body", c => c.body], ["Drive", c => c.drive], ["Seats", c => c.seats], ["Bay", c => c.bay]].map(([k, fn]) => `<tr><td>${k}</td>${cmp.map(id => `<td>${fn(PCARS[id])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
       <div class="v2-mf"><span></span><button class="v2-btn" data-close="cmpx">Close</button></div></div>`;
     return daStep(t, { id: "T3", title: "Cars for today", desc: t === "booked" ? "The booked car is pinned. Alternatives sit next to it, so a change of mind is a tap, not a lost customer." : t === "walkin" ? "Matched to what Ahmed just told you. Live stock at Al Quoz, not reserved." : "Shown to Khalid over screen share.",
       right: `<div class="v2-btnrow" style="margin:0;"><button class="v2-btn" data-open="cmpx" data-part="compare">${ic("git-compare")}Compare</button>${isHub(t) ? `<button class="v2-btn" data-open="addcars" data-part="add-cars">${ic("plus")}Add cars</button>` : ""}</div>`,
       body: rows, footer: foot(t, "T3", "Exit: one or more cars chosen", [["Nothing fits: share shortlist", "N4", "", "share-2"], ["Next: why this car", "T4", "primary", "arrow-right", true]]),
       cards: [["Why these", "list-checks", `<p>${t === "walkin" ? "Sportage: in budget, rear camera. Tucson: 4WD for long drives." : "Tucson: more boot space for family weekends. Camry: AED 1,500 over budget."}</p>`], ["Stock check", "warehouse", `<p>${t === "walkin" ? "Sportage at Bay 1, free now." : "Altima at Bay 2, Tucson at Bay 4. Both free for the next hour."}</p>`]],
-      video: isHub(t) ? null : videoPanel({ main: khalidTile, pip: "You &middot; Sara", share: "Sharing your screen" }),
+      video: isHub(t) ? null : videoPanel({ main: vtdTile(), pip: "You &middot; Sara", share: "Sharing your screen" }),
       overlay: (isHub(t) ? drawer : "") + compare });
   },
 
@@ -600,13 +652,13 @@ const SCREENS = {
     const p = PEOPLE[t];
     const c = PCARS[t === "walkin" ? "c4" : p.car];
     const insp = `<div class="v2-insp" data-part="inspection">${[["Engine and gearbox", "Passed"], ["Brakes and suspension", "Passed"], ["Body and paint", "2 small marks noted"], ["Electrics and AC", "Passed"], ["Accident history", "None reported"]].map(([k, v]) => `<div><span>${k}</span><b>${ic("circle-check")}${v}</b></div>`).join("")}</div><p class="v2-small">Example inspection values for the prototype.</p>`;
-    const promise = `<div class="v2-promise" data-part="promise">${[["clipboard-check", "Inspected", "Full inspection report for this car, shared with you."], ["shield-check", "Warranty", "Included with the car. Terms apply."], ["rotate-ccw", "Return window", "Change your mind within the return window."], ["landmark", "Finance", `From about ${aed(Math.round(c.price / 52))} a month. Example only.`]].map(([icon, k, s]) => `<div>${ic(icon)}<b>${k}</b><span>${s}</span></div>`).join("")}</div>`;
+    const promise = `<div class="v2-promise" data-part="promise">${[["clipboard-check", "Inspected", "Full inspection report for this car, shared with you."], ["shield-check", "Warranty", "Included with the car. Terms apply."], ["rotate-ccw", "Return window", "Change your mind within the return window."], ["landmark", "Finance", `From about ${money(Math.round(c.price / 52))} a month. Example only.`]].map(([icon, k, s]) => `<div>${ic(icon)}<b>${k}</b><span>${s}</span></div>`).join("")}</div>`;
     if (!isHub(t)) {
       return vtdVisit({ id: "T4", title: `${c.title}: why you can trust it`, desc: "Shared on screen with Khalid. Inspection: passed, 2 small marks noted (example).",
         body: promise, footer: foot(t, "T4", "Exit: customer wants to see the car", [["Wants to think", "N4", "", "clock"], ["Show the car on camera", "T5", "primary", "video"]]),
-        video: videoPanel({ main: khalidTile, pip: "You &middot; Sara", share: "Sharing your screen" }) });
+        video: videoPanel({ main: vtdTile(), pip: "You &middot; Sara", share: "Sharing your screen" }) });
     }
-    return customerView({ title: `Why this ${c.title.replace(/^\d{4} /, "")}`, lead: `${c.title} &middot; ${aed(c.price)} &middot; ${c.km}`, left: insp, right: promise,
+    return customerView({ title: `Why this ${c.title.replace(/^\d{4} /, "")}`, lead: `${c.title} &middot; ${money(c.price)} &middot; ${c.km}`, left: insp, right: promise,
       foot: `<button class="v2-btn" data-go="N4">${ic("clock")}I need to think</button><button class="v2-btn primary lg" data-go="T5">${ic("car-front")}Let's drive it</button>` });
   },
 
@@ -732,7 +784,7 @@ const SCREENS = {
     const tabs = [["qr", "QR code", "qr-code"], ["bank", "Bank transfer", "landmark"], ["link", "Payment link", "link"]];
     const on = link ? "link" : "qr";
     const ref = t === "walkin" ? "BK-89004" : p.id;
-    return daStep(t, { id: "N2", ordered: true, title: "Collect the token", desc: `${aed(5000)} to reserve ${t === "walkin" ? "the Kia Sportage" : link ? "the Camry" : "the Altima"}. Example amount.`,
+    return daStep(t, { id: "N2", ordered: true, title: "Collect the token", desc: `${money(MK.token)} to reserve ${t === "walkin" ? "the Kia Sportage" : link ? "the Camry" : "the Altima"}. Example amount.`,
       body: `<div class="v2-card"><div class="v2-seg2" data-tabs data-part="pay-tabs">${tabs.map(([k, l, icon]) => `<button class="${k === on ? "on" : ""}" data-tab="${k}">${ic(icon)}${l}</button>`).join("")}</div>
         <div class="v2-pay">
           <div data-panel="qr" ${on === "qr" ? "" : "hidden"} data-part="pay-method">${qrSvg(21, 6)}</div>
@@ -812,7 +864,7 @@ const SCREENS = {
     return page({ who: "manager", active: "oversight", manager: true, crumb: crumbOf("Manager Oversight", "TD funnel"), title: "Test drive funnel", sub: "Al Quoz &middot; today &middot; every hexagon on the PISTON board is a row here",
       actions: pill("green", `${ic("circle-dot")}Live`),
       extra: { top: `<div class="v2-alert" data-part="alert">${ic("triangle-alert")}<span>Fatima Al Suwaidi has waited 7 min since check-in for a handshake (target 5 min)</span><button class="v2-btn sm" data-go="S3">${ic("users")}Reassign DA</button></div>
-          <div class="v2-kpis" data-part="kpis"><div><b>26</b><span>Visits</span></div><div><b>5</b><span>Token paid</span></div><div><b>19%</b><span>Visit to token</span></div><div><b>6 min</b><span>Arrival to handshake, median</span></div></div>
+          <div class="v2-kpis" data-part="kpis"><div><b>26</b><span>Visits</span></div><div><b>5</b><span>Token paid</span></div><div><b>19%</b><span>Visit to token</span></div><div><b>6 min</b><span>Arrival to handshake, median</span></div><div data-part="by-link"><b>${CTX.market === "au" ? "19 of 25" : "2 of 25"}</b><span>Checked in by link</span></div></div>
           <div class="v2-card" data-part="funnel"><div class="v2-funnel"><div class="frow head"><span>STATE</span><span></span><span>COUNT</span><span>FROM LAST STATE</span></div>
             ${rows.map(([nm, n, tm, tone]) => `<div class="frow"><span><span class="hex ${tone === "good" ? "good" : ""}">${nm}</span></span><span class="bar"><i class="${tone === "good" ? "good" : ""}" style="width:${Math.round(n / 26 * 100)}%"></i></span><span class="n">${n}</span><span class="t ${tone === "late" ? "late" : ""}">${tm}${tone === "late" ? " &middot; target 5" : ""}</span></div>`).join("")}</div>
             <div class="v2-chips" style="margin-top:10px;" data-part="outcomes"><span class="hex good">TOKEN PAID 5</span><span class="hex warn">FOLLOW-UP SCHEDULED 11</span><span class="hex warn">NEW TD BOOKED 3</span><span class="hex bad">DROPPED 3</span></div></div>` } });
@@ -827,3 +879,127 @@ function customerView({ title, lead, left, right, foot: footer }) {
     <div class="v2-cv-foot" data-part="foot">${footer}</div>
   </div>`;
 }
+
+// ================================================================== self check-in (by link)
+// The receptionist's view while the customer fills the form on their phone. Elements with data-on-EVENT,
+// data-cls-EVENT or data-enable-EVENT react to the phone next to it (see mountSync in piston.js):
+// opened, p1 and p2 (a section saved), submitted. data-synced="key" receives the answer the customer gave.
+function selfCheckin(t) {
+  const p = PEOPLE[t], walk = t === "walkin", fn = first(t);
+  const at = walk ? { sent: "2:41 PM", opened: "2:42 PM", done: "2:44 PM" } : { sent: "2:24 PM", opened: "2:25 PM", done: "2:27 PM" };
+  // [key, label, value already known, extra hooks]
+  const answers = [
+    ["purpose", "Visit purpose", walk ? "" : "Test drive &middot; from the booking", walk ? `data-def-p1="Not answered"` : ""],
+    ["acc", "Accompanied by", "", `data-def-p1="Not answered"`],
+    ["pay", "Paying by", "", `data-def-p1="Not answered"`],
+    ["area", MK.area, "", `data-on-p1="${VISIT[t].area}"`],
+    ["licence", "Driving licence", walk ? "" : "On file &middot; uploaded 2 days ago", walk ? `data-def-p2="Not uploaded: scan it at DL verify"` : ""],
+    ["rec", "Recording consent", "", ""],
+  ];
+  const tl = [
+    ["Sent", at.sent, "done"], ["Delivered", at.sent, "done"],
+    ["Opened", "&mdash;", "", `data-cls-opened="done"`, `data-on-opened="${at.opened}"`],
+    ["Filling", "0 of 3", "", `data-cls-opened="cur" data-cls-submitted="cur>done"`, `data-on-p1="1 of 3" data-on-p2="2 of 3" data-on-submitted="3 of 3"`],
+    ["Submitted", "&mdash;", "", `data-cls-submitted="done"`, `data-on-submitted="${at.done}"`],
+  ];
+  const body = `<div class="v2-card sc-status" data-part="link-status">
+      <div class="sc-top"><span class="sc-dot" data-cls-opened="live" data-cls-submitted="live>done"></span>
+        <div class="sc-tt"><b data-on-opened="${fn} is filling in the form" data-on-submitted="${fn} checked in at ${at.done}">Waiting for ${fn} to open the link</b><small>Sent to ${p.phone} on WhatsApp and to ${p.email}</small></div>
+        <span class="v2-pill violet">${ic("smartphone")}Self check-in</span></div>
+      <div class="sc-tl">${tl.map(([k, v, cls, a, b]) => `<div class="${cls}"${a ? " " + a : ""}><i>${ic("check")}</i><b>${k}</b><small${b ? " " + b : ""}>${v}</small></div>`).join("")}</div>
+    </div>
+    <div class="v2-card" data-part="answers"><div class="sc-h"><b>Answers, synced live</b><small>The same questions as the desk check-in. Nothing to type here.</small></div>
+      ${answers.map(([k, label, v, hooks]) => `<div class="sc-row${v ? " got" : ""}" data-sync-row><label>${label}</label><span data-synced="${k}"${hooks ? " " + hooks : ""}>${v || "Waiting&hellip;"}</span></div>`).join("")}
+    </div>
+    <div class="sc-actions" data-part="link-actions"><button class="v2-btn sm">${ic("send")}Resend link</button><button class="v2-btn sm">${ic("qr-code")}Show link as QR</button><button class="v2-btn sm" data-mode-set="desk">${ic("monitor")}Check ${fn} in at the desk</button>
+      <span class="v2-small">No answer in 5 min? You get a nudge here. At the desk, what ${fn} filled carries over.</span></div>`;
+  return visit({ t, id: "S1", who: "receptionist", title: `${fn} is checking in on their phone`, desc: `Link sent at ${at.sent} on WhatsApp and email. Each answer shows below as ${fn} gives it.`,
+    body, gptOpts: false,
+    leadOpts: { pill: ["amber", "Link sent", `data-on-opened="Filling in check-in" data-cls-opened="amber>violet" data-on-submitted="Checked in" data-cls-submitted="amber>green violet>green"`] },
+    stageOpts: { sync: at.done },
+    footer: foot(t, "S1", "Exit: the customer submits the form", [["Proceed to DL verify", "S2", "primary", "arrow-right", true, `disabled data-enable-submitted`]]) });
+}
+
+// ================================================================== the customer's phone: the form, and nothing else
+// PHONES[stepId](track) returns one 360 x 740 phone screen. It has no Leadverse chrome: a message with the link,
+// then a public page with the check-in form. Its panels (data-flow="ph") are the page's steps; data-sync="key"
+// sends an answer to the panel beside it and data-sync-event fires a status change there.
+const phStatus = (time) => `<div class="ph-status"><b>${time}</b><span>${ic("signal")}${ic("wifi")}${ic("battery-full")}</span></div>`;
+const PHONES = {
+  S1: (t) => {
+    const p = PEOPLE[t], walk = t === "walkin", fn = first(t), c = PCARS[p.car];
+    const url = pick(stepById("S1").screen.phone, t) || `${MK.site}/check-in/7Kq2Xw`;
+    const times = walk ? ["2:41", "2:42", "2:43", "2:44"] : ["2:24", "2:25", "2:26", "2:27"];
+    const top = (i) => `${phStatus(times[i])}<div class="ph-url">${ic("lock")}<span>${url}</span></div>`;
+    const brand = `<div class="ph-brand"><span class="v2-logo sm">${ic("car-front")}</span><b>CARS24</b><span>${MK.hub}</span></div>`;
+    const prog = (n, label) => `<div class="ph-prog"><div>${[1, 2, 3].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</div><small>Step ${n} of 3 &middot; ${label}</small></div>`;
+    const choose = (key, opts) => `<div class="ph-chips">${opts.map(o => `<button class="ph-chip" data-pick="${key}" data-sync="${key}">${o}</button>`).join("")}</div>`;
+    const purposes = [["car-front", "Buy or test drive"], ["package", "Drop off a car"], ["key-round", "Pick up a car"], ["wrench", "A booked service"], ["banknote", "Sell my car"], ["message-circle", "Something else"]];
+    return `<div class="ph">
+      <div class="ph-scr" data-flow="ph" data-flow-step="msg" data-part="ph-msg">
+        ${phStatus(times[0])}
+        <div class="ph-wa">${ic("chevron-left")}<span class="v2-logo sm">${ic("car-front")}</span><div><b>CARS24 ${ic("badge-check")}</b><small>Business account</small></div></div>
+        <div class="ph-chat">
+          ${walk ? "" : `<div class="ph-bub">Your test drive is booked: ${c.title}, today at 2:30 PM at the ${MK.hubFull}.<small>Monday 9:12 AM</small></div>`}
+          <div class="ph-day">Today</div>
+          <div class="ph-bub">Hi ${fn}, welcome to CARS24! Check in from your seat. It takes about 2 minutes.
+            <button class="ph-linkcard" data-step-to="ph:form" data-sync-event="opened"><b>${ic("clipboard-check")}Check in for your visit</b><small>${MK.site}</small><span>Open check-in</span></button>
+            <small>${times[0]} PM ${ic("check-check")}</small></div>
+          <p class="ph-hint">${ic("mail")}The same link is in ${fn}'s email.</p>
+        </div>
+      </div>
+      <div class="ph-scr" data-flow="ph" data-flow-step="form" data-part="ph-form" hidden>
+        ${top(1)}
+        <div class="ph-page">${brand}
+          <h3>Hi ${fn}, let's check you in</h3>
+          <p class="ph-sub">About 2 minutes. Your answers go only to CARS24.</p>
+          ${prog(1, "About today")}
+          ${walk ? `<b class="ph-q">What brings you in today?</b><div class="ph-opts">${purposes.map(([icon, l]) => `<button class="ph-opt" data-pick="purpose" data-sync="purpose">${ic(icon)}<span>${l}</span></button>`).join("")}</div>`
+            : `<div class="ph-visit">${ic("car-front")}<div><b>Test drive &middot; today 2:30 PM</b><small>${c.title}</small></div></div>`}
+          <b class="ph-q">Who's with you today?</b>${choose("acc", ["Just me", "Partner", "Family", "A friend"])}
+          <b class="ph-q">How are you thinking of paying?</b>${choose("pay", ["Cash", "Finance", "Not sure yet"])}
+          <b class="ph-q">${MK.area}</b><div class="ph-input">${VISIT[t].area}</div>
+        </div>
+        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:licence" data-sync-event="p1">Next</button></div>
+      </div>
+      <div class="ph-scr" data-flow="ph" data-flow-step="licence" data-part="ph-licence" hidden>
+        ${top(2)}
+        <div class="ph-page">${brand}
+          <h3>Your driving licence</h3>
+          <p class="ph-sub">You need it to drive. The photos go straight to CARS24, not into a chat.</p>
+          ${prog(2, "Licence")}
+          ${walk ? `<div class="ph-tiles">${["Front", "Back"].map((side, i) => `<button class="ph-tile" data-zone data-sync="licence" data-sync-val="${i ? "Front and back uploaded" : "Front uploaded"}">${ic("camera")}<b>${side}</b><small>Take a photo</small></button>`).join("")}</div>
+              <button class="ph-textbtn" data-sync="licence" data-sync-val="Not with them: car finding only">I don't have it with me</button>`
+            : `<div class="ph-onfile">${ic("badge-check")}<div><b>Already on file</b><small>Uploaded 2 days ago. We check it at the desk.</small></div></div>
+              <button class="ph-textbtn">Upload it again</button>`}
+        </div>
+        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:consent" data-sync-event="p2">Next</button></div>
+      </div>
+      <div class="ph-scr" data-flow="ph" data-flow-step="consent" data-part="ph-consent" hidden>
+        ${top(3)}
+        <div class="ph-page">${brand}
+          <h3>Almost done</h3>
+          ${prog(3, "Your consent")}
+          <div class="ph-verified">${ic("shield-check")}<div><b>${p.phone}</b><small>Verified by this link. No code needed.</small></div></div>
+          <b class="ph-q">Can we record today's conversation?</b>
+          <p class="ph-sub">It helps your DA keep notes and helps us improve. Your visit is the same either way.</p>
+          <div class="ph-radios">
+            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="Yes, recording on" data-enables="ph-submit"><i></i>Yes, that's fine</button>
+            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="No: AI notes off for this visit" data-enables="ph-submit"><i></i>No, please don't</button>
+          </div>
+          <p class="ph-legal">By checking in you agree to the CARS24 <u>${MK.privacy}</u>.</p>
+        </div>
+        <div class="ph-foot"><button class="ph-btn" id="ph-submit" disabled data-step-to="ph:done" data-sync-event="submitted">Check in</button></div>
+      </div>
+      <div class="ph-scr" data-flow="ph" data-flow-step="done" data-part="ph-done" hidden>
+        ${top(3)}
+        <div class="ph-page">${brand}
+          <div class="ph-done"><span class="big">${ic("check")}</span><h3>You're checked in, ${fn}</h3>
+            <p>${walk ? "Take a seat. A DA will meet you at the front desk in a few minutes." : `Take a seat. ${PSTAFF.da.name.split(" ")[0]}, your DA, will meet you at the front desk.`}</p></div>
+          <div class="ph-card"><b>While you wait</b><p>Browse the cars at this hub. Cars you like show up for your DA.</p><button class="ph-btn ghost">${ic("car-front")}Browse cars</button></div>
+          <p class="ph-legal">This page stays here until your visit ends. Need help? Ask at the front desk.</p>
+        </div>
+      </div>
+    </div>`;
+  },
+};

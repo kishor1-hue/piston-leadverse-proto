@@ -1,11 +1,13 @@
 // ---- PISTON screen spec: viewer ----
 // Walkthrough (journey rail | Leadverse screen | spec or anatomy), Blueprint (every step's depth as a table),
 // Fields (every field on every screen) and What changed (the review notes applied).
-// Deep links: #booked-S1, #walkin-T2, #vtd-O2, #blueprint, #fields, #changes.
+// Market (UAE or Australia) and check-in way (at the desk or by link) apply to every view.
+// Deep links: #booked-S1, #walkin-T2, #vtd-O2, #blueprint, #fields, #changes. Prefix au- for Australia
+// (#au-booked-S1) and add -desk or -link when the check-in way differs from the market default (#booked-S1-link).
 
 document.body.classList.add("pv");
 
-const VS = { track: "booked", step: "P1", view: "walk", tab: "spec" };
+const VS = { track: "booked", step: "P1", view: "walk", tab: "spec", market: "ae", mode: "desk" };
 const $ = (sel) => document.querySelector(sel);
 const icon = (n) => `<i data-lucide="${n}" class="icon"></i>`;
 function drawIcons() { if (window.lucide) lucide.createIcons(); }
@@ -15,11 +17,19 @@ const DEVICE_META = {
   tablet: { icon: "tablet", label: "Leadverse on the DA's tablet" },
   customer: { icon: "hand", label: "DA's tablet, turned to the customer" },
   video: { icon: "video", label: "Leadverse web with a video panel" },
+  pair: { icon: "smartphone", label: "Customer's phone + web" },
   none: { icon: "user-round", label: "No screen, a human moment" },
 };
 const BUILD_LABEL = { reuse: "Reuse", extend: "Extend", new: "New", none: "No build" };
 const TRACK_COLOR = { booked: ["var(--trk-booked)", "var(--trk-booked-bg)"], walkin: ["var(--trk-walkin)", "var(--trk-walkin-bg)"], vtd: ["var(--trk-vtd)", "var(--trk-vtd-bg)"] };
 const VIEWS = [["walk", "Walkthrough", "presentation"], ["blueprint", "Blueprint", "table-2"], ["fields", "Fields", "list-tree"], ["changes", "What changed", "git-pull-request-arrow"]];
+
+const MODE_STEPS = ["I1", "I2", "S1", "S2", "T1"];
+const modeMatters = (stepId, t) => t !== "vtd" && MODE_STEPS.includes(stepId);
+function modeSeg(compact) {
+  return `<div class="pv-mode" role="group" aria-label="Check-in way"><span>Check-in</span>${Object.values(CHECKIN_WAYS).map(w =>
+    `<button class="${VS.mode === w.key ? "on" : ""}" data-mode-set="${w.key}" aria-pressed="${VS.mode === w.key}"${MARKETS[VS.market].checkin === w.key ? ` title="Default in ${MARKETS[VS.market].label}"` : ""}>${icon(w.icon)}${w.label}${!compact && MARKETS[VS.market].checkin === w.key ? `<em class="def" aria-label="default"></em>` : ""}</button>`).join("")}</div>`;
+}
 
 function stateTone(s) {
   if (!s) return "";
@@ -33,12 +43,20 @@ function stateTone(s) {
 function readHash() {
   let h = "";
   try { h = (location.hash || "").replace(/^#/, ""); } catch (e) { h = ""; }
+  const mk = h.match(/^(ae|au)-(.+)$/);
+  VS.market = mk ? mk[1] : "ae";
+  if (mk) h = mk[2];
+  const way = h.match(/^(.+)-(desk|link)$/);
+  VS.mode = way ? way[2] : MARKETS[VS.market].checkin;
+  if (way) h = way[1];
   if (["blueprint", "fields", "changes"].includes(h)) { VS.view = h; return; }
   const m = h.match(/^(booked|walkin|vtd)-([A-Z]\d)$/);
   if (m && stepById(m[2]) && stepById(m[2]).tracks.includes(m[1])) { VS.view = "walk"; VS.track = m[1]; VS.step = m[2]; }
 }
 function writeHash() {
-  const h = VS.view === "walk" ? `${VS.track}-${VS.step}` : VS.view;
+  const pre = VS.market === "ae" ? "" : VS.market + "-";
+  const suf = VS.mode === MARKETS[VS.market].checkin ? "" : "-" + VS.mode;
+  const h = pre + (VS.view === "walk" ? `${VS.track}-${VS.step}` : VS.view) + suf;
   try { history.replaceState(null, "", "#" + h); } catch (e) { /* sandboxed viewers may refuse; state stays in the page */ }
 }
 
@@ -52,6 +70,17 @@ function go(stepId) {
   render();
   const item = document.querySelector(`.pv-item[data-step="${stepId}"]`);
   if (item) item.scrollIntoView({ block: "nearest" });
+}
+function setMarket(m) {
+  if (!MARKETS[m] || VS.market === m) return;
+  VS.market = m;
+  VS.mode = MARKETS[m].checkin;
+  render();
+}
+function setMode(mode) {
+  if (!CHECKIN_WAYS[mode]) return;
+  VS.mode = mode;
+  render();
 }
 function setTrack(t) {
   VS.track = t;
@@ -69,8 +98,10 @@ function renderTop() {
     const ph = phaseById(l);
     return `<button class="${VS.view === "walk" && cur === l ? "on" : ""}" data-phase="${l}" title="${ph.name}" aria-label="Jump to ${ph.name}">${l}</button>`;
   }).join("");
+  $("#pv-markets").innerHTML = Object.values(MARKETS).map(mk =>
+    `<button class="${VS.market === mk.key ? "on" : ""}" data-market="${mk.key}" role="tab" aria-selected="${VS.market === mk.key}" title="${mk.label}: check-in ${CHECKIN_WAYS[mk.checkin].label.toLowerCase()} by default">${mk.label}</button>`).join("");
   $("#pv-tracks").innerHTML = Object.values(TRACKS).map(tk =>
-    `<button class="${VS.track === tk.key ? "on" : ""}" data-track="${tk.key}" role="tab" aria-selected="${VS.track === tk.key}"><span class="tdot" style="background:${TRACK_COLOR[tk.key][0]}"></span>${tk.label}</button>`).join("");
+    `<button class="${VS.track === tk.key ? "on" : ""}" data-track="${tk.key}" role="tab" aria-selected="${VS.track === tk.key}" title="${tk.label}"><span class="tdot" style="background:${TRACK_COLOR[tk.key][0]}"></span>${tk.key === "vtd" ? "Video TD" : tk.short}</button>`).join("");
   $("#pv-views").innerHTML = VIEWS.map(([k, l, ic]) =>
     `<button class="${VS.view === k ? "on" : ""}" data-view="${k}" role="tab" aria-selected="${VS.view === k}">${icon(ic)}${l}</button>`).join("");
 }
@@ -95,7 +126,9 @@ function renderRail() {
       <div><i style="font-style:italic;">Italic</i>&nbsp;is a branch, taken on some exits</div>
       <div>${icon("monitor")}Web &nbsp;${icon("tablet")}Tablet &nbsp;${icon("hand")}Customer</div>
       <div>${icon("video")}Video panel &nbsp;${icon("user-round")}No screen</div>
+      <div>${icon("smartphone")}Customer's phone next to the panel</div>
     </div>`;
+  $("#pv-rail").innerHTML = localize($("#pv-rail").innerHTML);
 }
 
 // ================================================================== walkthrough: stage
@@ -117,22 +150,31 @@ function renderStage() {
   const meta = DEVICE_META[dev];
   const focus = $("#view-walk").classList.contains("focus");
   const nParts = anatomyFor(s.id, t).parts.length;
-  $("#pv-stagehead").innerHTML = `<span class="pv-devchip">${icon(meta.icon)}${meta.label}</span><span class="pv-scrname">${s.id} &middot; ${pick(s.screen.name, t)}</span>
+  $("#pv-stagehead").innerHTML = localize(`<span class="pv-devchip">${icon(meta.icon)}${meta.label}</span><span class="pv-scrname" title="${s.id} &middot; ${pick(s.screen.name, t)}">${s.id} &middot; ${pick(s.screen.name, t)}</span>
+    ${modeMatters(s.id, t) ? modeSeg() : ""}
     <button class="pv-navbtn pv-focus ${VS.tab === "anatomy" ? "on" : ""}" data-pins ${nParts ? "" : "disabled"}>${icon("map-pin")}${VS.tab === "anatomy" ? "Hide pins" : `Show ${nParts} pins`}</button>
-    <button class="pv-navbtn" data-focus>${icon(focus ? "minimize-2" : "maximize-2")}${focus ? "Show steps and spec" : "Screen only"}</button>`;
+    <button class="pv-navbtn" data-focus>${icon(focus ? "minimize-2" : "maximize-2")}${focus ? "Show steps and spec" : "Screen only"}</button>`);
 
   let html;
   if (dev === "none" || !SCREENS[s.id]) {
     html = `<div class="dev dev-none" data-kind="none">${noneCard(s, t)}</div>`;
+  } else if (dev === "pair" && PHONES[s.id]) {
+    const route = pick(s.screen.route, t) || "";
+    html = `<div class="dev dev-pair" data-kind="pair">
+      <div class="pair-col"><span class="pair-lbl">${icon("monitor")}Receptionist &middot; Leadverse</span>
+        <div class="dev dev-desktop"><div class="urlbar">${icon("lock")}<span class="u">c24-lead-verse-ui.cars24.team${route}</span></div><div class="viewport"><div class="scr">${SCREENS[s.id](t)}</div></div></div></div>
+      <div class="pair-col"><span class="pair-lbl">${icon("smartphone")}Customer's phone &middot; the form only</span>
+        <div class="dev dev-phone"><div class="viewport"><div class="scr scr-ph">${PHONES[s.id](t)}</div></div></div></div>
+    </div>`;
   } else if (dev === "tablet" || dev === "customer") {
     html = `<div class="dev dev-tablet" data-kind="tablet"><span class="cam"></span><div class="viewport"><div class="scr">${SCREENS[s.id](t)}</div></div></div>`;
   } else {
     const route = pick(s.screen.route, t) || "";
     html = `<div class="dev dev-desktop" data-kind="desktop"><div class="urlbar">${icon("lock")}<span class="u">c24-lead-verse-ui.cars24.team${route}</span></div><div class="viewport"><div class="scr">${SCREENS[s.id](t)}</div></div></div>`;
   }
-  $("#pv-stage").innerHTML = html;
-  const scr = $("#pv-stage .scr");
-  if (scr) mountScreen(scr);
+  $("#pv-stage").innerHTML = localize(html);
+  document.querySelectorAll("#pv-stage .scr").forEach(mountScreen);
+  mountSync($("#pv-stage"));
   fitStage();
   drawPins();
 
@@ -157,6 +199,22 @@ function fitStage() {
   let s = (availW - cw) / 1180;
   if (!narrow) s = Math.min(s, (availH - ch) / 760);
   s = Math.max(0.18, Math.min(1, s));
+  if (kind === "pair") {
+    const W = availW, H = availH - 26;
+    const deskFor = (sp) => Math.min(1, (W - 24 - (360 * sp + 20) - 2) / 1180, (H - 32) / 760);
+    let sp, sd;
+    if (narrow) { sd = Math.max(0.18, Math.min(1, (W - 2) / 1180)); sp = Math.max(0.4, Math.min(1, (W - 20) / 360)); }
+    else {
+      sp = Math.min(1, (H - 20) / 740);
+      sd = deskFor(sp);
+      if (sd < 0.42) { sp = Math.max(0.45, Math.min(sp, (W - 46 - 0.42 * 1180) / 360)); sd = deskFor(sp); }
+      sd = Math.max(0.18, sd);
+    }
+    const size = (box, w, h, k) => { const vp = box.querySelector(".viewport"); vp.style.width = Math.round(w * k) + "px"; vp.style.height = Math.round(h * k) + "px"; box.querySelector(".scr").style.transform = `scale(${k})`; };
+    size(dev.querySelector(".dev-desktop"), 1180, 760, sd);
+    size(dev.querySelector(".dev-phone"), 360, 740, sp);
+    return;
+  }
   if (kind === "none") {
     dev.style.width = narrow ? "100%" : Math.round(1180 * s) + "px";
     dev.style.height = narrow ? "auto" : Math.round(760 * s) + "px";
@@ -173,31 +231,33 @@ function visiblePart(scr, key) {
   return [...scr.querySelectorAll(`[data-part="${key}"]`)].find(el => el.getClientRects().length && !el.closest("[hidden]"));
 }
 function drawPins() {
-  const scr = $("#pv-stage .scr");
-  if (!scr) return;
-  const old = scr.querySelector(".pv-pins");
-  if (old) old.remove();
+  const scrs = [...document.querySelectorAll("#pv-stage .scr")];
+  if (!scrs.length) return;
+  scrs.forEach(scr => { const old = scr.querySelector(".pv-pins"); if (old) old.remove(); });
   document.querySelectorAll(".an-part .an-num").forEach(n => n.classList.remove("off"));
   if (VS.tab !== "anatomy") return;
   const a = anatomyFor(VS.step, VS.track);
-  const sr = scr.getBoundingClientRect();
-  const k = sr.width / 1180 || 1;
-  const layer = document.createElement("div");
-  layer.className = "pv-pins";
+  const layers = new Map();
   a.parts.forEach((p, i) => {
     const n = i + 1;
-    const el = visiblePart(scr, p.key);
+    let el = null, scr = null;
+    for (const sc of scrs) { el = visiblePart(sc, p.key); if (el) { scr = sc; break; } }
     const num = document.querySelector(`.an-part[data-n="${n}"] .an-num`);
     if (!el) { if (num) num.classList.add("off"); return; }
+    const sr = scr.getBoundingClientRect();
+    const k = sr.width / scr.offsetWidth || 1;
     const r = el.getBoundingClientRect();
     const x = (r.left - sr.left) / k, y = (r.top - sr.top) / k, w = r.width / k, h = r.height / k;
-    layer.insertAdjacentHTML("beforeend", `<div class="pv-box" data-n="${n}" style="left:${x}px; top:${y}px; width:${w}px; height:${h}px;"></div><div class="pv-pin" data-n="${n}" style="left:${x + 15}px; top:${y + 15}px;" title="${p.label}">${n}</div>`);
+    if (!layers.has(scr)) { const l = document.createElement("div"); l.className = "pv-pins"; layers.set(scr, l); }
+    layers.get(scr).insertAdjacentHTML("beforeend", `<div class="pv-box" data-n="${n}" style="left:${x}px; top:${y}px; width:${w}px; height:${h}px;"></div><div class="pv-pin" data-n="${n}" style="left:${x + 15}px; top:${y + 15}px;" title="${p.label}">${n}</div>`);
   });
-  scr.appendChild(layer);
-  layer.querySelectorAll(".pv-pin").forEach(pin => {
-    pin.addEventListener("mouseenter", () => highlightPart(pin.dataset.n, true));
-    pin.addEventListener("mouseleave", () => highlightPart(pin.dataset.n, false));
-    pin.addEventListener("click", (e) => { e.stopPropagation(); const row = document.querySelector(`.an-part[data-n="${pin.dataset.n}"]`); if (row) row.scrollIntoView({ block: "center", behavior: "smooth" }); });
+  layers.forEach((layer, scr) => {
+    scr.appendChild(layer);
+    layer.querySelectorAll(".pv-pin").forEach(pin => {
+      pin.addEventListener("mouseenter", () => highlightPart(pin.dataset.n, true));
+      pin.addEventListener("mouseleave", () => highlightPart(pin.dataset.n, false));
+      pin.addEventListener("click", (e) => { e.stopPropagation(); const row = document.querySelector(`.an-part[data-n="${pin.dataset.n}"]`); if (row) row.scrollIntoView({ block: "center", behavior: "smooth" }); });
+    });
   });
 }
 function highlightPart(n, on) {
@@ -206,7 +266,17 @@ function highlightPart(n, on) {
 
 // in-screen behaviour: exits (data-go), chips, switches, OTP, tabs, flows, overlays, zones, signature
 function mountScreen(root) {
-  root.querySelectorAll("[data-go]").forEach(el => el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); if (!el.disabled) go(el.dataset.go); }));
+  root.querySelectorAll("[data-go]").forEach(el => el.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (el.disabled) return;
+    // an exit can set the check-in way: from the picked choice (data-mode-from) or fixed (data-mode)
+    const picked = el.dataset.modeFrom && root.querySelector(`[data-pick="${el.dataset.modeFrom}"].on`);
+    if (picked && picked.dataset.modeVal) VS.mode = picked.dataset.modeVal;
+    else if (el.dataset.mode) VS.mode = el.dataset.mode;
+    go(el.dataset.go);
+  }));
+  root.querySelectorAll("[data-mode-set]").forEach(el => el.addEventListener("click", (e) => { e.stopPropagation(); setMode(el.dataset.modeSet); }));
+  root.querySelectorAll("[data-enables]").forEach(el => el.addEventListener("click", () => { const target = root.querySelector("#" + el.dataset.enables); if (target) target.disabled = false; }));
   root.querySelectorAll("[data-pick]").forEach(el => el.addEventListener("click", (e) => {
     e.stopPropagation();
     const g = el.dataset.pick;
@@ -245,6 +315,36 @@ function mountScreen(root) {
   root.addEventListener("click", () => setTimeout(drawPins, 0));
   mountSignature(root);
   drawIcons();
+}
+
+// the customer's phone drives the receptionist's panel beside it: answers (data-sync) and status events
+// (data-sync-event: opened, p1, p2, submitted) update the panel's data-synced, data-on-*, data-def-*, data-cls-* and data-enable-*
+function mountSync(stage) {
+  const phone = stage.querySelector(".scr-ph"), panel = stage.querySelector(".dev-desktop .scr");
+  if (!phone || !panel) return;
+  const flash = (row) => { row.classList.add("got"); row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); };
+  const fire = (ev) => {
+    panel.querySelectorAll(`[data-on-${ev}]`).forEach(el => { el.innerHTML = el.getAttribute(`data-on-${ev}`); const row = el.closest("[data-sync-row]"); if (row) { row.classList.remove("skip"); flash(row); } });
+    panel.querySelectorAll(`[data-def-${ev}]`).forEach(el => { const row = el.closest("[data-sync-row]"); if (row && !row.classList.contains("got")) { el.innerHTML = el.getAttribute(`data-def-${ev}`); row.classList.add("skip"); flash(row); } });
+    panel.querySelectorAll(`[data-cls-${ev}]`).forEach(el => el.getAttribute(`data-cls-${ev}`).split(/\s+/).forEach(c => {
+      const [from, to] = c.includes(">") ? c.split(">") : [null, c];
+      if (from) el.classList.remove(from);
+      el.classList.add(to);
+    }));
+    panel.querySelectorAll(`[data-enable-${ev}]`).forEach(el => { el.disabled = false; });
+  };
+  // capture phase: the phone's own choice handlers stop propagation, and the panel must still hear every tap
+  phone.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-sync]");
+    if (a) panel.querySelectorAll(`[data-synced="${a.dataset.sync}"]`).forEach(el => {
+      el.innerHTML = a.dataset.syncVal || a.textContent.trim();
+      const row = el.closest("[data-sync-row]");
+      if (row) { row.classList.remove("skip"); flash(row); }
+    });
+    const ev = e.target.closest("[data-sync-event]");
+    if (ev && !ev.disabled) fire(ev.dataset.syncEvent);
+    setTimeout(drawPins, 0);
+  }, true);
 }
 
 function mountSignature(root) {
@@ -287,7 +387,7 @@ function mountSignature(root) {
 function exitRow(x, t) {
   const to = x.to ? stepById(x.to) : null;
   const target = to
-    ? `<button class="goto" data-step="${to.id}">${icon("arrow-right")}<span class="gid">${to.id}</span>${to.name}</button>`
+    ? `<button class="goto" data-step="${to.id}"${x.mode ? ` data-mode="${x.mode}"` : ""}>${icon("arrow-right")}<span class="gid">${to.id}</span>${to.name}${x.mode ? `<span class="way">${CHECKIN_WAYS[x.mode].label.toLowerCase()}</span>` : ""}</button>`
     : `<span class="goto end">${icon("square")}Journey ends</span>`;
   return `<div class="ex"><div class="w">${pick(x.when, t)}</div><div class="r">${target}${x.state ? `<span class="hex ${stateTone(x.state)}">${x.state}</span>` : ""}</div></div>`;
 }
@@ -295,7 +395,8 @@ function exitRow(x, t) {
 function specHead(s, t) {
   const ph = phaseById(s.phase);
   const [fg, bg] = TRACK_COLOR[t];
-  return `<div class="sp-eyebrow">${ph.id} &middot; ${ph.name}<span class="trk" style="color:${fg}; background:${bg};">${TRACKS[t].label}</span></div>
+  const way = modeMatters(s.id, t) ? `<span class="trk way">${icon(CHECKIN_WAYS[VS.mode].icon)}${CHECKIN_WAYS[VS.mode].label}</span>` : "";
+  return `<div class="sp-eyebrow">${ph.id} &middot; ${ph.name}<span class="trk" style="color:${fg}; background:${bg};">${TRACKS[t].label}</span><span class="trk mk">${MARKETS[VS.market].label}</span>${way}</div>
     <div class="sp-title"><span class="sid">${s.id}</span><h2>${s.name}</h2></div>`;
 }
 
@@ -303,7 +404,7 @@ function renderSpec() {
   const s = stepById(VS.step), t = VS.track;
   const a = anatomyFor(s.id, t);
   const tabs = `<div class="sp-tabs" role="tablist"><button class="${VS.tab === "spec" ? "on" : ""}" data-sptab="spec" role="tab">${icon("file-text")}Spec</button><button class="${VS.tab === "anatomy" ? "on" : ""}" data-sptab="anatomy" role="tab">${icon("map-pin")}Anatomy<span class="cnt">${a.parts.length}</span></button></div>`;
-  if (VS.tab === "anatomy") { $("#pv-spec").innerHTML = tabs + specHead(s, t) + anatomyHtml(a); bindAnatomyRows(); return; }
+  if (VS.tab === "anatomy") { $("#pv-spec").innerHTML = localize(tabs + specHead(s, t) + anatomyHtml(a)); bindAnatomyRows(); return; }
 
   const dev = DEVICE_META[pick(s.device, t)];
   const changed = pick(s.changed, t);
@@ -311,8 +412,10 @@ function renderSpec() {
   const state = pick(s.state, t);
   const build = pick(s.screen.build, t);
   const route = pick(s.screen.route, t);
-  const dap = pick(s.dap, t);
-  $("#pv-spec").innerHTML = tabs + specHead(s, t) + `
+  const phoneRoute = pick(s.screen.phone, t);
+  // "today" is DAP in the UAE; for Australia only steps with an Australia note show one
+  const dap = VS.market === "ae" ? pick(s.dap, t) : (s.dap && typeof s.dap === "object" && VS.market in s.dap ? pick(s.dap[VS.market], t) : null);
+  $("#pv-spec").innerHTML = localize(tabs + specHead(s, t) + `
     <p class="sp-purpose">${pick(s.purpose, t)}</p>
     <div class="sp-meta"><span>${icon("user-round")}${pick(s.owner, t)}</span><span>${icon(dev.icon)}${dev.label}</span>${s.branch ? `<span>${icon("git-branch")}Branch</span>` : ""}</div>
     ${changed ? `<div class="sp-changed">${icon("pencil")}<div>${changed}</div></div>` : ""}
@@ -322,12 +425,12 @@ function renderSpec() {
     <div class="sp-sec"><h4>${icon("app-window")}Screen</h4>
       <p><b>${pick(s.screen.name, t)}</b> <span class="build ${build}">${BUILD_LABEL[build]}</span></p>
       <p style="color:var(--muted); margin-top:4px;">${pick(s.screen.pattern, t)}</p>
-      ${route ? `<code class="sp-route">${route}</code>` : ""}</div>
+      ${route ? `<code class="sp-route">${route}</code>` : ""}${phoneRoute ? `<div class="lbl">Customer's page, on their phone</div><code class="sp-route">${phoneRoute}</code>` : ""}</div>
     <div class="sp-sec"><h4>${icon("log-in")}Entry conditions</h4>
       <ul class="sp-list">${(pick(s.entry, t) || []).map(e => `<li>${icon("check")}<span>${pick(e, t)}</span></li>`).join("")}</ul></div>
     <div class="sp-sec"><h4>${icon("log-out")}Exit conditions</h4><div class="sp-exit">${exits.map(x => exitRow(x, t)).join("")}</div></div>
     <div class="sp-sec"><h4>${icon("hexagon")}State it records</h4>${state ? `<span class="hex ${stateTone(state)}">${state}</span>` : `<p style="color:var(--muted);">No new funnel state. Progress shows in the exits.</p>`}</div>
-    ${dap ? `<div class="sp-sec"><h4>${icon("history")}DAP today</h4><div class="sp-dap">${dap}</div></div>` : ""}`;
+    ${dap ? `<div class="sp-sec"><h4>${icon("history")}${VS.market === "ae" ? "DAP today" : `${MARKETS[VS.market].label} today`}</h4><div class="sp-dap">${dap}</div></div>` : ""}`);
 }
 
 function anatomyHtml(a) {
@@ -347,6 +450,12 @@ function bindAnatomyRows() {
     row.addEventListener("mouseenter", () => highlightPart(row.dataset.n, true));
     row.addEventListener("mouseleave", () => highlightPart(row.dataset.n, false));
   });
+}
+
+// ================================================================== docs: which market and check-in way the page shows
+function docCtx() {
+  const mk = MARKETS[VS.market];
+  return `<div class="doc-ctx"><span class="mk">${mk.key.toUpperCase()}</span><span>Showing <b>${mk.label}</b>, where check-in is <b>${CHECKIN_WAYS[mk.checkin].label.toLowerCase()}</b> by default.</span>${VS.track === "vtd" ? `<span class="muted">Video TD always checks in on the call.</span>` : modeSeg()}</div>`;
 }
 
 // ================================================================== blueprint view
@@ -380,19 +489,20 @@ function renderBlueprint() {
             <td><div class="scrn">${pick(s.screen.name, t)}</div><span class="build ${b}">${BUILD_LABEL[b]}</span></td>
             <td>${pick(s.source.trigger, t)}<ul>${(pick(s.source.data, t) || []).map(d => `<li>${d}</li>`).join("")}</ul></td>
             <td><ul>${(pick(s.entry, t) || []).map(e => `<li>${pick(e, t)}</li>`).join("")}</ul></td>
-            <td><div class="exi">${(pick(s.exits, t) || []).map(x => `<div><span>${pick(x.when, t)}</span> &rarr; <b>${x.to || "end"}</b></div>`).join("")}</div></td>
+            <td><div class="exi">${(pick(s.exits, t) || []).map(x => `<div><span>${pick(x.when, t)}</span> &rarr; <b>${x.to || "end"}</b>${x.mode ? ` <span class="way">${CHECKIN_WAYS[x.mode].label.toLowerCase()}</span>` : ""}</div>`).join("")}</div></td>
             <td>${st ? `<span class="hex ${stateTone(st)}">${st}</span>` : `<span style="color:var(--faint);">&mdash;</span>`}</td>
           </tr>`;
         }).join("")}</tbody></table></div></div>`;
   };
-  $("#pv-blueprint").innerHTML = `<div class="wrap">
+  $("#pv-blueprint").innerHTML = localize(`<div class="wrap">
     <h1 class="doc-h">One level deeper, for every step</h1>
-    <p class="doc-sub">Source, screen, entry conditions and exit conditions at three levels: the flow, the phase and the step. Click any row to open its screen. Switch the track at the top to see booked, walk-in or video. The Fields view goes one level further, to every field on every screen.</p>
+    <p class="doc-sub">Source, screen, entry conditions and exit conditions at three levels: the flow, the phase and the step. Click any row to open its screen. Switch the market and the track at the top; switch the check-in way here. The Fields view goes one level further, to every field on every screen.</p>
+    ${docCtx()}
     <h3 class="doc-h3">The three flows</h3>
     <div class="flow-cards">${["booked", "walkin", "vtd"].map(flowCard).join("")}</div>
-    <h3 class="doc-h3">Phase and step level &middot; ${TRACKS[t].label}</h3>
+    <h3 class="doc-h3">Phase and step level &middot; ${TRACKS[t].label} &middot; ${MARKETS[VS.market].label}</h3>
     ${PHASES.map(phaseBlock).join("")}
-  </div>`;
+  </div>`);
 }
 
 // ================================================================== fields view (data dictionary)
@@ -412,21 +522,31 @@ function renderFields() {
       <div class="bp-scroll"><table class="bp"><thead><tr><th style="width:170px;">Step</th><th style="width:170px;">Field</th><th style="width:120px;">Type</th><th style="width:90px;">Required</th><th>Source</th><th>Rule</th></tr></thead>
       <tbody>${rows.map(([s, [f, ty, req, src, rule]]) => `<tr data-step="${s.id}" data-anatomy="1"><td><span class="sid">${s.id}</span> <span class="nm">${s.name}</span></td><td><b>${f}</b></td><td>${ty}</td><td>${req === "Yes" || /^Yes/.test(req) ? `<span class="req">REQUIRED</span>` : req === "Read only" ? "Read only" : "No"}</td><td>${src || "&mdash;"}</td><td>${rule || "&mdash;"}</td></tr>`).join("")}</tbody></table></div></div>`;
   }).join("");
-  $("#pv-fields").innerHTML = `<div class="wrap">
+  $("#pv-fields").innerHTML = localize(`<div class="wrap">
     <h1 class="doc-h">Every field on every screen</h1>
-    <p class="doc-sub">The data dictionary behind the screens, taken from each step's anatomy: ${total} fields across ${screens} screens on the ${TRACKS[t].label} track. Click a row to open that screen with its pins.</p>
+    <p class="doc-sub">The data dictionary behind the screens, taken from each step's anatomy: ${total} fields across ${screens} screens on the ${TRACKS[t].label} track, ${MARKETS[VS.market].label}, check-in ${CHECKIN_WAYS[t === "vtd" ? "desk" : VS.mode].label.toLowerCase()}. Click a row to open that screen with its pins.</p>
+    ${docCtx()}
     ${blocks}
-  </div>`;
+  </div>`);
 }
 
 // ================================================================== what changed view
-function stepLink(id, label) { return `<button class="linklike" data-step="${id}">${id}${label ? " " + label : ""}</button>`; }
+// a link to a step, optionally in a market, a check-in way or a track
+function stepLink(id, label, o = {}) {
+  return `<button class="linklike" data-step="${id}"${o.market ? ` data-market="${o.market}"` : ""}${o.mode ? ` data-mode="${o.mode}"` : ""}${o.track ? ` data-in-track="${o.track}"` : ""}>${id}${label ? " " + label : ""}</button>`;
+}
 
 function renderChanges() {
   $("#pv-changes").innerHTML = `<div class="wrap">
     <h1 class="doc-h">What changed after review</h1>
-    <p class="doc-sub">Three notes on the PISTON board, one on how the calling team works, and the Leadverse TD Journey design file. Here is what each one does to the journey and to the screens.</p>
+    <p class="doc-sub">Three notes on the PISTON board, one on how the calling team works, the Leadverse TD Journey design file, and Australia. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;Build it for Australia too. After arrival: check in for the customer, or send them a check-in form link on WhatsApp or email&rdquo;</div><h4>Two ways to check in, one form, any market</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">I1 Mark arrived &rarr; S1 the receptionist checks the customer in</span><span class="k">After</span><span class="seq">I1 Mark arrived: <em>Send check-in link</em> or <em>Check in at the desk</em> &rarr; S1 on the customer's phone, or at the desk</span></div>
+        <p><b>By link.</b> Mark arrived sends a one-time link on WhatsApp and email. It opens a form-only page on the customer's own phone: no Leadverse, no login, only the form. Each answer syncs to the visit as it is given, and submitting checks the customer in. The receptionist watches it on the visit page and steps in only if something is stuck: checking in at the desk keeps what was already filled.</p>
+        <p><b>At the desk.</b> The receptionist fills the same form with the customer, as before. Both ways write the same check-in, so DL verify, the DA and the rest of the journey do not change.</p>
+        <p><b>The market sets the default, not the product.</b> Australia defaults to the link, because customers there already check themselves in with a form. The UAE and India default to the desk. Either way can be picked for any visit, in any market. The link also proves the customer has the mobile or email it went to, so it replaces the OTP.</p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">${stepLink("I1", "Mark arrived (Australia)", { market: "au" })}${stepLink("S1", "Self check-in (Australia)", { market: "au", mode: "link" })}${stepLink("S1", "Walk-in by link", { market: "au", mode: "link", track: "walkin" })}${stepLink("S1", "Desk check-in (UAE)", { market: "ae", mode: "desk" })}${stepLink("S2", "DL verify", { market: "au", mode: "link" })}</div></div>
       <div class="chg-card"><div class="q">&ldquo;Use the Leadverse TD Journey file for design and knowledge&rdquo;</div><h4>Screens follow the Leadverse TD Journey design</h4>
         <p>White theme only. Every screen now uses that file's layout: an icon rail, a lead pane with an AI summary, contact actions, finance and documents, a stage bar (Check-in, DL verify, Car finding, TD live, Disposition), and CarGPT with live transcription.</p>
         <p>From its flows: check-in as modals with an OTP step, a checked-in screen with a QR to browse cars while waiting, and a purpose-of-visit question; DL verify as its own step; a LIVE badge and live transcription during the drive; the disposition form with outcome, primary objection and agent notes; the Add lead and Add cars drawers.</p>
@@ -452,6 +572,16 @@ function renderChanges() {
         <div><button class="linklike" data-view="blueprint">Open the blueprint</button></div></div>
     </div>
 
+    <h3 class="doc-h3">Configured per market, built once</h3>
+    <p class="doc-sub" style="margin-bottom:12px;">One journey, one check-in form, one set of states. A market changes defaults, documents and copy, not the build. India is listed to settle its row; the screens show the UAE and Australia. Switch the market at the top to see each one.</p>
+    <div class="bp-scroll"><table class="cmp-tbl mkt">
+      <thead><tr><th style="width:190px;">Setting</th><th>UAE</th><th>India</th><th>Australia</th></tr></thead>
+      <tbody>${MARKET_CONFIG.map(([k, ae, ind, au]) => `<tr><td><b>${k}</b></td><td>${ae}</td><td class="${/confirm|Not shown/.test(ind) ? "muted" : ""}">${ind}</td><td>${au}</td></tr>`).join("")}</tbody></table></div>
+    <div class="decide" style="margin-top:12px;">
+      <div><b>Shared by every market</b>The check-in form schema, rendered twice: as the desk modal and as the customer's page. The CHECKED IN state, with how it happened (desk or link). The stage bar, the visit page and the funnel.</div>
+      <div><b>Set per market</b>The default check-in way, the link channels, documents, credit check, currency, address format, privacy wording, road rules, and the hub. In the build these are tenant settings (cars24-ae, cars24-au), not code.</div>
+    </div>
+
     <h3 class="doc-h3">Taken from the Leadverse TD Journey file</h3>
     <div class="fig-strip">
       <div><b>Stage bar</b>Check-in, DL verify, TD booked, TD live, Disposition. Kept, with Car finding in place of TD booked to match the review.</div>
@@ -467,6 +597,7 @@ function renderChanges() {
         <tr><td><b>Calling agent</b></td><td class="seq">Not in the Console</td><td class="seq">P1 Queue &rarr; P2 Welcome &rarr; P3 Contact &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book</td><td>A new persona in Tasks (b2c-lead-td-booking-by-cc). The order is created on the call and booked at its last step.</td></tr>
         <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign DA</td><td class="seq">I1 Add lead &rarr; S1 Check-in &rarr; S2 DL verify &rarr; S3 Assign DA</td><td>Car choice and order creation move to the DA, after the handshake. The visit exists before the order.</td></tr>
         <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign DA</td><td class="seq">I1 Mark arrived &rarr; S1 Check-in &rarr; S2 DL verify &rarr; S3 Assign DA</td><td>Adds an arrival event, recording consent and a DL check. No TD consent at the desk.</td></tr>
+        <tr><td><b>Customer</b>, by link</td><td class="seq">Not in the Console</td><td class="seq">Message with the link &rarr; About today &rarr; Licence &rarr; Consent &rarr; Checked in</td><td>A new public page, outside Leadverse. The receptionist's S1 becomes a live view of the answers, with the desk as the fallback.</td></tr>
         <tr><td><b>DA</b></td><td class="seq">Conduct TD &rarr; Select VAS &rarr; Confirm VAS &rarr; Payment &rarr; Token paid</td><td class="seq">T1 Handshake &rarr; T2&ndash;T5 Car finding &rarr; O1&ndash;O6 Test drive &rarr; N1 Disposition &rarr; N2 Token &rarr; N3 Handoff</td><td>The DA's journey starts at the handshake and covers car finding and the drive itself. VAS moves into the delivery journey.</td></tr>
         <tr><td><b>Manager</b></td><td class="seq">Oversight table</td><td class="seq">M1 Live funnel</td><td>Each hexagon on the board becomes a funnel row, with time between states.</td></tr>
       </tbody></table></div>
@@ -477,6 +608,8 @@ function renderChanges() {
       <div><b>One visit, several drives</b>Each car gets its own TD record and its own consent. A booked customer can add a second car without a new booking.</div>
       <div><b>New states</b>Arrival (an event), DL VERIFIED, TD CONSENT SIGNED, and MET CUSTOMER, which DAP already has for hub work orders.</div>
       <div><b>Payment from the gateway</b>TOKEN PAID comes from the payment webhook. The Console's Mark as paid button is a prototype shortcut only.</div>
+      <div><b>How a check-in happened</b>Every check-in records its way, desk or link. The link adds its own events: sent, opened, each part saved, submitted. Answers autosave, so the desk can take over without retyping.</div>
+      <div><b>A check-in link</b>One per visit, tied to the visit and to the mobile or email it went to. It carries a random token and no personal data, works until the visit ends, and a resend cancels the old one.</div>
     </div>
 
     <h3 class="doc-h3">Decisions needed</h3>
@@ -487,7 +620,12 @@ function renderChanges() {
       <div><b>No valid licence</b>The screens allow car finding and block the drive. Confirm this, and whether a home-country licence is accepted.</div>
       <div><b>An order before the car is final</b>P3 creates the order with the lead's car of interest, and P6 can change the car. Confirm OMS allows that, or create the order at P6 when the lead has no car yet.</div>
       <div><b>Gender and pincode at check-in</b>The TD Journey file asks for both. The screens use emirate and area instead of a pincode and leave gender out. Add gender back only if something uses it.</div>
-      <div><b>Who fills check-in</b>The file's check-in copy speaks to the customer. The screens assume the customer fills it on the desk tablet, with the receptionist helping.</div>
+      <div><b>Who fills check-in</b>Settled: both, by design. By link, the customer fills it on their own phone; at the desk, the receptionist fills it with them. The market picks the default.</div>
+      <div><b>WhatsApp in Australia</b>The link goes out on WhatsApp and email, as asked. If WhatsApp reaches too few customers in Australia, add SMS there as a third channel.</div>
+      <div><b>How long a link lives</b>The screens assume one link per visit, valid until the visit ends, with a resend cancelling the old one. Confirm, and confirm the 5-minute nudge before the desk steps in.</div>
+      <div><b>Where the customer's page lives</b>Consumer web (cars24.ae, cars24.com.au) or a public page from Leadverse's form renderer. Either way it must render the desk modal's form schema, so the two never drift apart.</div>
+      <div><b>Licence on the phone</b>Optional on the form, because DL verify can scan it at the desk. Australia may want it required for walk-ins by link.</div>
+      <div><b>Video TD check-in</b>Still an OTP on the call. Its join link is already personal, so these questions could move to the page before the call later.</div>
       <div><b>Credit score</b>The file shows a CIBIL score, which is Indian. The screens show an AECB score for the UAE. Confirm Leadverse can read it.</div>
     </div>
   </div>`;
@@ -495,6 +633,8 @@ function renderChanges() {
 
 // ================================================================== render + events
 function render() {
+  CTX.mode = VS.mode;
+  if (CTX.market !== VS.market) applyMarket(VS.market);
   document.querySelectorAll(".pv-view").forEach(v => v.classList.toggle("on", v.id === "view-" + VS.view));
   renderTop();
   if (VS.view === "walk") { renderRail(); renderSpec(); renderStage(); }
@@ -522,6 +662,10 @@ document.addEventListener("click", (e) => {
   if (pins && !pins.disabled) { setTab(VS.tab === "anatomy" ? "spec" : "anatomy"); return; }
   const sp = e.target.closest("[data-sptab]");
   if (sp) { setTab(sp.dataset.sptab); return; }
+  const mk = e.target.closest("[data-market]");
+  if (mk && !mk.dataset.step) { setMarket(mk.dataset.market); return; }
+  const way = e.target.closest("[data-mode-set]");
+  if (way) { setMode(way.dataset.modeSet); return; }
   const tr = e.target.closest("[data-track]");
   if (tr) { setTrack(tr.dataset.track); return; }
   const vw = e.target.closest("[data-view]");
@@ -536,7 +680,13 @@ document.addEventListener("click", (e) => {
     return;
   }
   const st = e.target.closest("[data-step]");
-  if (st) { if (st.dataset.anatomy) VS.tab = "anatomy"; go(st.dataset.step); }
+  if (st) {
+    if (st.dataset.anatomy) VS.tab = "anatomy";
+    if (st.dataset.market && st.dataset.market !== VS.market) { VS.market = st.dataset.market; VS.mode = MARKETS[VS.market].checkin; }
+    if (st.dataset.mode) VS.mode = st.dataset.mode;
+    if (st.dataset.inTrack) VS.track = st.dataset.inTrack;
+    go(st.dataset.step);
+  }
 });
 
 document.addEventListener("keydown", (e) => {
