@@ -1,10 +1,11 @@
 // ---- PISTON screen spec: viewer ----
-// Walkthrough (journey rail | Leadverse screen | spec), Blueprint (every step's depth as a table)
-// and What changed (the review notes applied). Deep links: #booked-S1, #walkin-T2, #vtd-O2, #blueprint, #changes.
+// Walkthrough (journey rail | Leadverse screen | spec or anatomy), Blueprint (every step's depth as a table),
+// Fields (every field on every screen) and What changed (the review notes applied).
+// Deep links: #booked-S1, #walkin-T2, #vtd-O2, #blueprint, #fields, #changes.
 
 document.body.classList.add("pv");
 
-const VS = { track: "booked", step: "P1", view: "walk" };
+const VS = { track: "booked", step: "P1", view: "walk", tab: "spec" };
 const $ = (sel) => document.querySelector(sel);
 const icon = (n) => `<i data-lucide="${n}" class="icon"></i>`;
 function drawIcons() { if (window.lucide) lucide.createIcons(); }
@@ -18,6 +19,7 @@ const DEVICE_META = {
 };
 const BUILD_LABEL = { reuse: "Reuse", extend: "Extend", new: "New", none: "No build" };
 const TRACK_COLOR = { booked: ["var(--trk-booked)", "var(--trk-booked-bg)"], walkin: ["var(--trk-walkin)", "var(--trk-walkin-bg)"], vtd: ["var(--trk-vtd)", "var(--trk-vtd-bg)"] };
+const VIEWS = [["walk", "Walkthrough", "presentation"], ["blueprint", "Blueprint", "table-2"], ["fields", "Fields", "list-tree"], ["changes", "What changed", "git-pull-request-arrow"]];
 
 function stateTone(s) {
   if (!s) return "";
@@ -31,7 +33,7 @@ function stateTone(s) {
 function readHash() {
   let h = "";
   try { h = (location.hash || "").replace(/^#/, ""); } catch (e) { h = ""; }
-  if (h === "blueprint" || h === "changes") { VS.view = h; return; }
+  if (["blueprint", "fields", "changes"].includes(h)) { VS.view = h; return; }
   const m = h.match(/^(booked|walkin|vtd)-([A-Z]\d)$/);
   if (m && stepById(m[2]) && stepById(m[2]).tracks.includes(m[1])) { VS.view = "walk"; VS.track = m[1]; VS.step = m[2]; }
 }
@@ -54,7 +56,6 @@ function go(stepId) {
 function setTrack(t) {
   VS.track = t;
   if (!stepById(VS.step).tracks.includes(t)) {
-    // nearest step of the same phase in the new track, else the first step
     const same = stepsForTrack(t).find(s => s.phase === stepById(VS.step).phase);
     VS.step = (same || stepsForTrack(t)[0]).id;
   }
@@ -70,7 +71,7 @@ function renderTop() {
   }).join("");
   $("#pv-tracks").innerHTML = Object.values(TRACKS).map(tk =>
     `<button class="${VS.track === tk.key ? "on" : ""}" data-track="${tk.key}" role="tab" aria-selected="${VS.track === tk.key}"><span class="tdot" style="background:${TRACK_COLOR[tk.key][0]}"></span>${tk.label}</button>`).join("");
-  $("#pv-views").innerHTML = [["walk", "Walkthrough", "presentation"], ["blueprint", "Blueprint", "table-2"], ["changes", "What changed", "git-pull-request-arrow"]].map(([k, l, ic]) =>
+  $("#pv-views").innerHTML = VIEWS.map(([k, l, ic]) =>
     `<button class="${VS.view === k ? "on" : ""}" data-view="${k}" role="tab" aria-selected="${VS.view === k}">${icon(ic)}${l}</button>`).join("");
 }
 
@@ -90,6 +91,7 @@ function renderRail() {
     </div>`).join("") + `
     <div class="pv-legend">
       <div><span class="chg"></span>Changed after review</div>
+      <div><span class="pinl"></span>Anatomy pin: a numbered part</div>
       <div><i style="font-style:italic;">Italic</i>&nbsp;is a branch, taken on some exits</div>
       <div>${icon("monitor")}Web &nbsp;${icon("tablet")}Tablet &nbsp;${icon("hand")}Customer</div>
       <div>${icon("video")}Video panel &nbsp;${icon("user-round")}No screen</div>
@@ -114,8 +116,10 @@ function renderStage() {
   const dev = pick(s.device, t);
   const meta = DEVICE_META[dev];
   const focus = $("#view-walk").classList.contains("focus");
+  const nParts = anatomyFor(s.id, t).parts.length;
   $("#pv-stagehead").innerHTML = `<span class="pv-devchip">${icon(meta.icon)}${meta.label}</span><span class="pv-scrname">${s.id} &middot; ${pick(s.screen.name, t)}</span>
-    <button class="pv-navbtn pv-focus" data-focus>${icon(focus ? "minimize-2" : "maximize-2")}${focus ? "Show steps and spec" : "Screen only"}</button>`;
+    <button class="pv-navbtn pv-focus ${VS.tab === "anatomy" ? "on" : ""}" data-pins ${nParts ? "" : "disabled"}>${icon("map-pin")}${VS.tab === "anatomy" ? "Hide pins" : `Show ${nParts} pins`}</button>
+    <button class="pv-navbtn" data-focus>${icon(focus ? "minimize-2" : "maximize-2")}${focus ? "Show steps and spec" : "Screen only"}</button>`;
 
   let html;
   if (dev === "none" || !SCREENS[s.id]) {
@@ -130,6 +134,7 @@ function renderStage() {
   const scr = $("#pv-stage .scr");
   if (scr) mountScreen(scr);
   fitStage();
+  drawPins();
 
   const list = stepsForTrack(t);
   const i = list.findIndex(x => x.id === s.id);
@@ -163,40 +168,81 @@ function fitStage() {
   scr.style.transform = `scale(${s})`;
 }
 
-// in-screen behaviour: exits (data-go), chips, switches, OTP, tabs, compare, zones, signature
+// ---- anatomy pins: drawn inside the screen, so they scale with it
+function visiblePart(scr, key) {
+  return [...scr.querySelectorAll(`[data-part="${key}"]`)].find(el => el.getClientRects().length && !el.closest("[hidden]"));
+}
+function drawPins() {
+  const scr = $("#pv-stage .scr");
+  if (!scr) return;
+  const old = scr.querySelector(".pv-pins");
+  if (old) old.remove();
+  document.querySelectorAll(".an-part .an-num").forEach(n => n.classList.remove("off"));
+  if (VS.tab !== "anatomy") return;
+  const a = anatomyFor(VS.step, VS.track);
+  const sr = scr.getBoundingClientRect();
+  const k = sr.width / 1180 || 1;
+  const layer = document.createElement("div");
+  layer.className = "pv-pins";
+  a.parts.forEach((p, i) => {
+    const n = i + 1;
+    const el = visiblePart(scr, p.key);
+    const num = document.querySelector(`.an-part[data-n="${n}"] .an-num`);
+    if (!el) { if (num) num.classList.add("off"); return; }
+    const r = el.getBoundingClientRect();
+    const x = (r.left - sr.left) / k, y = (r.top - sr.top) / k, w = r.width / k, h = r.height / k;
+    layer.insertAdjacentHTML("beforeend", `<div class="pv-box" data-n="${n}" style="left:${x}px; top:${y}px; width:${w}px; height:${h}px;"></div><div class="pv-pin" data-n="${n}" style="left:${x + 15}px; top:${y + 15}px;" title="${p.label}">${n}</div>`);
+  });
+  scr.appendChild(layer);
+  layer.querySelectorAll(".pv-pin").forEach(pin => {
+    pin.addEventListener("mouseenter", () => highlightPart(pin.dataset.n, true));
+    pin.addEventListener("mouseleave", () => highlightPart(pin.dataset.n, false));
+    pin.addEventListener("click", (e) => { e.stopPropagation(); const row = document.querySelector(`.an-part[data-n="${pin.dataset.n}"]`); if (row) row.scrollIntoView({ block: "center", behavior: "smooth" }); });
+  });
+}
+function highlightPart(n, on) {
+  document.querySelectorAll(`.pv-box[data-n="${n}"], .pv-pin[data-n="${n}"], .an-part[data-n="${n}"]`).forEach(el => el.classList.toggle("on", on));
+}
+
+// in-screen behaviour: exits (data-go), chips, switches, OTP, tabs, flows, overlays, zones, signature
 function mountScreen(root) {
-  root.querySelectorAll("[data-go]").forEach(el => el.addEventListener("click", (e) => { e.preventDefault(); if (!el.disabled) go(el.dataset.go); }));
-  root.querySelectorAll("[data-pick]").forEach(el => el.addEventListener("click", () => {
+  root.querySelectorAll("[data-go]").forEach(el => el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); if (!el.disabled) go(el.dataset.go); }));
+  root.querySelectorAll("[data-pick]").forEach(el => el.addEventListener("click", (e) => {
+    e.stopPropagation();
     const g = el.dataset.pick;
     if (g === "multi") el.classList.toggle("on");
     else el.parentElement.querySelectorAll(`[data-pick="${g}"]`).forEach(x => x.classList.toggle("on", x === el));
   }));
+  root.querySelectorAll("[data-toggle-sel]").forEach(el => el.addEventListener("click", (e) => { if (e.target.closest("a, [data-pick]")) return; el.classList.toggle("sel"); }));
   root.querySelectorAll("[data-sw]").forEach(el => el.addEventListener("click", () => el.classList.toggle("on")));
-  root.querySelectorAll("[data-zone]").forEach(el => el.addEventListener("click", () => el.classList.toggle("done")));
+  root.querySelectorAll("[data-zone]").forEach(el => el.addEventListener("click", () => {
+    el.classList.toggle("done");
+    if (el.classList.contains("v2-check2")) { const i = el.querySelector("svg, i"); if (i) { i.outerHTML = icon(el.classList.contains("done") ? "square-check" : "square"); drawIcons(); } }
+  }));
   root.querySelectorAll("[data-otp-verify]").forEach(btn => btn.addEventListener("click", () => {
-    const w = btn.closest(".otp-wrap");
-    w.querySelector(".otp").classList.add("ok");
+    const w = btn.closest(".v2-otp-wrap");
+    w.querySelector(".v2-otp").classList.add("ok");
     btn.hidden = true;
-    w.querySelector(".okline").hidden = false;
+    w.querySelector(".v2-ok").hidden = false;
   }));
   root.querySelectorAll("[data-tabs] [data-tab]").forEach(btn => btn.addEventListener("click", () => {
     btn.parentElement.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("on", b === btn));
     root.querySelectorAll("[data-panel]").forEach(p => { p.hidden = p.dataset.panel !== btn.dataset.tab; });
   }));
-  root.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.open); if (o) o.classList.add("open"); }));
-  root.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.close); if (o) o.classList.remove("open"); }));
-  root.querySelectorAll("[data-sel]").forEach(b => b.addEventListener("click", () => {
-    const card = b.closest(".pcar");
-    const on = !card.classList.contains("sel");
-    card.classList.toggle("sel", on);
-    b.classList.toggle("primary", on);
-    b.innerHTML = on ? `${icon("check")}Driving today` : "Add to today's drives";
-    drawIcons();
-  }));
-  root.querySelectorAll(".da-row").forEach(row => row.addEventListener("click", () => {
-    if (row.classList.contains("disabled")) return;
-    root.querySelectorAll(".da-row").forEach(r => r.classList.toggle("selected", r === row));
-  }));
+  // modal flows: data-flow="group" panels, data-step-to="group:panel" moves between them
+  const showFlow = (group, step) => {
+    root.querySelectorAll(`[data-flow="${group}"]`).forEach(p => { p.hidden = p.dataset.flowStep !== step; });
+    root.querySelectorAll("[data-flow-dim]").forEach(d => { d.hidden = !step; });
+  };
+  root.querySelectorAll("[data-step-to]").forEach(b => b.addEventListener("click", () => { const [g, s] = b.dataset.stepTo.split(":"); showFlow(g, s); }));
+  root.querySelectorAll("[data-close-flow]").forEach(b => b.addEventListener("click", () => { const p = b.closest("[data-flow]"); if (p) showFlow(p.dataset.flow, null); }));
+  root.querySelectorAll("[data-open-flow]").forEach(b => b.addEventListener("click", () => showFlow(b.dataset.openFlow, "details")));
+  // single overlays (drawer, compare): data-open="id" and data-close="id"
+  const dims = () => root.querySelectorAll("[data-drawer-dim]");
+  root.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.open); if (o) { o.hidden = false; dims().forEach(d => { d.hidden = false; }); } }));
+  root.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.close); if (o) o.hidden = true; dims().forEach(d => { d.hidden = true; }); }));
+  // pins follow the visible parts after any in-screen change
+  root.addEventListener("click", () => setTimeout(drawPins, 0));
   mountSignature(root);
   drawIcons();
 }
@@ -215,7 +261,7 @@ function mountSignature(root) {
     ctx = canvas.getContext("2d");
     ctx.scale(2, 2);
     ctx.lineWidth = 2.4; ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#0F172A";
+    ctx.strokeStyle = "#101828";
   };
   size();
   // the screen is CSS-scaled; map pointer positions back into canvas space
@@ -237,7 +283,7 @@ function mountSignature(root) {
   root.querySelector("[data-sig-clear]").addEventListener("click", () => { if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); drew = false; update(); });
 }
 
-// ================================================================== walkthrough: spec panel
+// ================================================================== walkthrough: spec panel (Spec | Anatomy)
 function exitRow(x, t) {
   const to = x.to ? stepById(x.to) : null;
   const target = to
@@ -246,9 +292,19 @@ function exitRow(x, t) {
   return `<div class="ex"><div class="w">${pick(x.when, t)}</div><div class="r">${target}${x.state ? `<span class="hex ${stateTone(x.state)}">${x.state}</span>` : ""}</div></div>`;
 }
 
-function renderSpec() {
-  const s = stepById(VS.step), t = VS.track, ph = phaseById(s.phase);
+function specHead(s, t) {
+  const ph = phaseById(s.phase);
   const [fg, bg] = TRACK_COLOR[t];
+  return `<div class="sp-eyebrow">${ph.id} &middot; ${ph.name}<span class="trk" style="color:${fg}; background:${bg};">${TRACKS[t].label}</span></div>
+    <div class="sp-title"><span class="sid">${s.id}</span><h2>${s.name}</h2></div>`;
+}
+
+function renderSpec() {
+  const s = stepById(VS.step), t = VS.track;
+  const a = anatomyFor(s.id, t);
+  const tabs = `<div class="sp-tabs" role="tablist"><button class="${VS.tab === "spec" ? "on" : ""}" data-sptab="spec" role="tab">${icon("file-text")}Spec</button><button class="${VS.tab === "anatomy" ? "on" : ""}" data-sptab="anatomy" role="tab">${icon("map-pin")}Anatomy<span class="cnt">${a.parts.length}</span></button></div>`;
+  if (VS.tab === "anatomy") { $("#pv-spec").innerHTML = tabs + specHead(s, t) + anatomyHtml(a); bindAnatomyRows(); return; }
+
   const dev = DEVICE_META[pick(s.device, t)];
   const changed = pick(s.changed, t);
   const exits = pick(s.exits, t) || [];
@@ -256,9 +312,7 @@ function renderSpec() {
   const build = pick(s.screen.build, t);
   const route = pick(s.screen.route, t);
   const dap = pick(s.dap, t);
-  $("#pv-spec").innerHTML = `
-    <div class="sp-eyebrow">${ph.id} &middot; ${ph.name}<span class="trk" style="color:${fg}; background:${bg};">${TRACKS[t].label}</span></div>
-    <div class="sp-title"><span class="sid">${s.id}</span><h2>${s.name}</h2></div>
+  $("#pv-spec").innerHTML = tabs + specHead(s, t) + `
     <p class="sp-purpose">${pick(s.purpose, t)}</p>
     <div class="sp-meta"><span>${icon("user-round")}${pick(s.owner, t)}</span><span>${icon(dev.icon)}${dev.label}</span>${s.branch ? `<span>${icon("git-branch")}Branch</span>` : ""}</div>
     ${changed ? `<div class="sp-changed">${icon("pencil")}<div>${changed}</div></div>` : ""}
@@ -274,6 +328,25 @@ function renderSpec() {
     <div class="sp-sec"><h4>${icon("log-out")}Exit conditions</h4><div class="sp-exit">${exits.map(x => exitRow(x, t)).join("")}</div></div>
     <div class="sp-sec"><h4>${icon("hexagon")}State it records</h4>${state ? `<span class="hex ${stateTone(state)}">${state}</span>` : `<p style="color:var(--muted);">No new funnel state. Progress shows in the exits.</p>`}</div>
     ${dap ? `<div class="sp-sec"><h4>${icon("history")}DAP today</h4><div class="sp-dap">${dap}</div></div>` : ""}`;
+}
+
+function anatomyHtml(a) {
+  if (!a.parts.length && !a.fields.length) {
+    return `<p class="an-intro">No screen on this step, so there is nothing to take apart.</p>${a.states.length ? `<div class="sp-sec"><h4>${icon("layers")}States</h4><ul class="an-list">${a.states.map(([s, w]) => `<li><b>${s}</b><span>${w}</span></li>`).join("")}</ul></div>` : ""}`;
+  }
+  const toLink = (txt) => txt.replace(/\b([PISTONM]\d)\b/g, (m) => stepById(m) ? `<button class="linklike" data-step="${m}">${m}</button>` : m);
+  return `<p class="an-intro">One level below the screen. Numbers match the orange pins on the screen; a grey number is a part that shows only after an action, like the OTP step.</p>
+    <div class="sp-sec"><h4>${icon("map-pin")}Parts</h4><div class="an-parts">${a.parts.map((p, i) => `<div class="an-part" data-n="${i + 1}"><span class="an-num">${i + 1}</span><div><b>${p.label}</b>${p.widget ? `<code>${p.widget}</code>` : ""}${p.note ? `<p>${p.note}</p>` : ""}</div></div>`).join("")}</div></div>
+    ${a.fields.length ? `<div class="sp-sec"><h4>${icon("text-cursor-input")}Fields</h4><table class="an-tbl"><thead><tr><th>Field</th><th>Type</th><th>Source and rule</th></tr></thead><tbody>
+      ${a.fields.map(([f, ty, req, src, rule]) => `<tr><td><b>${f}</b>${req === "Yes" || /^Yes/.test(req) ? ` <span class="req">REQ</span>` : ""}</td><td class="m">${ty}${req === "Read only" ? "<br>read only" : ""}</td><td class="m">${src}${rule ? `<br>${rule}` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${a.actions.length ? `<div class="sp-sec"><h4>${icon("mouse-pointer-click")}Actions</h4><ul class="an-list">${a.actions.map(([c, eff, nx]) => `<li><b>${c}</b><span>${eff}</span>${nx ? `<br><span class="to">&rarr; ${toLink(nx)}</span>` : ""}</li>`).join("")}</ul></div>` : ""}
+    ${a.states.length ? `<div class="sp-sec"><h4>${icon("layers")}States</h4><ul class="an-list">${a.states.map(([s, w]) => `<li><b>${s}</b><span>${w}</span></li>`).join("")}</ul></div>` : ""}`;
+}
+function bindAnatomyRows() {
+  document.querySelectorAll(".an-part").forEach(row => {
+    row.addEventListener("mouseenter", () => highlightPart(row.dataset.n, true));
+    row.addEventListener("mouseleave", () => highlightPart(row.dataset.n, false));
+  });
 }
 
 // ================================================================== blueprint view
@@ -314,11 +387,35 @@ function renderBlueprint() {
   };
   $("#pv-blueprint").innerHTML = `<div class="wrap">
     <h1 class="doc-h">One level deeper, for every step</h1>
-    <p class="doc-sub">Source, screen, entry conditions and exit conditions at three levels: the flow, the phase and the step. Click any row to open its screen. Switch the track at the top to see booked, walk-in or video.</p>
+    <p class="doc-sub">Source, screen, entry conditions and exit conditions at three levels: the flow, the phase and the step. Click any row to open its screen. Switch the track at the top to see booked, walk-in or video. The Fields view goes one level further, to every field on every screen.</p>
     <h3 class="doc-h3">The three flows</h3>
     <div class="flow-cards">${["booked", "walkin", "vtd"].map(flowCard).join("")}</div>
     <h3 class="doc-h3">Phase and step level &middot; ${TRACKS[t].label}</h3>
     ${PHASES.map(phaseBlock).join("")}
+  </div>`;
+}
+
+// ================================================================== fields view (data dictionary)
+function renderFields() {
+  const t = VS.track;
+  let total = 0, screens = 0;
+  const blocks = PHASES.map(ph => {
+    const rows = [];
+    stepsForTrack(t).filter(s => s.phase === ph.id).forEach(s => {
+      const a = anatomyFor(s.id, t);
+      if (a.fields.length) screens++;
+      a.fields.forEach(f => rows.push([s, f]));
+    });
+    total += rows.length;
+    if (!rows.length) return "";
+    return `<div class="bp-phase"><div class="bp-phead"><span class="pv-gl">${ph.id}</span><b>${ph.name}</b><span class="po">${rows.length} fields</span></div>
+      <div class="bp-scroll"><table class="bp"><thead><tr><th style="width:170px;">Step</th><th style="width:170px;">Field</th><th style="width:120px;">Type</th><th style="width:90px;">Required</th><th>Source</th><th>Rule</th></tr></thead>
+      <tbody>${rows.map(([s, [f, ty, req, src, rule]]) => `<tr data-step="${s.id}" data-anatomy="1"><td><span class="sid">${s.id}</span> <span class="nm">${s.name}</span></td><td><b>${f}</b></td><td>${ty}</td><td>${req === "Yes" || /^Yes/.test(req) ? `<span class="req">REQUIRED</span>` : req === "Read only" ? "Read only" : "No"}</td><td>${src || "&mdash;"}</td><td>${rule || "&mdash;"}</td></tr>`).join("")}</tbody></table></div></div>`;
+  }).join("");
+  $("#pv-fields").innerHTML = `<div class="wrap">
+    <h1 class="doc-h">Every field on every screen</h1>
+    <p class="doc-sub">The data dictionary behind the screens, taken from each step's anatomy: ${total} fields across ${screens} screens on the ${TRACKS[t].label} track. Click a row to open that screen with its pins.</p>
+    ${blocks}
   </div>`;
 }
 
@@ -328,37 +425,49 @@ function stepLink(id, label) { return `<button class="linklike" data-step="${id}
 function renderChanges() {
   $("#pv-changes").innerHTML = `<div class="wrap">
     <h1 class="doc-h">What changed after review</h1>
-    <p class="doc-sub">Three notes on the PISTON board, and one on how the calling team works. Here is what each one does to the journey, and to the Leadverse Test Drive Console built earlier.</p>
+    <p class="doc-sub">Three notes on the PISTON board, one on how the calling team works, and the Leadverse TD Journey design file. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card"><div class="q">&ldquo;Use the Leadverse TD Journey file for design and knowledge&rdquo;</div><h4>Screens follow the Leadverse TD Journey design</h4>
+        <p>White theme only. Every screen now uses that file's layout: an icon rail, a lead pane with an AI summary, contact actions, finance and documents, a stage bar (Check-in, DL verify, Car finding, TD live, Disposition), and CarGPT with live transcription.</p>
+        <p>From its flows: check-in as modals with an OTP step, a checked-in screen with a QR to browse cars while waiting, and a purpose-of-visit question; DL verify as its own step; a LIVE badge and live transcription during the drive; the disposition form with outcome, primary objection and agent notes; the Add lead and Add cars drawers.</p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">${stepLink("S1", "Check-in")}${stepLink("S2", "DL verify")}${stepLink("O5", "TD live")}${stepLink("N1", "Disposition")}</div></div>
+      <div class="chg-card"><div class="q">&ldquo;One more depth&rdquo;</div><h4>Every screen, taken apart</h4>
+        <p>Below each screen sits its anatomy: numbered parts shown as orange pins on the screen, the fields it captures with type, source and rule, the actions it fires and what they call, and the states it can be in, like empty, error or done.</p>
+        <p>The Fields view collects every field into one data dictionary for engineering.</p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;"><button class="linklike" data-view="fields">Open the fields</button>${stepLink("S1", "Check-in anatomy")}</div></div>
       <div class="chg-card"><div class="q">&ldquo;Capture intent should be its own persona task&rdquo;</div><h4>The booking call becomes a Tasks persona</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">P1 Capture intent on the lead page &rarr; P2 Pick a slot</span><span class="k">After</span><span class="seq"><em>P1 Lead in queue &rarr; P2 Welcome &rarr; P3 Contact &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book</em></span></div>
-        <p>No lead, no call: every lead with a mobile number lands as a TD booking call task. The agent captures the name, then email and mobile, and that creates the order (BOOKING INITIATED). Then the pitch, then car discovery with likes and dislikes, then the final car and TD or VTD, then the slot. Booking closes the task.</p>
-        <p>A callback or no answer sends the task back to the queue. It resumes at the step where the call stopped.</p>
+        <p>No lead, no call: every lead with a mobile number lands as a TD booking call task. The agent captures the name, then email and mobile, and that creates the order (BOOKING INITIATED). Then the pitch, car discovery with likes and dislikes, the final car and TD or VTD, then the slot. Booking closes the task.</p>
         <div style="display:flex; gap:12px; flex-wrap:wrap;">${stepLink("P1", "Queue")}${stepLink("P3", "Contact")}${stepLink("P5", "Discovery")}${stepLink("P7", "Book")}</div></div>
       <div class="chg-card"><div class="q">&ldquo;TD consent sign-off after TD start&rdquo;</div><h4>The TD consent moves to the car</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">S Check-in: OTP, DL, <em>TD declaration</em>, recording consent</span><span class="k">After</span><span class="seq">O3 Start TD &rarr; <em>O4 Consent</em> &rarr; O5 Drive</span></div>
-        <p>Consent is about one drive in one car, so it needs the car, plate and start odometer that only exist once the TD starts. Not every visitor drives, so asking at the desk adds friction for nothing. It is signed once per car. A VTD needs none.</p>
-        <p>DAP already unlocks the declaration only after Start Test Drive, but it checks for it at Mark Test Drive Complete, so today a customer can drive before signing. ${stepLink("O4")} makes it a gate before the car moves.</p>
+        <p>Consent is about one drive in one car, so it needs the car, plate and start odometer that exist only once the TD starts. It is signed once per car; a VTD needs none. DAP already unlocks the declaration only after Start Test Drive but checks it at Mark Test Drive Complete, so today a customer can drive before signing. ${stepLink("O4")} makes it a gate before the car moves.</p>
         <div style="display:flex; gap:12px; flex-wrap:wrap;">${stepLink("S1", "Check-in")}${stepLink("O3", "Start TD")}${stepLink("O4", "Consent")}</div></div>
       <div class="chg-card"><div class="q">&ldquo;Handshake ke baad car finding journey&rdquo;</div><h4>One owner, from the handshake</h4>
-        <div class="ba"><span class="k">Before</span><span class="seq">Front desk finds the car, the DA meets the customer at the yard. Booked customers only reconfirm.</span><span class="k">After</span><span class="seq">S2 Assign DA &rarr; <em>T1 Handshake</em> &rarr; <em>T2 Needs &rarr; T3 Cars &rarr; T4 Promise &rarr; T5 Confirm</em></span></div>
-        <p>The DA meets the customer at the desk and runs car finding for everyone. A booked customer starts from their booked car, with live alternatives next to it, so a change of mind becomes a second drive instead of a lost customer.</p>
-        <p>The handshake is a real state: DAP hub work orders already have MET_CUSTOMER.</p>
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">${stepLink("S2", "Assign DA")}${stepLink("T1", "Handshake")}${stepLink("T3", "Cars")}</div></div>
+        <div class="ba"><span class="k">Before</span><span class="seq">Front desk finds the car, the DA meets the customer at the yard. Booked customers only reconfirm.</span><span class="k">After</span><span class="seq">S3 Assign DA &rarr; <em>T1 Handshake</em> &rarr; <em>T2 Needs &rarr; T3 Cars &rarr; T4 Promise &rarr; T5 Confirm</em></span></div>
+        <p>The DA meets the customer at the desk and runs car finding for everyone. A booked customer starts from the booked car with live alternatives beside it, plus anything liked from the waiting-area QR. The handshake is a real state: DAP hub work orders already have MET_CUSTOMER.</p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">${stepLink("S3", "Assign DA")}${stepLink("T1", "Handshake")}${stepLink("T3", "Cars")}</div></div>
       <div class="chg-card"><div class="q">&ldquo;Ek level depth: source, screen, entry, exit&rdquo;</div><h4>Every step, one level deeper</h4>
-        <p>${STEPS.length} steps, each with its source, its screen, its entry conditions and its exit conditions, per track. The same four are given for each flow and each phase.</p>
-        <p>Every screen is a real Leadverse screen: the same sidebar, queue, journey stepper, left pane and modals as the Test Drive Console, with a proposed route for each.</p>
+        <p>${STEPS.length} steps, each with its source, screen, entry conditions and exit conditions, per track. The same four are given for each flow and each phase.</p>
         <div><button class="linklike" data-view="blueprint">Open the blueprint</button></div></div>
+    </div>
+
+    <h3 class="doc-h3">Taken from the Leadverse TD Journey file</h3>
+    <div class="fig-strip">
+      <div><b>Stage bar</b>Check-in, DL verify, TD booked, TD live, Disposition. Kept, with Car finding in place of TD booked to match the review.</div>
+      <div><b>Check-in modals</b>Details and Send OTP, OTP, a checked-in screen with a browse QR, then onboarding questions starting with the purpose of the visit.</div>
+      <div><b>Lead pane</b>AI summary, contact actions, finance (credit score, pre-approval) and documents, on every step of the visit.</div>
+      <div><b>TD live and disposition</b>LIVE and TD done badges, live note and transcription with a timer, then outcome, primary objection and agent notes.</div>
     </div>
 
     <h3 class="doc-h3">What this does to the Test Drive Console</h3>
     <div class="bp-scroll"><table class="cmp-tbl">
-      <thead><tr><th style="width:150px;">Who</th><th>Console today</th><th>PISTON v2 screens</th><th>Effect</th></tr></thead>
+      <thead><tr><th style="width:150px;">Who</th><th>Console today</th><th>PISTON screens</th><th>Effect</th></tr></thead>
       <tbody>
         <tr><td><b>Calling agent</b></td><td class="seq">Not in the Console</td><td class="seq">P1 Queue &rarr; P2 Welcome &rarr; P3 Contact &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book</td><td>A new persona in Tasks (b2c-lead-td-booking-by-cc). The order is created on the call and booked at its last step.</td></tr>
-        <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign DA</td><td class="seq">I1 New walk-in &rarr; S1 Check-in &rarr; S2 Assign DA</td><td>Car choice and order creation move to the DA, after the handshake. The visit exists before the order.</td></tr>
-        <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign DA</td><td class="seq">I1 Mark arrived &rarr; S1 Check-in &rarr; S2 Assign DA</td><td>Adds an arrival event and recording consent. No TD consent at the desk.</td></tr>
-        <tr><td><b>DA</b></td><td class="seq">Conduct TD &rarr; Select VAS &rarr; Confirm VAS &rarr; Payment &rarr; Token paid</td><td class="seq">T1 Handshake &rarr; T2&ndash;T5 Car finding &rarr; O1&ndash;O6 Test drive &rarr; N1 Debrief &rarr; N2 Token &rarr; N3 Handoff</td><td>The DA's journey starts at the handshake and now covers car finding and the drive itself. VAS moves into the delivery journey.</td></tr>
+        <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign DA</td><td class="seq">I1 Add lead &rarr; S1 Check-in &rarr; S2 DL verify &rarr; S3 Assign DA</td><td>Car choice and order creation move to the DA, after the handshake. The visit exists before the order.</td></tr>
+        <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign DA</td><td class="seq">I1 Mark arrived &rarr; S1 Check-in &rarr; S2 DL verify &rarr; S3 Assign DA</td><td>Adds an arrival event, recording consent and a DL check. No TD consent at the desk.</td></tr>
+        <tr><td><b>DA</b></td><td class="seq">Conduct TD &rarr; Select VAS &rarr; Confirm VAS &rarr; Payment &rarr; Token paid</td><td class="seq">T1 Handshake &rarr; T2&ndash;T5 Car finding &rarr; O1&ndash;O6 Test drive &rarr; N1 Disposition &rarr; N2 Token &rarr; N3 Handoff</td><td>The DA's journey starts at the handshake and covers car finding and the drive itself. VAS moves into the delivery journey.</td></tr>
         <tr><td><b>Manager</b></td><td class="seq">Oversight table</td><td class="seq">M1 Live funnel</td><td>Each hexagon on the board becomes a funnel row, with time between states.</td></tr>
       </tbody></table></div>
 
@@ -366,17 +475,20 @@ function renderChanges() {
     <div class="decide">
       <div><b>A visit before an order</b>A walk-in checks in with no car, so the journey keys on a visit (VS-2041) until T5 creates the order (BK-89004).</div>
       <div><b>One visit, several drives</b>Each car gets its own TD record and its own consent. A booked customer can add a second car without a new booking.</div>
-      <div><b>Three new states</b>Arrival (an event), TD CONSENT SIGNED, and MET CUSTOMER, which DAP already has for hub work orders.</div>
+      <div><b>New states</b>Arrival (an event), DL VERIFIED, TD CONSENT SIGNED, and MET CUSTOMER, which DAP already has for hub work orders.</div>
       <div><b>Payment from the gateway</b>TOKEN PAID comes from the payment webhook. The Console's Mark as paid button is a prototype shortcut only.</div>
     </div>
 
     <h3 class="doc-h3">Decisions needed</h3>
     <div class="decide">
       <div><b>VAS before the token?</b>The Console sells VAS before payment, following the earlier rule. PISTON, which she approved, leaves VAS to the delivery journey so nothing sits between ready to buy and the token. Pick one.</div>
-      <div><b>The DA's device</b>These screens assume a tablet for the DA on the floor. Leadverse is desktop-first today, so this is new layout work.</div>
+      <div><b>The DA's device</b>These screens assume a tablet for the DA on the floor. Leadverse is desktop-first today.</div>
       <div><b>Recording consent</b>The screens assume a customer can say no and still get the full visit, with AI notes off.</div>
       <div><b>No valid licence</b>The screens allow car finding and block the drive. Confirm this, and whether a home-country licence is accepted.</div>
-      <div><b>An order before the car is final</b>P3 creates the order from name, mobile and email, with the lead's car of interest, and P6 can change the car. Confirm OMS allows that, or move order creation to P6 when the lead has no car yet.</div>
+      <div><b>An order before the car is final</b>P3 creates the order with the lead's car of interest, and P6 can change the car. Confirm OMS allows that, or create the order at P6 when the lead has no car yet.</div>
+      <div><b>Gender and pincode at check-in</b>The TD Journey file asks for both. The screens use emirate and area instead of a pincode and leave gender out. Add gender back only if something uses it.</div>
+      <div><b>Who fills check-in</b>The file's check-in copy speaks to the customer. The screens assume the customer fills it on the desk tablet, with the receptionist helping.</div>
+      <div><b>Credit score</b>The file shows a CIBIL score, which is Indian. The screens show an AECB score for the UAE. Confirm Leadverse can read it.</div>
     </div>
   </div>`;
 }
@@ -385,16 +497,31 @@ function renderChanges() {
 function render() {
   document.querySelectorAll(".pv-view").forEach(v => v.classList.toggle("on", v.id === "view-" + VS.view));
   renderTop();
-  if (VS.view === "walk") { renderRail(); renderStage(); renderSpec(); }
+  if (VS.view === "walk") { renderRail(); renderSpec(); renderStage(); }
   if (VS.view === "blueprint") renderBlueprint();
+  if (VS.view === "fields") renderFields();
   if (VS.view === "changes") renderChanges();
   writeHash();
   drawIcons();
-  if (VS.view === "walk") fitStage();
+  if (VS.view === "walk") { fitStage(); drawPins(); }
+}
+
+function setTab(tab) {
+  VS.tab = tab;
+  renderSpec();
+  renderStage();
+  drawIcons();
+  fitStage();
+  drawPins();
 }
 
 document.addEventListener("click", (e) => {
-  if (e.target.closest("[data-focus]")) { $("#view-walk").classList.toggle("focus"); renderStage(); drawIcons(); return; }
+  if (e.target.closest(".scr")) return;
+  if (e.target.closest("[data-focus]")) { $("#view-walk").classList.toggle("focus"); renderStage(); drawIcons(); fitStage(); drawPins(); return; }
+  const pins = e.target.closest("[data-pins]");
+  if (pins && !pins.disabled) { setTab(VS.tab === "anatomy" ? "spec" : "anatomy"); return; }
+  const sp = e.target.closest("[data-sptab]");
+  if (sp) { setTab(sp.dataset.sptab); return; }
   const tr = e.target.closest("[data-track]");
   if (tr) { setTrack(tr.dataset.track); return; }
   const vw = e.target.closest("[data-view]");
@@ -409,7 +536,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   const st = e.target.closest("[data-step]");
-  if (st && !e.target.closest(".scr")) { go(st.dataset.step); }
+  if (st) { if (st.dataset.anatomy) VS.tab = "anatomy"; go(st.dataset.step); }
 });
 
 document.addEventListener("keydown", (e) => {
@@ -421,8 +548,8 @@ document.addEventListener("keydown", (e) => {
   if (list[i]) { e.preventDefault(); go(list[i].id); }
 });
 
-if (window.ResizeObserver) new ResizeObserver(() => fitStage()).observe($("#pv-stage"));
-window.addEventListener("resize", fitStage);
+if (window.ResizeObserver) new ResizeObserver(() => { fitStage(); drawPins(); }).observe($("#pv-stage"));
+window.addEventListener("resize", () => { fitStage(); drawPins(); });
 window.addEventListener("hashchange", () => { readHash(); render(); });
 
 readHash();
