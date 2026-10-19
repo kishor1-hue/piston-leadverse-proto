@@ -4,16 +4,19 @@ A screen spec for CARS24's ideal test-drive journey in the UAE and Australia, dr
 
 Every step has its **source**, its **screen**, its **entry conditions** and its **exit conditions**, for three tracks: booked hub TD, walk-in hub TD and video TD. One level below that, every screen has its **anatomy**: numbered parts (shown as pins on the screen), the fields it captures, the actions it fires and the states it can be in.
 
-## Markets and the two ways to check in
+## Markets and the ground journey
 
 The journey is built once and configured per market. Switch **UAE** or **Australia** at the top: people, cars, money, documents, hub and copy follow the market.
 
-After Mark arrived, the customer checks in one of two ways, in any market:
+On the ground:
 
-- **At the desk**: the receptionist fills the check-in with the customer on the desk tablet. Default in the UAE (and India).
-- **By link**: Mark arrived sends a one-time link on WhatsApp and email. It opens a form-only page on the customer's own phone, with no Leadverse and no login. Each answer syncs to the visit as it is given, and submitting checks the customer in. Default in Australia.
+- **Welcome and check-in are one gesture (I1).** Checking in is the arrival; there is no separate Mark arrived. The customer scans the **QR on their seat** and fills a form-only page on their own phone, or a **receptionist or DA** fills the same form with them. Booked and walk-in customers use the same form. Australia defaults to the seat QR; the UAE (and India) default to staff.
+- **A token on the ground TV (I2).** Hospital logic: every check-in gets a token (B for bookings, W for walk-ins). The TV and the customer's phone show each token's status, DA and car, and change only when staff act. Use **Play the staff actions** on I2 to watch both update.
+- **DA assigned automatically (S1)**, by availability and today's slots; staff assign by hand only when every DA is busy. The **handshake (T1)** comes after that, at the customer's seat.
+- **The Yardie.** Cars wait in a yard about 500 m away. A booked car is prepped before the day and brought over when the customer checks in (S2). A walk-in's car is prepped once it is chosen, then brought over (O1). Each tap updates the TV.
+- **DL verify (O4)** happens right before Start TD, done by the DA at the car.
 
-On S1 by link, the stage shows the receptionist's panel and the customer's phone side by side. Fill the form on the phone and watch the answers land in the panel. **Screen only** shows both larger. The *What changed* view lists what is set per market and the decisions still open.
+Steps with two devices (I1 by seat QR, I2, S2, O1) show them side by side. **Screen only** shows them larger. The *What changed* view lists what is set per market and the decisions still open.
 
 No build step. Plain HTML, CSS and JavaScript. All people, cars and numbers are mock data.
 
@@ -31,20 +34,20 @@ python3 -m http.server 8000
 - **Fields**: every field on every screen in one data dictionary.
 - **What changed**: the review notes applied, what they do to the Test Drive Console, and the decisions still open.
 
-Deep links: `#booked-S1`, `#walkin-T2`, `#vtd-O2`, `#blueprint`, `#fields`, `#changes`. Prefix `au-` for Australia (`#au-booked-S1`), and add `-desk` or `-link` when the check-in way differs from the market default (`#booked-S1-link`).
+Deep links: `#booked-I1`, `#walkin-T2`, `#vtd-O3`, `#blueprint`, `#fields`, `#changes`. Prefix `au-` for Australia (`#au-booked-I1`), and add `-staff` or `-qr` when the check-in way differs from the market default (`#booked-I1-qr`).
 
 ## Files
 
 - `index.html`: the page.
-- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 33 steps, plus mock people and cars per market and the copy layer for Australia.
+- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 34 steps, plus mock people and cars per market and the copy layer for Australia.
 - `piston-anatomy.js`: parts, fields, actions and states for every screen.
-- `piston-screens.js`: one Leadverse screen per step, plus the customer's phone page for check-in by link.
+- `piston-screens.js`: one Leadverse screen per step, the ground TV board, and the phone screens: the seat QR check-in, the customer's token page and the Yardie's task list.
 - `piston.js`: the viewer.
 - `piston.css`: the viewer and the TD Journey components.
 - `style.css`: shared Leadverse tokens and base styles, also used by the Test Drive Console.
 - `theme.js`: the Light / Dark toggle.
 - `artifact-entry.html`: the same page without the document wrapper, for publishing as a Claude artifact.
-- `board-v2.mmd`: Mermaid source of the PISTON v2 diagram on the FigJam board. Step IDs on the board match the IDs here.
+- `board-v2.mmd`: Mermaid source of the PISTON v2 diagram on the FigJam board. The board predates later reviews, so its Plan, Introduce, Sign-in and On the road steps differ from the IDs here.
 
 ## Theme
 

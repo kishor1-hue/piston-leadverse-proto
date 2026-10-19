@@ -2,7 +2,7 @@
 // For every step: the numbered parts of its screen (pins on the screen), the fields it captures,
 // the actions it fires, and the states it can be in. Part keys match data-part="key" in piston-screens.js.
 // An entry can be keyed like the step spec: by track { hub, booked, walkin, vtd, all }, market { ae, au }
-// or check-in way { desk, link }.
+// or check-in way { staff, qr }.
 // API names marked "DAP today" exist in DAP; "Proposed" ones do not exist yet.
 
 const SHARED_PARTS = {
@@ -12,41 +12,6 @@ const SHARED_PARTS = {
   foot: ["Footer actions", "SHELL_CTAS", "Previous, then the step's exits. The primary one fires the main exit and refetches the journey"],
   call: ["Call bar", "TELEPHONY", "Live call with recording, mute, hold and end. Click-to-call through the telephony provider"],
   video: ["Video panel", "IFRAME_RENDERER", "The video call, recorded and transcribed"],
-};
-
-// S1 by link: the receptionist's panel (pins 1 to 6) and the customer's phone (the ph- parts)
-const SELF_CHECKIN_BASE = {
-  parts: [["lead", null, null, "Status pill moves from Link sent to Filling in check-in to Checked in, live"],
-    ["stages", null, null, "Check-in shows Link sent, then Filling; done when the form is submitted, and DL verify turns current"],
-    ["link-status", "Link status", "LINK_STATUS", "Sent, delivered, opened, filling, submitted, each with its time"],
-    ["answers", "Answers, synced live", "SYNC_LIST", "Each answer lands here as the customer gives it; anything already known is filled in"],
-    ["link-actions", "Link actions", "BUTTON_GROUP", "Resend, show the link as a QR, or check the customer in at the desk"],
-    ["foot", null, null, "Proceed to DL verify unlocks only when the form is submitted"],
-    ["ph-msg", "Message with the link", "NOTIFICATION", "WhatsApp template and email, sent by Mark arrived. One link per visit, no personal data in it"],
-    ["ph-form", "About today", "PUBLIC_FORM", "A form-only page on the customer's phone. No Leadverse, no login. Rendered from the same form schema as the desk modal"],
-    ["ph-licence", "Licence", "UPLOAD", "Shows the licence already on file, or takes photos of both sides"],
-    ["ph-consent", "Consent", "RADIO", "Recording consent with no default choice, and the market's privacy wording"],
-    ["ph-done", "You're checked in", "SUCCESS", "Who meets them and where, and a link to browse cars while they wait"]],
-  actions: [["Open check-in", "Proposed: checkin.link_opened", "Panel: Opened"],
-    ["Next, on each part", "Proposed: checkin.section_saved. Answers autosave, so nothing is lost if the customer stops", "Panel: answers appear"],
-    ["Check in", "Proposed: checkin.submitted, through the same check-in API as the desk, with channel = link", "CHECKED IN; S2"],
-    ["Resend link", "Notification engine: a new token; the old link stops working", "Panel: Sent again"],
-    ["Check in at the desk", "Opens the desk modal with what the customer already filled", "S1 at the desk"]],
-  states: [["Link sent", "Waiting for the customer to open it"], ["Filling", "1 or 2 of 3 parts saved; answers appear as they are given"],
-    ["Not opened in 5 min", "Amber nudge on the visit and on the Today list"], ["Submitted", "CHECKED IN; Proceed to DL verify unlocks"],
-    ["Link expired or already used", "The page says so and points to the front desk; nothing can be changed from it"]],
-};
-const SELF_CHECKIN = {
-  booked: { ...SELF_CHECKIN_BASE,
-    fields: [["Check-in link", "One-time token", "Yes", "Created at Mark arrived (I1)", "Tied to this visit and to the contact it went to; works until the visit ends"],
-      ["Visit purpose", "Text", "Read only", "Booking", "Test drive"], ["Accompanied by", "Chips", "No", "Customer", "Just me, partner, family, a friend"],
-      ["Paying by", "Chips", "No", "Customer", "Cash, finance, not sure yet"], ["Area", "Text", "No", "Booking, prefilled", "Emirate and area"],
-      ["Licence", "Image", "No", "Docs, on file from P8", "Needed to drive; checked at S2"], ["Recording consent", "Yes or no", "Yes", "Customer", "No default; no turns AI notes off for this visit"]] },
-  walkin: { ...SELF_CHECKIN_BASE,
-    fields: [["Check-in link", "One-time token", "Yes", "Created at Add lead (I1)", "Sent to the mobile and email just added"],
-      ["Purpose of visit", "Option cards", "Yes", "Customer", "Only buy or test drive continues to a DA; the others go to their desk"],
-      ["Accompanied by", "Chips", "No", "Customer", ""], ["Paying by", "Chips", "No", "Customer", "Cash, finance, not sure yet"], ["Area", "Text", "No", "Customer", "Emirate and area"],
-      ["Licence front and back", "Image", "No", "Phone camera, saved to Docs", "Can be scanned at S2 instead"], ["Recording consent", "Yes or no", "Yes", "Customer", "No default"]] },
 };
 
 const ANATOMY = {
@@ -120,88 +85,105 @@ const ANATOMY = {
   // ------------------------------------------------------------ I · Introduce
   I1: {
     booked: {
-      parts: [["table", "Today's visits", "TABLE", "Bookings and walk-ins at this hub today. By link, each row shows the customer's check-in as it happens"], ["mark-arrived", "Mark arrived", "ROW_ACTION", "Logs the arrival time and opens the check-in choice"],
-        ["checkin-way", "How will they check in?", "CHOICE_POPOVER", "Send check-in link or Check in at the desk. The market's default is picked; the receptionist can switch for this visit"]],
-      fields: [["Status", "Chip", "Read only", "Visit", "Expected, arrived, checking in, checked in, TD conducted, token paid"],
-        ["Check-in way", "Link or desk", "Yes", "Market default (tenant config)", "Australia: link. UAE: desk. Can be changed per visit"]],
-      actions: [["Mark arrived, with Send check-in link", "Proposed: visit.arrived, then checkin.link_sent on WhatsApp and email; the pre-assigned DA gets a heads-up", "I2, then S1 by link"],
-        ["Mark arrived, with Check in at the desk", "Proposed: visit.arrived; the pre-assigned DA gets a heads-up", "I2, then S1 at the desk"]],
-      states: [["Early", "Arrived before the slot shows Early"], ["Late", "15 min past the slot without arrival shows Late"], ["No mobile or email", "Send check-in link is disabled; the desk is the only way"]],
+      staff: {
+        parts: [["table", "Today's visits", "TABLE", "Bookings and walk-ins at this hub today, with each token. Check in is the row action; there is no Mark arrived"],
+          ["check-in", "Check in", "ROW_ACTION", "Opens the check-in form for this booking"], ["details", "Check-in form", "MODAL_FORM", "The same form the seat QR opens"],
+          ["booking", "Booking found", "INFO", "Found by mobile in today's bookings, licence already on file"], ["consent", "Recording consent", "TOGGLE", "Switches AI notes and transcription on or off for the visit"],
+          ["otp", "OTP", "OTP_INPUT", "Shown after Send OTP"], ["token", "Checked in", "SUCCESS", "Tells the customer where to sit and that their DA is coming"],
+          ["token-card", "Token", "TOKEN_CARD", "B for bookings, W for walk-ins, numbered in order; on the TV and on WhatsApp"]],
+        fields: [["Accompanied by", "Select", "No", "Asked", "Alone, spouse, family, friend"], ["Paying by", "Select", "No", "Asked", "Cash, loan EMI, not sure"], ["Area", "Select", "No", "Booking (prefilled)", "Emirate and area"],
+          ["Recording consent", "Toggle", "Yes", "Asked", "No turns AI notes off for this visit"], ["OTP", "6 digits", "Yes", "User auth", "3 tries; resend after 30 s"], ["Token", "Text", "Read only", "Token service, at check-in", "Hub queue, in order"]],
+        actions: [["Check in", "Opens the form", "Form"], ["Send OTP", "User auth: OTP to the booked mobile", "OTP step"],
+          ["Verify OTP", "Proposed: visit.checked_in with channel = staff; token issued; DA auto-assignment and the Yardie's task start. DAP today: POST /customer-check-in/{customerId}", "CHECKED IN; I2"]],
+        states: [["Expected", "Booked for today, not checked in"], ["Wrong OTP", "Tries left shown; after 3, an Emirates ID check"], ["Checked in", "Token shown, also on the TV and WhatsApp"]],
+      },
+      qr: {
+        parts: [["table", "Today's visits, live", "TABLE", "The row moves from Expected to Checking in by QR to Checked in, with the token"],
+          ["live-checkin", "Live check-in", "SIDE_PANEL", "Who is checking in from which seat; each answer lands here as it is given"],
+          ["ph-scan", "Seat QR", "QR_STICKER", "One code per hub, on every seat; it opens the check-in page"],
+          ["ph-mobile", "Mobile and OTP", "PUBLIC_FORM", "The QR is the same for everyone, so the mobile proves who is checking in"],
+          ["ph-today", "About today", "PUBLIC_FORM", "Booking found, then accompanied by, paying by and area. The same form schema as the staff form"],
+          ["ph-consent", "Licence and consent", "PUBLIC_FORM", "Licence on file; recording consent with no default; the market's privacy wording"],
+          ["ph-token", "Your token", "TOKEN_PAGE", "Token, live status, DA and car: the same page as I2"]],
+        fields: [["Mobile", "Phone", "Yes", "Typed", "Today's booking is looked up by it"], ["OTP", "6 digits", "Yes", "SMS, autofilled", "3 tries"], ["Accompanied by", "Chips", "No", "Customer", "Just me, partner, family, a friend"],
+          ["Paying by", "Chips", "No", "Customer", "Cash, finance, not sure yet"], ["Area", "Text", "No", "Booking, prefilled", "Emirate and area"], ["Recording consent", "Yes or no", "Yes", "Customer", "No default; no turns AI notes off"],
+          ["Token", "Text", "Read only", "Token service", "Shown at the end, and on the TV"]],
+        actions: [["Scan the seat QR", "Opens the hub's check-in page. Proposed: checkin.started", "Mobile step"], ["Verify and continue", "User auth verify; today's booking found by the mobile", "About today"],
+          ["Next", "Proposed: checkin.section_saved, autosaved", "The side panel updates"], ["Check in", "Proposed: visit.checked_in with channel = qr; token issued", "CHECKED IN; I2"],
+          ["Finish it for them", "Opens the staff form with what the customer already filled", "I1 by staff"]],
+        states: [["Scanning", "The row shows Checking in by QR"], ["Stuck", "No answer for 3 min: the receptionist gets a nudge"], ["Checked in", "The row turns green with the token"]],
+      },
     },
     walkin: {
-      parts: [["add-lead-btn", "New walk-in", "BUTTON", "Opens the Add lead drawer"], ["add-lead", "Add lead information", "DRAWER_FORM", "First name, last name, email, mobile. From the TD Journey file"],
-        ["checkin-way", "How will they check in?", "CHOICE", "The same choice as for a booking; the link goes to the mobile and email just typed"], ["table", "Today's visits", "TABLE", "The new walk-in appears at the top"]],
-      fields: [["First name", "Text", "Yes", "Typed", ""], ["Last name", "Text", "Yes", "Typed", ""], ["Email ID", "Email", "No", "Typed", "Valid format"], ["Mobile number", "Phone", "Yes", "Typed", "UAE mobile; checked for an existing lead first"],
-        ["Check-in way", "Link or desk", "Yes", "Market default (tenant config)", "Australia: link. UAE: desk"]],
-      actions: [["Add lead", "Lead service: create the lead (dedupe on mobile); visit created; by link, checkin.link_sent", "I2"]],
-      states: [["Duplicate", "Mobile already exists: open that lead instead"]],
+      staff: {
+        parts: [["table", "Today's visits", "TABLE", "The new walk-in sits at the top"], ["check-in", "Check in", "ROW_ACTION", "Opens the form for a new walk-in"],
+          ["details", "Check-in form", "MODAL_FORM", "Name, mobile and email first (this is Add lead), then the same questions"], ["purpose", "Purpose of visit", "CHIPS", "Only buy or test drive goes on to a DA"],
+          ["consent", "Recording consent", "TOGGLE", "Switches AI notes on or off"], ["otp", "OTP", "OTP_INPUT", "Shown after Send OTP"], ["token", "Checked in", "SUCCESS", "Where to sit; a DA is being assigned"],
+          ["token-card", "Token", "TOKEN_CARD", "W for walk-ins, numbered in order"]],
+        fields: [["First name", "Text", "Yes", "Typed", ""], ["Last name", "Text", "Yes", "Typed", ""], ["Mobile", "Phone", "Yes", "Typed", "UAE mobile; checked for an existing lead first"], ["Email", "Email", "No", "Typed", "Valid format"],
+          ["Purpose of visit", "Chips", "Yes", "Asked", "Only buy or test drive continues to a DA"], ["Accompanied by", "Select", "No", "Asked", ""], ["Paying by", "Select", "No", "Asked", "Cash, loan EMI, not sure"],
+          ["Area", "Select", "No", "Asked", "Emirate and area"], ["Recording consent", "Toggle", "Yes", "Asked", ""], ["OTP", "6 digits", "Yes", "User auth", "3 tries"], ["Token", "Text", "Read only", "Token service", "Hub queue, in order"]],
+        actions: [["Check in", "Opens the form", "Form"], ["Send OTP", "User auth: OTP to the mobile just typed", "OTP step"], ["Verify OTP", "Lead service: create the lead (dedupe on mobile); visit created; token issued", "CHECKED IN; I2"]],
+        states: [["Duplicate", "The mobile already has a lead: that lead is used"], ["Other purpose", "Drop-off, pickup, service or selling: routed to that desk"], ["Wrong OTP", "Tries left shown"]],
+      },
+      qr: {
+        parts: [["table", "Today's visits, live", "TABLE", "A new row appears as the walk-in scans the seat QR"], ["live-checkin", "Live check-in", "SIDE_PANEL", "Name, purpose and the rest land here as they are given"],
+          ["ph-scan", "Seat QR", "QR_STICKER", "The same code on every seat"], ["ph-mobile", "Mobile and OTP", "PUBLIC_FORM", "No booking found on this mobile, so the walk-in questions follow"],
+          ["ph-you", "About you", "PUBLIC_FORM", "Name, email and the purpose of the visit: this creates the lead"], ["ph-today", "About today", "PUBLIC_FORM", "Accompanied by, paying by, area"],
+          ["ph-consent", "Licence and consent", "PUBLIC_FORM", "Licence photos are optional here; recording consent with no default"], ["ph-token", "Your token", "TOKEN_PAGE", "The same page as I2"]],
+        fields: [["Mobile", "Phone", "Yes", "Typed", "Checked for an existing lead"], ["OTP", "6 digits", "Yes", "SMS, autofilled", "3 tries"], ["First name", "Text", "Yes", "Customer", ""], ["Last name", "Text", "Yes", "Customer", ""],
+          ["Email", "Email", "No", "Customer", "Valid format"], ["Purpose of visit", "Option cards", "Yes", "Customer", "Only buy or test drive continues to a DA"], ["Accompanied by", "Chips", "No", "Customer", ""],
+          ["Paying by", "Chips", "No", "Customer", ""], ["Area", "Text", "No", "Customer", "Emirate and area"], ["Licence front and back", "Image", "No", "Phone camera, saved to Docs", "Or shown to the DA at the car"],
+          ["Recording consent", "Yes or no", "Yes", "Customer", "No default"], ["Token", "Text", "Read only", "Token service", ""]],
+        actions: [["Scan the seat QR", "Opens the hub's check-in page", "Mobile step"], ["Verify and continue", "User auth verify; no booking found", "About you"],
+          ["Next (About you)", "Lead service: create the lead (dedupe on mobile); visit created", "About today"], ["Check in", "Proposed: visit.checked_in with channel = qr; token issued", "CHECKED IN; I2"],
+          ["Finish it for them", "Opens the staff form with what was filled", "I1 by staff"]],
+        states: [["Other purpose", "The page points them to that desk"], ["Stuck", "No answer for 3 min: the receptionist gets a nudge"]],
+      },
     },
     vtd: {
-      parts: [["video"], ["stages"], ["waiting", "Waiting room", "CARD", "Booking details while the customer waits"], ["foot"]],
-      fields: [],
-      actions: [["Admit and start the call", "Video provider: admit; DAP today: CUSTOMER_JOINED_CALL", "I2"]],
-      states: [["Not joined", "10 min after the slot: callback (P9)"]],
+      parts: [["video"], ["stages"], ["waiting", "Waiting room", "CARD", "Booking details while the customer joins"], ["otp", "OTP", "OTP_INPUT", "Read out on the call"], ["consent", "Recording consent", "TOGGLE", "Asked on camera"], ["foot"]],
+      fields: [["OTP", "6 digits", "Yes", "User auth", "3 tries"], ["Recording consent", "Toggle", "Yes", "Asked", "No turns AI notes off"]],
+      actions: [["Admit, then Verify OTP", "Video provider: admit; user auth verify. DAP today: CUSTOMER_JOINED_CALL", "VTD CHECKED IN; T2"]],
+      states: [["Not joined", "10 min after the slot: callback (P9)"], ["Wrong OTP", "Tries left shown"]],
     },
   },
-  I2: { parts: [], fields: [], actions: [], states: { hub: { desk: [["No screen", "A human moment. The arrival time from I1 starts the clock"]],
-    link: [["No screen", "A human moment. The check-in link is already on the customer's phone"], ["Nothing arrived", "After a minute, the receptionist offers the desk instead"]] },
-    vtd: [["No screen", "A human moment. The arrival time from I1 starts the clock"]] } },
-
-  // ------------------------------------------------------------ S · Sign-in
+  I2: {
+    parts: [["tv", "Ground TV", "HUB_BOARD", "Full-screen board for everyone in the hub; read-only"], ["tv-row", "This customer's token", "BOARD_ROW", "Status, DA, car and wait time. Each changes only when staff act"],
+      ["tv-qr", "Check-in QR", "QR", "For anyone who missed the one on their seat"], ["tv-legend", "What the statuses mean", "LEGEND", "Waiting, DA coming, with your DA, car ready, on test drive"],
+      ["ph-token", "Token page", "TOKEN_PAGE", "The same token on the customer's phone, with their DA and car. Opened from the check-in, or the WhatsApp link"]],
+    fields: [["Token", "Text", "Read only", "Token service", "B for bookings, W for walk-ins, in order per hub and day"], ["Name", "Text", "Read only", "Visit", "First name and initial only"],
+      ["Status", "Chip", "Read only", "State events", "Waiting, DA coming, with your DA, car ready, on test drive, wrapping up"], ["DA", "Text", "Read only", "Assignment (S1)", "First name"],
+      ["Car", "Text", "Read only", "Yard tasks (S2, O1)", "In the yard, being prepped, on its way, at the hub, on the road"], ["Waiting", "Minutes", "Read only", "Since check-in", "Until the handshake; amber past 5 min"]],
+    actions: [["None on the TV or the page", "Both are read-only. Staff actions move them: DA auto-assigned (S1), Yardie picks up and parks the car (S2, O1), handshake (T1), car chosen (T5), Start TD (O5)", ""]],
+    states: [["Late", "Wait time turns amber past the target"], ["Off the board", "5 min after the visit ends"], ["Several cars", "The car cell shows the next car to drive"]],
+  },
   S1: {
-    booked: { desk: {
-      parts: [["lead"], ["stages", null, null, "Check-in is the current stage"], ["empty", "Not checked in yet", "EMPTY_STATE", "Shows until check-in is done; Start check-in opens the modal"],
-        ["send-link", "Send a check-in link instead", "LINK_BUTTON", "The other way to check in: the customer fills the same form on their phone"],
-        ["details", "Check-in details", "MODAL_FORM", "Hub, accompanied by, financial interest, area; prefilled from the booking"], ["consent", "Recording consent", "TOGGLE", "Switches AI notes and transcription on or off for the visit"],
-        ["otp", "OTP", "OTP_INPUT", "Shown after Send OTP"], ["checked", "You're all checked in", "SUCCESS", "Tells the customer their DA is coming"],
-        ["qr", "Browse QR", "QR", "Customer browses cars while waiting; liked cars show up in T3"], ["gpt"], ["foot"]],
-      fields: [["Visit purpose", "Select", "Yes", "Booking (prefilled)", "Buy or test drive"], ["Hub", "Select", "Yes", "Booking (prefilled)", "Hubs in the customer's emirate"],
-        ["Accompanied by", "Select", "No", "Asked", "Alone, spouse, family, friend"], ["Financial interest", "Select", "No", "Asked", "Cash, loan EMI, not sure"],
-        ["Area", "Select", "No", "Asked", "Emirate and area; replaces the pincode in the Figma"], ["Recording consent", "Toggle", "Yes", "Asked", "No turns AI notes off for this visit"], ["OTP", "6 digits", "Yes", "User auth", "3 tries; resend after 30 s"]],
-      actions: [["Send OTP", "User auth: OTP to the booked mobile", "OTP step"], ["Verify OTP", "User auth verify; DAP today: POST /customer-check-in/{customerId}", "CHECKED IN; checked-in step with the QR"], ["Continue to DL verify", "None", "S2"],
-        ["Send a check-in link instead", "Proposed: checkin.link_sent; the visit switches to by link", "S1 by link"]],
-      states: [["Not checked in", "Empty state with Start check-in"], ["Wrong OTP", "Tries left shown; after 3, an Emirates ID check"], ["Checked in", "Success with the browse QR"]],
-    }, link: SELF_CHECKIN.booked },
-    walkin: { desk: {
-      parts: [["lead"], ["stages"], ["empty", "Not checked in yet", "EMPTY_STATE", "Start check-in opens the modal"], ["send-link", "Send a check-in link instead", "LINK_BUTTON", "The customer fills the same form on their phone"], ["details", "Check-in details", "MODAL_FORM", "Hub, accompanied by, financial interest, area"],
-        ["consent", "Recording consent", "TOGGLE", "Switches AI notes and transcription on or off"], ["otp", "OTP", "OTP_INPUT", "Shown after Send OTP"], ["checked", "You're all checked in", "SUCCESS", "With the browse QR"],
-        ["qr", "Browse QR", "QR", "Liked cars show up for the DA"], ["purpose", "Purpose of visit", "OPTION_CARDS", "From the TD Journey file's onboarding questions"], ["gpt"], ["foot"]],
-      fields: [["Hub", "Select", "Yes", "Logged-in hub", ""], ["Accompanied by", "Select", "No", "Asked", ""], ["Financial interest", "Select", "No", "Asked", "Cash, loan EMI, not sure"], ["Area", "Select", "No", "Asked", "Emirate and area"],
-        ["Recording consent", "Toggle", "Yes", "Asked", ""], ["OTP", "6 digits", "Yes", "User auth", "3 tries"], ["Purpose of visit", "Option cards", "Yes", "Asked", "Only Buy / Test drive continues; others go to their desk"]],
-      actions: [["Send OTP", "User auth: OTP to the lead's mobile", "OTP step"], ["Verify OTP", "User auth verify; check-in recorded", "CHECKED IN"], ["Continue to DL verify", "Purpose saved on the visit", "S2"],
-        ["Send a check-in link instead", "Proposed: checkin.link_sent to the lead's mobile and email", "S1 by link"]],
-      states: [["Other purpose", "Drop-off, pickup, service or selling: routed to that desk"], ["Wrong OTP", "Tries left shown"]],
-    }, link: SELF_CHECKIN.walkin },
-    vtd: {
-      parts: [["video"], ["stages"], ["otp", "OTP", "OTP_INPUT", "The customer reads the code out on the call"], ["consent", "Recording consent", "TOGGLE", "Asked on camera"], ["foot"]],
-      fields: [["OTP", "6 digits", "Yes", "User auth", "3 tries"], ["Recording consent", "Toggle", "Yes", "Asked", "No turns AI notes off"]],
-      actions: [["Verify OTP", "User auth verify", "VTD CHECKED IN"], ["Check in and start car finding", "None", "T2"]],
-      states: [["Wrong OTP", "Tries left shown"]],
-    },
+    parts: [["lead"], ["stages", null, null, "Car finding shows Assigning DA"], ["state", "State", "SEGMENTED", "Prototype only: the automatic case and the every-DA-busy case"],
+      ["auto", "Auto-assigned DA", "ASSIGNMENT_CARD", "Who, when and why; Change DA reopens the pick list"], ["rule", "The rule", "INFO_LIST", "Free now, under today's cap, a free slot for the next hour, then pre-assignment or language"],
+      ["tv-note", "TV and push", "INFO", "The TV and the DA's tablet update on assignment"], ["busy", "Every DA busy", "ALERT", "Queue position and the expected wait"],
+      ["pick", "Pick a DA", "ASSIGN_LIST", "ManualAssignmentModal; DAs at their cap or on a break can't be picked"], ["gpt"], ["foot"]],
+    fields: [["DA", "Single select", "Yes", "The rule, or the receptionist when every DA is busy", "At-cap and on-break DAs disabled"], ["Daily load", "Count", "Read only", "DA roster", "For example 6/10 today"],
+      ["Queue position", "Number", "Read only", "Token order", "Bookings at their slot time first, then tokens in order"]],
+    actions: [["Auto-assign (system)", "Proposed: on visit.checked_in, pick by the rule; Leadverse assign-direct; push to the DA", "DA ASSIGNED"],
+      ["Pick a DA, when every DA is busy", "Leadverse: POST .../tasks/{taskId}/assign-direct. DAP today: PUT work-order/assign-da", "DA ASSIGNED"], ["Change DA", "Reopens the pick list", "DA ASSIGNED"]],
+    states: [["Auto-assigned", "Nobody had to do anything"], ["Every DA busy", "The token waits in line; the receptionist can pick the next free DA"], ["Nobody in 10 min", "Manager alerted (M1)"]],
   },
   S2: {
-    parts: [["lead"], ["stages", null, null, "DL verify is its own stage, as in the TD Journey file"], ["upload", "Licence images", "UPLOAD", "Front and back, uploaded before the visit or scanned now"],
-      ["ocr", "Read from the licence", "OCR_RESULT", "Name, number, expiry, issuer"], ["checks", "Checks", "CHECKLIST", "Name match and expiry are automatic; the photo match is the receptionist's"], ["gpt"], ["foot"]],
-    fields: [["DL front", "Image", "Yes", "Pre-visit upload or scan", "JPG or PNG under 5 MB"], ["DL back", "Image", "Yes", "Same", ""], ["Licence number", "Text", "Read only", "OCR", "Editable if OCR fails"],
-      ["Expiry", "Date", "Read only", "OCR", "Must be after today"], ["Name match", "Check", "Yes", "OCR against the Emirates ID", "Fuzzy match"], ["Photo match", "Check", "Yes", "Receptionist", ""],
-      ["Home-country DL", "Text", "No", "Typed", "For visitors; acceptance is an open decision"]],
-    actions: [["Verify and continue", "Proposed: dl.verified event; licence saved to Docs", "DL VERIFIED; S3"], ["No valid DL: browse only", "Flag on the visit; the drive is blocked", "S3"]],
-    states: [["Uploaded before the visit", "Images and OCR prefilled; one tap to verify"], ["OCR failed", "Fields become editable"], ["Expired", "Verify disabled; browse only offered"]],
-  },
-  S3: {
-    parts: [["lead"], ["stages", null, null, "Car finding starts as Assigning DA"], ["modal", "Assign DA", "ASSIGN_MODAL", "Leadverse's ManualAssignmentModal"], ["da-row", "DA row", "LIST_ITEM", "Status dot, language, score"],
-      ["cap", "Daily load", "CAPACITY_BAR", "At the daily cap, the row cannot be picked"], ["foot"]],
-    fields: [["DA", "Single select", "Yes", "DA roster", "Ranked by status, load and language; at-cap and on-break DAs disabled"], ["Daily load", "Count", "Read only", "DA roster", "For example 6/10 today"]],
-    actions: [["Assign and notify", "Leadverse: POST .../tasks/{taskId}/assign-direct; DAP today: PUT work-order/assign-da", "DA ASSIGNED; push to the DA; T1"]],
-    states: [["Pre-assigned", "Omar preselected with a Pre-assigned tag"], ["Nobody free", "Manager alerted after 10 min"], ["At cap", "Row disabled with At daily cap"]],
+    parts: [["tv", "Ground TV", "HUB_BOARD", "Its car column follows the Yardie's taps"], ["tv-row", "This customer's token", "BOARD_ROW", "Car: in the yard, on its way, at the hub"],
+      ["yard-task", "Yard task", "TASK_CARD", "Bring to the hub: car, plate, from the yard spot to a bay, with the token and the DA"]],
+    fields: [["Task", "Type", "Read only", "Created at check-in", "Bring to the hub"], ["Car and plate", "Text", "Read only", "Order", ""], ["From", "Yard spot", "Read only", "Yard map", ""],
+      ["To", "Bay", "Read only", "Hub bays", "A free bay"], ["Picked up", "Time", "Yes", "Yardie's tap", ""], ["At the hub", "Time", "Yes", "Yardie's tap", "Tells the DA and updates the TV"]],
+    actions: [["Picked up, driving over", "Proposed: yard.car_picked_up", "TV: on its way"], ["Parked at the hub", "Proposed: yard.car_at_hub; push to the DA", "CAR AT HUB"]],
+    states: [["Waiting for the Yardie", "The task sits in To do"], ["On its way", "About 3 min from the yard"], ["At the hub", "The bay is shown to the DA and on the TV"], ["Can't be used", "The DA is told to offer another car"]],
   },
 
   // ------------------------------------------------------------ T · Tailor
   T1: {
-    parts: [["wait-card", "Waiting customer", "CARD", "Who, where, booking or walk-in, DL status, language, AI context"], ["met", "I've met the customer", "BUTTON", "The handshake"],
-      ["later", "Later today", "TABLE", "The DA's other visits"], ["alert-note", "Escalation rule", "INFO", "5 minutes, then the receptionist and the manager are alerted"]],
+    parts: [["wait-card", "Waiting customer", "CARD", "Who, which seat and token, booking or walk-in, where the car is, AI context"], ["met", "I've met the customer", "BUTTON", "The handshake, at the customer's seat"],
+      ["later", "Later today", "TABLE", "The DA's other visits"], ["alert-note", "The rule", "INFO", "Only after assignment, never at check-in. 5 minutes, then the receptionist and the manager are alerted"]],
     fields: [["Waiting", "Timer", "Read only", "Since DA assigned", "Red at 5 min"]],
-    actions: [["I've met the customer", "DAP today: work order to MET_CUSTOMER", "MET CUSTOMER; T2"]],
+    actions: [["I've met the customer", "DAP today: work order to MET_CUSTOMER; the TV shows them together", "MET CUSTOMER; T2"]],
     states: [["Waiting", "Card with a running timer"], ["Late", "At 5 min the receptionist and the manager are alerted"]],
   },
   T2: {
@@ -229,7 +211,7 @@ const ANATOMY = {
     all: {
       fields: [["Drive today", "Tick per car", "Yes, at least one", "DA", "Up to 3 cars per visit (example)"], ["Match", "Percent", "Read only", "Recommendation model", "With the reason"]],
       actions: [["Add cars", "Opens the drawer; adds cars to the list", "Stays on T3"], ["Compare", "Compare modal", "Stays on T3"], ["Next: why this car", "None", "T4"], ["Nothing fits: share shortlist", "Notification engine", "N4"]],
-      states: [["Booked car pinned", "Booked tag on the booked car"], ["Liked while waiting", "Tag on cars liked from the check-in QR"], ["Busy", "A car in another TD shows when it is free"]],
+      states: [["Booked car pinned", "Booked tag on the booked car"], ["Liked while waiting", "Tag on cars liked from the token page while waiting (I2)"], ["Busy", "A car in another TD shows when it is free"]],
     },
   },
   T4: {
@@ -247,70 +229,87 @@ const ANATOMY = {
   },
   T5: {
     booked: {
-      parts: [["lead"], ["stages"], ["drives", "Today's drives", "CAR_LIST", "In driving order"], ["prep", "Prep status", "STATUS_CHIP", "Prep task raised for each car"], ["summary", "Summary", "KEY_VALUES", "Customer, licence, order"], ["gpt"], ["foot"]],
-      actions: [["Confirm and request prep", "OMS: add the second TD to the visit; prep tasks to the yard", "O1"], ["Car is taken: pick again", "None", "T3"]],
+      parts: [["lead"], ["stages"], ["drives", "Today's drives", "CAR_LIST", "In driving order"], ["prep", "Where the car is", "STATUS_CHIP", "The booked car is at the hub; an added car gets a yard task"], ["summary", "Summary", "KEY_VALUES", "Customer, licence, order"], ["gpt"], ["foot"]],
+      actions: [["Confirm and request prep", "OMS: add the second TD to the visit; yard task for the added car", "O1"], ["Car is taken: pick again", "None", "T3"]],
     },
     walkin: {
-      parts: [["lead"], ["stages"], ["drives", "Today's drive", "CAR_LIST", "The new order ID appears on the car"], ["prep", "Prep status", "STATUS_CHIP", "Prep task raised"], ["summary", "Summary", "KEY_VALUES", "Customer, licence, new order"], ["gpt"], ["foot"]],
-      actions: [["Create order and request prep", "OMS booking-initiate, then booking-confirm; prep task to the yard", "ORDER BOOKED; O1"], ["No valid DL: book later", "None", "N6"]],
+      parts: [["lead"], ["stages"], ["drives", "Today's drive", "CAR_LIST", "The new order ID appears on the car"], ["prep", "Yard prep", "STATUS_CHIP", "Yard task raised for the Yardie"], ["summary", "Summary", "KEY_VALUES", "Customer, licence, new order"], ["gpt"], ["foot"]],
+      actions: [["Create order and request prep", "OMS booking-initiate, then booking-confirm; yard task to the Yardie", "ORDER BOOKED; O1"], ["Car is in another TD: pick again", "None", "T3"]],
     },
     vtd: {
       parts: [["video"], ["stages"], ["drives", "Car on camera", "KEY_VALUES", "Car, studio, yard helper, order"], ["foot"]],
-      actions: [["Start the walkaround", "None", "O2"]],
+      actions: [["Start the walkaround", "None", "O3"]],
     },
     all: {
-      fields: [["Today's drives", "Ordered list", "Yes", "Ticked in T3", "Order of driving"], ["Licence", "Status", "Read only", "S2", "A valid DL is needed to drive"]],
-      states: [["No valid DL", "Confirm disabled; book a later drive instead"], ["Car taken", "Back to T3"]],
+      fields: [["Today's drives", "Ordered list", "Yes", "Ticked in T3", "Order of driving"], ["Licence", "Status", "Read only", "O4", "Checked at the car, right before the drive"]],
+      states: [["Car taken", "Back to T3"], ["Yard busy", "The ETA from the Yardie shows on the car"]],
     },
   },
 
   // ------------------------------------------------------------ O · On the road
   O1: {
-    booked: { parts: [["lead"], ["stages", null, null, "TD live shows 0/2 done"], ["bays", "Bay map", "BAY_MAP", "Where each car is and whether it is ready"], ["next-car", "Next car", "STATUS_CHIP", "Drive 2 getting ready"], ["gpt"], ["foot"]] },
-    walkin: { parts: [["lead"], ["stages", null, null, "TD live shows 0/1 done"], ["bays", "Bay map", "BAY_MAP", "Where the car is and whether it is ready"], ["gpt"], ["foot"]] },
-    all: {
-    fields: [["Bay", "Text", "Read only", "Prep task", ""], ["Prep status", "Status", "Read only", "Prep task", "Ready, or getting ready with an ETA"]],
-    actions: [["We're at the car", "None", "O2"], ["Car not ready: swap", "None", "T3"]],
-    states: [["Getting ready", "Amber with an ETA"], ["Ready", "Green, with who marked it and when"]],
-    },
+    parts: [["tv", "Ground TV", "HUB_BOARD", "Its car column follows the Yardie's taps"], ["tv-row", "This customer's token", "BOARD_ROW", "Car: being prepped, prepped, on its way, at the hub"],
+      ["yard-task", "Yard task", "TASK_CARD", "Prep and bring: a quick checklist, then the drive over"]],
+    fields: [["Checklist", "Ticks", "Yes", "Yardie", "Wash, inside wipe, fuel at least half, tyres"], ["Prep done", "Time", "Yes", "Yardie's tap", ""], ["Picked up", "Time", "Yes", "Yardie's tap", ""],
+      ["At the hub", "Time", "Yes", "Yardie's tap", "Tells the DA and updates the TV"]],
+    actions: [["Prep done", "Proposed: yard.prep_done", "TV: prepped"], ["Picked up, driving over", "Proposed: yard.car_picked_up", "TV: on its way"], ["Parked at the hub", "Proposed: yard.car_at_hub; push to the DA", "CAR AT HUB; O2"]],
+    states: [["Prep found a problem", "The DA is told to pick another car (T3)"], ["Late", "Past 15 min: the DA sees the ETA and can swap"]],
   },
   O2: {
+    booked: { parts: [["lead"], ["stages", null, null, "Ready to drive shows Car at the hub"], ["bays", "Bay map", "BAY_MAP", "Where each car is, and who brought it"], ["next-car", "Next car", "STATUS_CHIP", "Drive 2 still with the Yardie"], ["gpt"], ["foot"]] },
+    walkin: { parts: [["lead"], ["stages", null, null, "Ready to drive shows Car at the hub"], ["bays", "Bay map", "BAY_MAP", "Where the car is, and who brought it"], ["gpt"], ["foot"]] },
+    all: {
+      fields: [["Bay", "Text", "Read only", "Yard task", ""], ["Car status", "Status", "Read only", "Yard task", "At the hub, or with the Yardie with an ETA"]],
+      actions: [["We're at the car", "None", "O3"], ["Car not at the hub: swap", "None", "T3"]],
+      states: [["With the Yardie", "Amber with an ETA"], ["At the hub", "Green, with who brought it and when"]],
+    },
+  },
+  O3: {
     hub: { parts: [["lead"], ["stages"], ["zones", "Walkaround zones", "CHECKLIST", "Exterior, interior, bonnet, boot, with talking points"], ["gpt"], ["foot"]] },
     vtd: { parts: [["video", null, null, "The yard helper's camera on the car"], ["stages"], ["zones", "Walkaround zones", "CHECKLIST", "Tick as each is shown"], ["foot"]] },
     all: {
       fields: [["Zones covered", "Checklist", "No", "DA", "Exterior, interior, bonnet, boot"]],
-      actions: [["Start test drive (hub)", "None", "O3"], ["Play drive clip and wrap up (VTD)", "None", "O6"]],
+      actions: [["Check the licence (hub)", "None", "O4"], ["Play drive clip and wrap up (VTD)", "None", "O8"]],
       states: [["Covered", "Zones turn green"]],
     },
   },
-  O3: {
+  O4: {
+    parts: [["lead"], ["stages", null, null, "Ready to drive shows Checking the DL"], ["upload", "Licence images", "UPLOAD", "From before the visit, from the seat QR form, or scanned now"],
+      ["ocr", "Read from the licence", "OCR_RESULT", "Name, number, expiry, issuer"], ["checks", "Checks", "CHECKLIST", "Name match and expiry are automatic; the photo match is the DA's"], ["gpt"], ["foot"]],
+    fields: [["DL front", "Image", "Yes", "Pre-visit upload, seat QR form, or scan", "JPG or PNG under 5 MB"], ["DL back", "Image", "Yes", "Same", ""], ["Licence number", "Text", "Read only", "OCR", "Editable if OCR fails"],
+      ["Expiry", "Date", "Read only", "OCR", "Must be after today"], ["Name match", "Check", "Yes", "OCR against the Emirates ID", "Fuzzy match"], ["Photo match", "Check", "Yes", "DA", ""],
+      ["Home-country DL", "Text", "No", "Typed", "For visitors; acceptance is an open decision"]],
+    actions: [["Verify and start the drive", "Proposed: dl.verified event; licence saved to Docs", "DL VERIFIED; O5"], ["No valid DL: no drive today", "Flag on the visit; book a drive for later", "N6"]],
+    states: [["Uploaded before the visit", "Images and OCR prefilled; one tap to verify"], ["OCR failed", "Fields become editable"], ["Expired", "Verify disabled; book a later drive"]],
+  },
+  O5: {
     parts: [["lead"], ["stages"], ["summary", "Car and driver", "KEY_VALUES", "The TD record's subject"], ["odo", "Odometer and fuel", "DYNAMIC_FORM", "Start reading"], ["route", "Route", "CHIPS", "City or highway loop"],
       ["note", "Consent next", "INFO", "Tells the DA the consent comes before the car moves"], ["gpt"], ["foot"]],
     fields: [["Odometer at start", "Number (km)", "Yes", "Typed or photo", "Not lower than the last reading"], ["Fuel", "Single select", "Yes", "DA", "1/4, 1/2, 3/4, full"], ["Route", "Single select", "No", "DA", "City or highway loop"]],
-    actions: [["Start test drive", "DAP today: test-drive-status START_TEST_DRIVE", "TD STARTED; O4"]],
-    states: [["Car busy", "A car in another active TD blocks the start"]],
+    actions: [["Start test drive", "DAP today: test-drive-status START_TEST_DRIVE; the TV shows On test drive", "TD STARTED; O6"]],
+    states: [["Car busy", "A car in another active TD blocks the start"], ["No DL", "Start is blocked until O4 is done"]],
   },
-  O4: {
+  O6: {
     parts: [["details", "TD details", "KEY_VALUES", "Driver, car, plate, start time, odometer"], ["terms", "Terms", "TERMS", "Example terms for the prototype"], ["signature", "Signature", "SIGNATURE_PAD", "Signed with a finger"],
       ["agree", "I agree", "CHECKBOX", "Required with the signature"], ["foot", "Customer actions", "SHELL_CTAS", "Sign and start driving stays disabled until signed and ticked"]],
     fields: [["Signature", "Drawing", "Yes", "Customer", "Not empty"], ["I agree", "Checkbox", "Yes", "Customer", ""]],
-    actions: [["Sign and start driving", "Proposed: e-sign service saves the signed PDF to Docs; td.consent_signed event", "TD CONSENT SIGNED; O5"], ["Customer declines", "DAP today: CANCEL_TEST_DRIVE with a reason", "N1"]],
+    actions: [["Sign and start driving", "Proposed: e-sign service saves the signed PDF to Docs; td.consent_signed event", "TD CONSENT SIGNED; O7"], ["Customer declines", "DAP today: CANCEL_TEST_DRIVE with a reason", "N1"]],
     states: [["Unsigned", "Primary button disabled"], ["Signed", "The drive is unlocked"]],
   },
-  O5: {
+  O7: {
     parts: [["lead"], ["stages"], ["live-car", "Live car", "CAR_ROW", "LIVE badge, as in the TD Journey file"], ["transcript", "Live note and transcription", "LIVE_TRANSCRIPTION", "Timer and the conversation, time-stamped"],
       ["objections", "Objection tags", "TAG_BUTTONS", "One tap each, stamped into the transcript"], ["gpt"], ["foot"]],
     fields: [["Objection tags", "Multi select", "No", "DA", "Price, mileage, condition, features, finance, other"]],
-    actions: [["Back at the hub: end drive", "None", "O6"], ["Report an incident", "Proposed: incident flow", "Outside this journey"]],
+    actions: [["Back at the hub: end drive", "None", "O8"], ["Report an incident", "Proposed: incident flow", "Outside this journey"]],
     states: [["Transcription off", "If recording consent was no, only the tags are saved"]],
   },
-  O6: {
+  O8: {
     booked: { parts: [["lead"], ["stages", null, null, "TD live shows 1/2 done"], ["done-car", "Done car", "CAR_ROW", "TD done badge"], ["end-form", "End reading", "DYNAMIC_FORM", "Odometer and duration"], ["reaction", "Customer's reaction", "CHIPS", ""], ["next-car", "Next car", "STATUS_CHIP", "Drive 2 queued"], ["gpt"], ["foot"]] },
     walkin: { parts: [["lead"], ["stages"], ["done-car", "Done car", "CAR_ROW", "TD done badge"], ["end-form", "End reading", "DYNAMIC_FORM", "Odometer and duration"], ["reaction", "Customer's reaction", "CHIPS", ""], ["gpt"], ["foot"]] },
     vtd: { parts: [["video"], ["stages"], ["end-form", "Wrap-up", "CHIPS", "Reaction, and whether a real drive is wanted"], ["foot"]] },
     all: {
       fields: [["Odometer at end", "Number (km)", "Yes", "Typed", "Higher than the start"], ["Duration", "Minutes", "Read only", "Start and end times", ""], ["Customer reaction", "Single select", "No", "Asked", "Loved it, OK, not for me"]],
-      actions: [["Done driving: debrief", "DAP today: COMPLETE_TEST_DRIVE", "TD CONDUCTED; N1"], ["Start drive 2", "None", "O1, with a new start and consent"]],
+      actions: [["Done driving: debrief", "DAP today: COMPLETE_TEST_DRIVE", "TD CONDUCTED; N1"], ["Start drive 2", "None", "O2, with its own walkaround, start and consent; the DL is already verified"]],
       states: [["More cars", "The stage bar shows 1/2 done"]],
     },
   },
@@ -374,7 +373,7 @@ const ANATOMY = {
   // ------------------------------------------------------------ M · Oversight
   M1: {
     parts: [["alert", "Live alert", "ALERT", "A step past its target, with the fix"], ["kpis", "Headline numbers", "KPI_CARDS", "Visits, token paid, conversion, arrival to handshake"],
-      ["by-link", "Checked in by link", "KPI_CARD", "How many check-ins came from the customer's phone; a market where the link is the default shows most of them here"],
+      ["by-qr", "Checked in by seat QR", "KPI_CARD", "How many check-ins came from the seat QR; where the QR is the default, most do"],
       ["funnel", "State funnel", "FUNNEL", "Every hexagon on the board, with time from the last state"], ["outcomes", "Outcomes", "CHIPS", "How visits ended"]],
     fields: [["State counts", "Number", "Read only", "State events", ""], ["Time between states", "Minutes", "Read only", "Event timestamps", "Median"]],
     actions: [["Reassign DA", "Assign DA modal", "S3"]],

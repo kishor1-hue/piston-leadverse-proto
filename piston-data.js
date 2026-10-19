@@ -1,10 +1,10 @@
 // ---- PISTON v2: one level deeper ----
 // Every step of the ideal test-drive journey with its source, screen, entry and exit conditions,
 // per track (booked hub TD, walk-in hub TD, video TD), per market (UAE, Australia) and per check-in way
-// (at the desk, or by a link the customer fills on their own phone). Mock people and numbers are examples only.
+// (by staff, or by the customer from the QR on their seat). Mock people and numbers are examples only.
 //
 // A field can be a plain value, or an object keyed by track { booked, walkin, vtd, hub, all },
-// by market { ae, au } or by check-in way { desk, link }, nested in any order. "hub" covers booked + walk-in.
+// by market { ae, au } or by check-in way { staff, qr }, nested in any order. "hub" covers booked + walk-in.
 // pick() resolves all three for the active context.
 
 const TRACKS = {
@@ -14,26 +14,27 @@ const TRACKS = {
 };
 
 // ---------------------------------------------------------------- markets and check-in ways
-// One journey, configured per market. Both ways to check in exist in every market; the market only sets the default.
-//   desk: the receptionist checks the customer in on the visit page, with the customer at the desk tablet
-//   link: Mark arrived sends a one-time link on WhatsApp and email; the customer fills a form-only page on their phone
+// One journey, configured per market. Welcome and check-in are one gesture: checking in is the arrival.
+// Both ways to check in exist in every market, with the same form; the market only sets the default.
+//   staff: a receptionist or DA fills the check-in form with the customer
+//   qr:    the customer scans the QR on their seat and fills the same form on their own phone
 const MARKETS = {
-  ae: { key: "ae", label: "UAE", checkin: "desk", tenant: "cars24-ae" },
-  au: { key: "au", label: "Australia", checkin: "link", tenant: "cars24-au" },
+  ae: { key: "ae", label: "UAE", checkin: "staff", tenant: "cars24-ae" },
+  au: { key: "au", label: "Australia", checkin: "qr", tenant: "cars24-au" },
 };
 const CHECKIN_WAYS = {
-  desk: { key: "desk", label: "At the desk", icon: "monitor" },
-  link: { key: "link", label: "By link", icon: "smartphone" },
+  staff: { key: "staff", label: "By staff", phrase: "by staff", icon: "user-check" },
+  qr: { key: "qr", label: "Seat QR", phrase: "from the seat QR", icon: "qr-code" },
 };
 
 // the context keyed values resolve against; the viewer sets it
-const CTX = { market: "ae", mode: "desk" };
-const MODE_KEYS = ["desk", "link"], MARKET_KEYS = ["ae", "au"], TRACK_KEYS = ["all", "booked", "walkin", "vtd", "hub"];
+const CTX = { market: "ae", mode: "staff" };
+const MODE_KEYS = ["staff", "qr"], MARKET_KEYS = ["ae", "au"], TRACK_KEYS = ["all", "booked", "walkin", "vtd", "hub"];
 
-// resolves check-in-way and market keys only (the check-in way applies to hub tracks; video TD always uses desk)
+// resolves check-in-way and market keys only (the check-in way applies to hub tracks; video TD always uses staff)
 function ctxResolve(val, track) {
   while (val && typeof val === "object" && !Array.isArray(val)) {
-    if (MODE_KEYS.some(k => k in val)) { const m = track === "vtd" ? "desk" : CTX.mode; val = m in val ? val[m] : val.desk; continue; }
+    if (MODE_KEYS.some(k => k in val)) { const m = track === "vtd" ? "staff" : CTX.mode; val = m in val ? val[m] : val.staff; continue; }
     if (MARKET_KEYS.some(k => k in val)) { val = CTX.market in val ? val[CTX.market] : val.ae; continue; }
     break;
   }
@@ -88,16 +89,16 @@ const FLOWS = {
 const PHASES = [
   { id: "P", name: "Plan", when: "Before arrival", owner: "Calling team, then the system",
     entry: "A lead with a mobile number. Self-serve app bookings skip the call and start at P8", exit: "Order booked and the calling task closed, then ready for the visit" },
-  { id: "I", name: "Introduce", when: "First 3 minutes", owner: { hub: "Receptionist", vtd: "VTD operator" },
-    entry: { hub: "Customer walks in", vtd: "Customer opens the video link" },
-    exit: { hub: { desk: "Arrival logged, customer welcomed", link: "Arrival logged, check-in link sent, customer welcomed" }, vtd: "Arrival logged, customer welcomed" } },
-  { id: "S", name: "Sign-in", when: { hub: { desk: "Front desk", link: "Customer's phone, then the front desk" }, vtd: "Front desk" },
-    owner: { hub: { desk: "Receptionist", link: "Customer on their phone, then the receptionist" }, vtd: "VTD operator" },
-    entry: "Customer welcomed", exit: { hub: "CHECKED IN, DL VERIFIED and DA ASSIGNED. No TD consent here", vtd: "VTD CHECKED IN" } },
+  { id: "I", name: "Introduce", when: "First 3 minutes: welcome and check-in in one gesture",
+    owner: { hub: { staff: "Receptionist or DA, with the customer", qr: "Customer, from the QR on their seat" }, vtd: "VTD operator" },
+    entry: { hub: "Customer walks in and sits down", vtd: "Customer opens the video link" },
+    exit: { hub: "CHECKED IN, with a token on the ground TV. No handshake yet", vtd: "VTD CHECKED IN" } },
+  { id: "S", name: "Set up", when: "While the customer waits", owner: "System, then the Yardie",
+    entry: "CHECKED IN", exit: { booked: "DA ASSIGNED, and the booked car at the hub", walkin: "DA ASSIGNED", vtd: "Not used: the operator is set at booking" } },
   { id: "T", name: "Tailor", when: { hub: "Handshake, then car finding", vtd: "Car finding over screen share" }, owner: { hub: "DA, from the handshake to the close", vtd: "VTD operator" },
     entry: { hub: "DA ASSIGNED", vtd: "VTD CHECKED IN" }, exit: { hub: "Cars confirmed for today and prep raised, or a follow-up", vtd: "Car confirmed for the video walkaround" } },
-  { id: "O", name: "On the road", when: "At the car", owner: { hub: "DA", vtd: "VTD operator" },
-    entry: { hub: "Cars confirmed, prep raised", vtd: "Car on camera" }, exit: { hub: "TD CONDUCTED for every car", vtd: "VTD CONDUCTED" } },
+  { id: "O", name: "On the road", when: "Car to the hub, then the drive", owner: { hub: "Yardie, then the DA", vtd: "VTD operator" },
+    entry: { hub: "Cars confirmed, yard prep raised", vtd: "Car on camera" }, exit: { hub: "DL VERIFIED, then TD CONDUCTED for every car", vtd: "VTD CONDUCTED" } },
   { id: "N", name: "Next step", when: "No visit ends without one", owner: "DA, then RM",
     entry: "TD conducted, or a visit with no drive", exit: "TOKEN PAID, FOLLOW-UP SCHEDULED, NEW TD BOOKED or DROPPED" },
   { id: "M", name: "Oversight", when: "All day", owner: "Manager (DATL)",
@@ -208,15 +209,15 @@ const STEPS = [
     owner: "System; receptionist watches the list", device: "desktop",
     purpose: "Customer, car and DA are all ready before the slot starts.",
     source: { trigger: "Order booked for the next 24 hours",
-      data: ["Notification engine: reminders at T-24h and T-2h, with a DL upload link", "Docs: DL uploaded by the customer", "Prep tasks: car ready at a bay", "DA roster: pre-assigned by daily capacity"] },
+      data: ["Notification engine: reminders at T-24h and T-2h, with a DL upload link", "Docs: DL uploaded by the customer", "Yard task: the Yardie preps the car and parks it in the yard, ready to bring over", "DA roster: pre-assigned by daily capacity"] },
     entry: [{ booked: "ORDER BOOKED", vtd: "VTD BOOKED" }, "Slot within the next 24 hours"],
     exits: {
-      booked: [{ when: "Customer arrives at the hub", to: "I1" }, { when: "Customer reschedules", to: "P7" }, { when: "No-show 30 min after the slot", to: "P9" }],
+      booked: [{ when: "Customer arrives and checks in", to: "I1" }, { when: "Customer reschedules", to: "P7" }, { when: "No-show 30 min after the slot", to: "P9" }],
       vtd: [{ when: "Customer opens the video link", to: "I1" }, { when: "Customer reschedules", to: "P7" }, { when: "Not joined 10 min after the slot", to: "P9" }],
     },
     state: null,
     screen: { name: "Test Drives &rsaquo; Upcoming", build: "extend",
-      pattern: "Test Drives queue with readiness columns: DL, car prep, DA, reminder", route: "/test-drives?view=upcoming" },
+      pattern: "Test Drives queue with readiness columns: DL, car prepped by the Yardie, DA, reminder", route: "/test-drives?view=upcoming" },
   },
   { id: "P9", phase: "P", name: "Callback and retry", tracks: ["booked", "vtd"], branch: true,
     owner: "Calling agent", device: "desktop",
@@ -234,200 +235,156 @@ const STEPS = [
       pattern: "The same task back in the queue, with a callback time and attempt count", route: "/tasks?entity=lead&persona=td-booking-call&view=callbacks" },
   },
 
-  // ============================== I · Introduce
-  { id: "I1", phase: "I", name: "Arrival", tracks: ["booked", "walkin", "vtd"],
-    owner: { hub: "Receptionist", vtd: "VTD operator" }, device: { hub: "desktop", vtd: "video" },
-    purpose: { hub: "Log the moment the customer arrives and pick how they check in. It starts the clock and gives the DA a heads-up.", vtd: "Know the customer is on the call and start the clock." },
-    source: {
-      trigger: { booked: "Booked customer walks in", walkin: "Customer walks in without a booking", vtd: "Customer opens the video link" },
-      data: {
-        booked: ["Today's bookings (OMS + slot planner)", "Market default for check-in: at the desk in the UAE, by link in Australia"],
-        walkin: ["Add lead drawer: first name, last name, email, mobile", "The visit is created here, before any order", "Market default for check-in: at the desk in the UAE, by link in Australia"],
-        vtd: ["Video provider: join event"],
-      },
-    },
-    entry: { booked: ["ORDER BOOKED for today at this hub"], walkin: ["None. Anyone can walk in"], vtd: ["VTD BOOKED", "Within 15 min of the slot"] },
-    exits: {
-      booked: [
-        { when: "Mark arrived with Send check-in link: WhatsApp and email go out now, and the pre-assigned DA gets a heads-up", to: "I2", mode: "link" },
-        { when: "Mark arrived with Check in at the desk: the pre-assigned DA gets a heads-up", to: "I2", mode: "desk" },
-      ],
-      walkin: [
-        { when: "Lead added with Send check-in link: the visit is created and the link goes to the mobile and email just added", to: "I2", mode: "link" },
-        { when: "Lead added with Check in at the desk: the visit is created", to: "I2", mode: "desk" },
-      ],
-      vtd: [{ when: "Customer is in the call", to: "I2", state: "CUSTOMER JOINED CALL" }, { when: "Not joined 10 min after the slot", to: "P9" }],
-    },
-    state: { hub: null, vtd: "CUSTOMER JOINED CALL" },
-    screen: { name: { hub: "Test Drives &rsaquo; Today", vtd: "VTD console &rsaquo; Waiting room" }, build: "extend",
-      pattern: { booked: "Test Drives queue + Mark arrived, which asks how the customer checks in: by link or at the desk", walkin: "Test Drives queue + Add lead drawer (first name, last name, email, mobile) with the same check-in choice", vtd: "Video panel embedded with IFRAME_RENDERER" },
-      route: { hub: "/test-drives?view=today", vtd: "/test-drives/BK-88190?stage=video" } },
-    dap: {
-      ae: { hub: "DAP has no arrival event. Its first timestamp is check-in.", vtd: "VTD work orders already move ASSIGNED, then CUSTOMER_JOINED_CALL." },
-      au: { hub: "Customers already check themselves in with a form today. Here that form goes out the moment arrival is logged, tied to the visit, so its answers land in the panel.", vtd: null },
-    },
-    changed: { hub: "Mark arrived now asks how the customer checks in: a link to their phone (default in Australia) or at the desk (default in the UAE). Either way works in both markets." },
-  },
-  { id: "I2", phase: "I", name: "Welcome", tracks: ["booked", "walkin", "vtd"],
-    owner: { hub: "Receptionist", vtd: "VTD operator" }, device: "none",
+  // ============================== I · Introduce: welcome and check-in, one gesture
+  // Checking in is the arrival. The customer sits down and either scans the QR on the seat, or a receptionist or DA
+  // fills the same form for them. Booked and walk-in use the same form; for a walk-in it also creates the lead.
+  { id: "I1", phase: "I", name: "Welcome and check-in", tracks: ["booked", "walkin", "vtd"],
+    owner: { hub: { staff: "Receptionist or DA, filling the form with the customer", qr: "Customer, on their own phone, from the QR on the seat" }, vtd: "VTD operator" },
+    device: { hub: { staff: "desktop", qr: "pair" }, vtd: "video" },
     purpose: {
-      hub: { desk: "Greet, seat, offer tea, coffee or water, and explain today: check-in, car match, test drive.", link: "Greet, seat, offer tea, coffee or water, and point to the check-in link that just arrived on their phone." },
-      vtd: "A warm on-camera welcome and a plan for the call.",
-    },
-    source: { trigger: "Arrival logged in I1", data: { hub: { desk: ["None"], link: ["The check-in link sent at I1, on WhatsApp and email"] }, vtd: ["None"] } },
-    entry: { hub: { desk: ["Arrival logged"], link: ["Arrival logged", "Check-in link sent"] }, vtd: ["Arrival logged"] },
-    exits: { hub: { desk: [{ when: "Customer is settled and ready", to: "S1" }], link: [{ when: "Customer is seated with the link open, or about to open it", to: "S1" }] }, vtd: [{ when: "Customer is settled and ready", to: "S1" }] },
-    state: null,
-    screen: { name: "No screen, by design", build: "none",
-      pattern: { hub: { desk: "A human moment. The only system touch is the arrival time from I1, which starts the arrival-to-handshake clock.", link: "A human moment. The check-in link is already on the customer's phone, so the receptionist only points to it. The arrival time from I1 starts the clock." },
-        vtd: "A human moment. The only system touch is the arrival time from I1, which starts the arrival-to-handshake clock." },
-      route: null },
-    moments: {
-      hub: {
-        desk: ["Greet by name if booked, or welcome a walk-in", "Offer a seat and tea, coffee or water", "Explain today: check-in, a DA to find the right car, the test drive, then the next step"],
-        link: ["Greet by name if booked, or welcome a walk-in", "Point to the check-in message on WhatsApp or email: about 2 minutes, from the seat", "Offer tea, coffee or water, and the guest Wi-Fi", "Nothing arrived within a minute? Offer to check them in at the desk instead"],
-      },
-      vtd: ["Welcome on camera, check sound and video", "Explain the call: check-in, car finding on screen, a live walkaround, then the next step"],
-    },
-    target: { hub: { desk: "Check-in starts within 3 minutes of arrival", link: "Link opened within 3 minutes of arrival" }, vtd: "Check-in starts within 2 minutes of joining" },
-  },
-
-  // ============================== S · Sign-in
-  // The check-in flow follows the Leadverse TD Journey file: details, OTP, a "you're checked in" screen with a QR
-  // to browse cars while waiting, and onboarding questions starting with the purpose of the visit.
-  { id: "S1", phase: "S", name: "Check-in", tracks: ["booked", "walkin", "vtd"],
-    owner: { hub: { desk: "Receptionist, with the customer on the desk tablet", link: "Customer, on their own phone. The receptionist watches it sync" }, vtd: "VTD operator" },
-    device: { hub: { desk: "desktop", link: "pair" }, vtd: "video" },
-    purpose: {
-      hub: {
-        desk: "Confirm who the customer is, why they came, and whether the conversation can be recorded. The TD consent comes later, at the car.",
-        link: "The customer checks in from their seat, on a form-only page on their own phone. Each answer syncs to the visit as it is given, so the receptionist steps in only if something is stuck. The TD consent still comes later, at the car.",
-      },
-      vtd: "Confirm who the customer is and ask about recording.",
+      hub: "Welcome and check-in are one gesture: greet the customer, seat them, and check them in on the spot. They scan the QR on their seat, or a receptionist or DA fills the same form for them. Checking in is the arrival: it starts the clock, issues a token for the ground TV, and tells the DA roster and the Yardie.",
+      vtd: "Admit the customer, welcome them on camera and check them in on the call, in one go.",
     },
     source: {
-      trigger: { hub: { desk: "Receptionist taps Start check-in on the visit", link: "Customer opens the check-in link sent at arrival (I1)" }, vtd: "Operator starts the call" },
+      trigger: { hub: { staff: "A receptionist or DA starts the check-in with the customer", qr: "Customer scans the QR on their seat" }, vtd: "Customer opens the video link" },
       data: {
         booked: {
-          desk: ["OMS order and CDP profile, prefilled", "User auth: OTP to the booked mobile", "Hub and visit purpose from the booking"],
-          link: ["Check-in link: a one-time token for this visit, sent on WhatsApp and email at I1", "OMS order: the page shows the first name, the car, the slot and the hub, nothing else", "The same check-in form as the desk modal: who is with them, paying by, area, licence, recording consent", "Docs: the licence uploaded before the visit (P8)"],
+          staff: ["Today's bookings (OMS + slot planner): found by name or mobile", "User auth: OTP to the booked mobile", "The check-in form: the same one the seat QR opens"],
+          qr: ["Seat QR: one link per hub, the same for everyone", "User auth: mobile and OTP, then today's booking is found", "The check-in form, prefilled from the booking", "Optional: an I'm here link in the day-of reminder opens the same form, already signed in"],
         },
         walkin: {
-          desk: ["Add lead drawer from I1: name, mobile, email", "User auth: OTP", "Onboarding questions: purpose of visit, accompanied by, financial interest, area"],
-          link: ["Check-in link to the mobile and email from Add lead (I1)", "The same check-in form as the desk modal, starting with the purpose of the visit", "Licence photos taken on the phone, saved to Docs"],
+          staff: ["The form starts with first name, last name, mobile and email: this is Add lead", "User auth: OTP", "Purpose of visit, accompanied by, paying by, area"],
+          qr: ["Seat QR: the same hub link", "User auth: mobile and OTP; no booking found, so the form asks for name and email", "Purpose of visit, accompanied by, paying by, area"],
         },
-        vtd: ["OMS order, prefilled", "OTP read out on the call"],
+        vtd: ["Video provider: join event", "OMS order, prefilled", "OTP read out on the call"],
       },
     },
-    entry: {
-      booked: { desk: ["Arrival logged", "Customer at the desk"], link: ["Arrival logged with Send check-in link", "A mobile or email on the booking"] },
-      walkin: { desk: ["Walk-in lead added"], link: ["Walk-in lead added with Send check-in link"] },
-      vtd: ["Customer in the call"],
-    },
+    entry: { booked: ["ORDER BOOKED for today at this hub", "Customer at the hub"], walkin: ["None. Anyone can walk in"], vtd: ["VTD BOOKED", "Within 15 min of the slot"] },
     exits: {
       booked: {
-        desk: [
-          { when: "OTP verified, recording consent answered", to: "S2", state: "CHECKED IN" },
-          { when: "OTP fails 3 times: receptionist checks Emirates ID", to: "S2" },
+        staff: [
+          { when: "OTP verified, form complete: a token is issued, a DA is assigned and the Yardie is told to bring the booked car", to: "I2", state: "CHECKED IN" },
+          { when: "OTP fails 3 times: the receptionist checks Emirates ID, then finishes the check-in", to: "I2", state: "CHECKED IN" },
         ],
-        link: [
-          { when: "Customer submits the form: answers synced, mobile proven by the link itself", to: "S2", state: "CHECKED IN" },
-          { when: "Not opened 5 min after arrival, or the customer asks for help: the receptionist checks them in at the desk, and anything filled carries over", to: "S1", mode: "desk" },
-          { when: "Link expired or sent to the wrong contact: fix the contact and resend; the old link stops working", to: "S1" },
+        qr: [
+          { when: "Customer submits: mobile verified, today's booking found, token issued", to: "I2", state: "CHECKED IN" },
+          { when: "Customer is stuck or has no phone: a receptionist or DA finishes it for them, and what was filled carries over", to: "I1", mode: "staff" },
         ],
       },
       walkin: {
-        desk: [
-          { when: "OTP verified, purpose is buy or test drive, recording consent answered", to: "S2", state: "CHECKED IN" },
+        staff: [
+          { when: "OTP verified, purpose is buy or test drive: lead and visit created, token issued", to: "I2", state: "CHECKED IN" },
           { when: "Purpose is drop-off, pickup, service or selling: routed to that desk", to: null },
-          { when: "OTP fails 3 times: receptionist checks Emirates ID", to: "S2" },
         ],
-        link: [
-          { when: "Form submitted with purpose buy or test drive", to: "S2", state: "CHECKED IN" },
-          { when: "Purpose is drop-off, pickup, service or selling: routed to that desk", to: null },
-          { when: "Not opened 5 min after arrival: the receptionist checks them in at the desk, and anything filled carries over", to: "S1", mode: "desk" },
+        qr: [
+          { when: "Customer submits with purpose buy or test drive: lead and visit created, token issued", to: "I2", state: "CHECKED IN" },
+          { when: "Purpose is drop-off, pickup, service or selling: the page points them to that desk", to: null },
+          { when: "Customer is stuck or has no phone: a receptionist or DA finishes it for them", to: "I1", mode: "staff" },
         ],
       },
-      vtd: [{ when: "OTP verified on the call, recording consent answered", to: "T2", state: "VTD CHECKED IN" }],
+      vtd: [{ when: "OTP verified on the call, recording consent answered", to: "T2", state: "VTD CHECKED IN" }, { when: "Not joined 10 min after the slot", to: "P9" }],
     },
     state: { hub: "CHECKED IN", vtd: "VTD CHECKED IN" },
-    screen: { name: { hub: { desk: "Visit &rsaquo; Check-in modal", link: "Customer check-in page + Visit &rsaquo; Self check-in" }, vtd: "VTD console &rsaquo; Check-in" },
-      build: { hub: { desk: "extend", link: "new" }, vtd: "extend" },
+    screen: {
+      name: { hub: { staff: "Test Drives &rsaquo; Today &rsaquo; Check-in", qr: "Seat QR check-in page + Test Drives &rsaquo; Today (live)" }, vtd: "VTD console &rsaquo; Welcome and check-in" },
+      build: { hub: { staff: "extend", qr: "new" }, vtd: "extend" },
       pattern: {
         hub: {
-          desk: "Modal flow on the visit page: details, OTP, checked in with a browse QR, onboarding questions",
-          link: "A public, form-only page on the customer's phone: no Leadverse, no login, only the check-in form, rendered from the same form schema as the desk modal. The visit page shows the link status and each answer as it syncs.",
+          staff: "The Today list, where Check in is the row action (there is no separate Mark arrived). One form for booked and walk-in: details, OTP, then the token.",
+          qr: "A public, form-only page opened from the seat QR: no Leadverse, no login. It renders the same form schema as the staff form. The Today list shows the check-in live, with the answers in a side panel.",
         },
-        vtd: "Video panel + OTP widget",
+        vtd: "Video panel + OTP widget + recording consent",
       },
-      route: { booked: "/test-drives/BK-88213?stage=check-in", walkin: "/test-drives/VS-2041?stage=check-in", vtd: "/test-drives/BK-88190?stage=video&step=check-in" },
-      phone: { hub: { link: { ae: "cars24.ae/check-in/7Kq2Xw", au: "cars24.com.au/check-in/7Kq2Xw" } } } },
+      route: { booked: "/test-drives?view=today&visit=BK-88213", walkin: "/test-drives?view=today&visit=VS-2041", vtd: "/test-drives/BK-88190?stage=video&step=check-in" },
+      phone: { hub: { qr: { ae: "cars24.ae/check-in/AQZ", au: "cars24.com.au/check-in/MEL" } } },
+    },
     dap: {
-      ae: { hub: { desk: "POST /customer-check-in creates the work order. There is no recording consent and no purpose question in DAP.", link: "DAP has no self check-in: the receptionist always checks the customer in. POST /customer-check-in creates the work order." },
-        vtd: "POST /customer-check-in creates the work order. There is no recording consent and no purpose question in DAP." },
-      au: { hub: { link: "Customers already fill a check-in form themselves today. Here the same form opens from the arrival link and syncs to the visit, so the panel has the answers before the DA meets them.", desk: null }, vtd: null },
+      ae: { hub: "DAP has no arrival event and no self check-in. The receptionist checks the customer in; POST /customer-check-in creates the work order.", vtd: "VTD work orders already move ASSIGNED, then CUSTOMER_JOINED_CALL." },
+      au: { hub: { qr: "Customers already check themselves in with a form today. Here that form opens from the seat QR, and its answers land on the visit.", staff: null }, vtd: null },
     },
     changed: {
-      hub: {
-        desk: "TD consent removed from check-in (now O4). Check-in follows the Leadverse TD Journey modals, with the visit purpose and a browse QR. A link to the customer's phone is now the other way to check in.",
-        link: "New way to check in: a one-time link at arrival opens a form-only page on the customer's phone, and each answer syncs to the visit. Default in Australia, available in the UAE.",
-      },
-      vtd: "TD consent removed from check-in (now O4).",
+      hub: "Arrival, welcome and check-in are now one step: checking in is the arrival, so there is no Mark arrived. The same form serves booked and walk-in customers, from the seat QR or filled by a receptionist or DA. It issues a token for the ground TV. No handshake here.",
+      vtd: "Join, welcome and check-in are now one step on the call.",
     },
   },
-  { id: "S2", phase: "S", name: "DL verify", tracks: ["booked", "walkin"],
-    owner: "Receptionist", device: "desktop",
-    purpose: "Check the driving licence against the customer before anyone talks about cars. A visit can go on without one, but nobody drives without one.",
-    source: { trigger: "Check-in done",
-      data: {
-        booked: ["Docs: DL uploaded before the visit (P8)", "OCR: name, number, expiry", "Emirates ID name for the match"],
-        walkin: { desk: ["DL scan or upload at the desk, front and back", "OCR: name, number, expiry", "Home-country DL if needed"], link: ["DL photos from the check-in form, front and back", "OCR: name, number, expiry", "Home-country DL if needed"] },
-      } },
-    entry: ["CHECKED IN"],
-    exits: [
-      { when: "DL valid, name matches, not expired", to: "S3", state: "DL VERIFIED" },
-      { when: "No valid DL: car finding allowed, drive blocked", to: "S3" },
-      { when: "Name or photo mismatch: receptionist checks Emirates ID by hand", to: "S3" },
-    ],
-    state: "DL VERIFIED",
-    screen: { name: "Visit &rsaquo; DL verify", build: "new",
-      pattern: "Upload widget (front and back) + OCR result + verify action", route: { booked: "/test-drives/BK-88213?stage=dl-verify", walkin: "/test-drives/VS-2041?stage=dl-verify" } },
-    dap: "DAP uploads the DL inside the DA's test-drive checkout form, after the TD has started.",
-    changed: "New step, from the Leadverse TD Journey stage bar: DL verify is its own stage, before car finding.",
+  { id: "I2", phase: "I", name: "Token on the ground TV", tracks: ["booked", "walkin"],
+    owner: "Customer, waiting. The screens change only when staff act", device: "tvpair",
+    purpose: "Hospital logic. Every check-in gets a token. The ground TV and the customer's phone show where each token is: who the DA is, where the car is, what happens next. Nobody types a status. Each one comes from a staff action: the system assigns a DA, the Yardie moves the car, the DA meets the customer and starts the drive.",
+    source: { trigger: "CHECKED IN (I1)",
+      data: ["Token: one queue per hub and day, B for bookings and W for walk-ins, numbered in order", "State events from the DA, the Yardie and the system", "WhatsApp: the token and a live tracker link, for customers checked in by staff"] },
+    entry: ["CHECKED IN", "Token issued"],
+    exits: [{ when: "A DA is assigned, automatically", to: "S1" }],
+    state: null,
+    screen: { name: "Ground TV + the customer's token page", build: "new",
+      pattern: "A full-screen hub board (token, name, status, DA, car, waiting) and the same token on the customer's phone. Both are read-only and live; they change when staff act",
+      route: "/test-drives/board?view=tv",
+      phone: { ae: "cars24.ae/t/7Kq2Xw", au: "cars24.com.au/t/7Kq2Xw" } },
+    dap: "DAP has no token and no ground display.",
+    changed: "New. A token for every check-in, on a ground TV and on the customer's phone. Every status on them comes from a staff action.",
   },
-  { id: "S3", phase: "S", name: "Assign DA", tracks: ["booked", "walkin"],
-    owner: "Receptionist", device: "desktop",
-    purpose: "Hand the customer to one DA who owns them from car finding to the close.",
-    source: { trigger: "DL verify done",
-      data: { booked: ["Pre-assigned DA from P8", "DA roster and live status", "Daily TD capacity per DA"], walkin: ["DA roster and live status", "Daily TD capacity per DA", "Language and BI ranking"] } },
-    entry: ["CHECKED IN", "DL verify done, or flagged no valid DL"],
-    exits: [
-      { when: "DA confirmed, push sent, visit on top of the DA's queue", to: "T1", state: "DA ASSIGNED" },
-      { when: "No DA free within 10 min: manager alerted", to: "M1" },
-    ],
+
+  // ============================== S · Set up: a DA, and for a booking the car, while the customer waits
+  { id: "S1", phase: "S", name: "Assign DA", tracks: ["booked", "walkin"],
+    owner: "System. The receptionist steps in only when every DA is busy", device: "desktop",
+    purpose: "Give the customer one DA, automatically, the moment they check in. The rule picks a DA who is free now and has room in today's slots. Only when every DA is busy or at their cap does a person assign one.",
+    source: { trigger: "CHECKED IN",
+      data: {
+        booked: ["Pre-assigned DA from P8, if still free", "DA roster: live status and today's slots", "Daily TD capacity per DA", "Token order: bookings at their slot time first, then tokens in order"],
+        walkin: ["DA roster: live status and today's slots", "Daily TD capacity per DA", "Language match", "Token order"],
+      } },
+    entry: ["CHECKED IN", "Token issued"],
+    exits: {
+      booked: [
+        { when: "A DA is free: assigned automatically, pushed to the DA, shown on the TV. Meanwhile the Yardie brings the car", to: "S2", state: "DA ASSIGNED" },
+        { when: "Every DA is busy or at their cap: the receptionist picks the next free DA by hand", to: "S2", state: "DA ASSIGNED" },
+        { when: "Still no DA after 10 min: manager alerted", to: "M1" },
+      ],
+      walkin: [
+        { when: "A DA is free: assigned automatically, pushed to the DA, shown on the TV", to: "T1", state: "DA ASSIGNED" },
+        { when: "Every DA is busy or at their cap: the receptionist picks the next free DA by hand", to: "T1", state: "DA ASSIGNED" },
+        { when: "Still no DA after 10 min: manager alerted", to: "M1" },
+      ],
+    },
     state: "DA ASSIGNED",
-    screen: { name: "Assign DA modal", build: "reuse",
-      pattern: "ManualAssignmentModal + assign-direct, with a daily capacity rule", route: { booked: "/test-drives/BK-88213?stage=assign-da", walkin: "/test-drives/VS-2041?stage=assign-da" } },
+    screen: { name: "Visit &rsaquo; DA assignment", build: "extend",
+      pattern: "Auto-assignment card with the reason. When every DA is busy, a pick list (ManualAssignmentModal) with today's load and the queue position",
+      route: { booked: "/test-drives/BK-88213?stage=assign-da", walkin: "/test-drives/VS-2041?stage=assign-da" } },
     dap: "Manual assignment with BI-advisory ranking. Nothing blocks a DA who is at capacity.",
-    changed: "Moved here from Tailor, so a DA exists before the handshake.",
+    changed: "Now automatic, by availability and today's slots, straight after check-in. Manual only when every DA is busy. DL verify no longer comes first.",
+  },
+  { id: "S2", phase: "S", name: "Car to the hub", tracks: ["booked"],
+    owner: "Yardie", device: "tvpair",
+    purpose: "The booked car was prepped before the day and waits in the yard, about 500 m away. The moment the customer checks in, the Yardie gets a task to bring it to the hub, so it is there before the DA needs it. This runs alongside the handshake and car finding.",
+    source: { trigger: "CHECKED IN (booked)", data: ["Yard task: car, plate, yard spot, target bay", "Prep done before the day (P8)", "Token and DA, for the TV and the push"] },
+    entry: ["CHECKED IN", "Car prepped (P8)"],
+    exits: [
+      { when: "Car parked at the hub: the DA is told and the TV shows it. The visit carries on with the handshake", to: "T1", state: "CAR AT HUB" },
+      { when: "The car can't be used (damage, flat battery): the DA is told to offer another", to: "T3" },
+    ],
+    state: "CAR AT HUB",
+    screen: { name: "Yard tasks (Yardie's phone) + ground TV", build: "new",
+      pattern: "A Leadverse mobile task list for the Yardie: Picked up, then At the hub. Each tap updates the TV's car column and notifies the DA",
+      route: "/yard/tasks" },
+    dap: "DAP has a prep user role for getting cars ready. Bringing a car from the yard, and its arrival at the hub, are not tracked.",
+    changed: "New persona: the Yardie. For a booking, the car is called from the yard the moment the customer checks in.",
   },
 
   // ============================== T · Tailor (handshake, then car finding)
   { id: "T1", phase: "T", name: "Handshake", tracks: ["booked", "walkin"],
     owner: "DA", device: "tablet",
-    purpose: "The DA meets the customer at the desk, introduces themself and takes over. Car finding starts here.",
+    purpose: "Only after a DA is assigned: the DA walks to the customer's seat, introduces themself and takes over. There is no handshake at check-in. Car finding starts here.",
     source: { trigger: "DA ASSIGNED push on the DA's tablet",
-      data: ["Visit context: booking, DL status, language, recording on", "CDP: cars viewed, call-centre notes"] },
+      data: ["Visit context: token, seat, booking, language, recording on", "CDP: cars viewed, call-centre notes", "Car location from the Yardie (booked)"] },
     entry: ["DA ASSIGNED", "DA status is Available"],
     exits: [
-      { when: "DA taps Met customer", to: "T2", state: "MET CUSTOMER" },
-      { when: "Not met within 5 min: receptionist and manager alerted", to: "S3" },
+      { when: "DA taps Met customer; the TV shows them together", to: "T2", state: "MET CUSTOMER" },
+      { when: "Not met within 5 min: receptionist and manager alerted, DA reassigned", to: "S1" },
     ],
     state: "MET CUSTOMER",
     screen: { name: "Test Drives &rsaquo; My queue (DA)", build: "extend",
-      pattern: "DA's My queue with a waiting card and a Met customer action", route: "/test-drives?view=my-queue" },
+      pattern: "DA's My queue with a waiting card (token, seat, car status) and a Met customer action", route: "/test-drives?view=my-queue" },
     dap: "Hub work orders already have MET_CUSTOMER (ASSIGNED, then MET_CUSTOMER).",
-    changed: "New. The DA owns the customer from here, before any car is chosen.",
+    changed: "Always after DA assignment, at the customer's seat. Never at check-in.",
   },
   { id: "T2", phase: "T", name: "Needs", tracks: ["booked", "walkin", "vtd"],
     owner: { hub: "DA", vtd: "VTD operator" }, device: { hub: "tablet", vtd: "video" },
@@ -449,7 +406,7 @@ const STEPS = [
     owner: { hub: "DA", vtd: "VTD operator, sharing their screen" }, device: { hub: "tablet", vtd: "video" },
     purpose: "Show the cars that fit, side by side, from stock at this hub.",
     source: { trigger: "Needs captured",
-      data: ["Listing service: live stock at this hub, not reserved", "Recommendation model (BI)", "CDP: cars viewed", "Cars liked from the waiting-area QR (S1)"] },
+      data: ["Listing service: live stock at this hub, not reserved", "Recommendation model (BI)", "CDP: cars viewed", "Cars liked on the token page while waiting (I2)"] },
     entry: ["Needs captured, or the booked car is known"],
     exits: [
       { when: "One or more cars chosen to drive", to: "T4" },
@@ -476,65 +433,100 @@ const STEPS = [
   },
   { id: "T5", phase: "T", name: "Confirm cars", tracks: ["booked", "walkin", "vtd"],
     owner: { hub: "DA", vtd: "VTD operator" }, device: { hub: "tablet", vtd: "video" },
-    purpose: { walkin: "Create the order and get the cars ready for today.", booked: "Lock today's cars and get them ready.", vtd: "Confirm which car goes on camera." },
+    purpose: { walkin: "Create the order and send the car to the Yardie for prep.", booked: "Lock today's cars. The booked car is already at the hub; an added car goes to the Yardie.", vtd: "Confirm which car goes on camera." },
     source: { trigger: { hub: "Customer agrees to drive today", vtd: "Customer picks the car to see" },
-      data: { walkin: ["OMS: create the order (car + customer)", "Prep tasks: bring the car to a bay", "Listing: hold the car for the TD window"], booked: ["OMS: keep or swap the booked car, add a second TD", "Prep tasks: bring the cars to a bay", "Listing: hold the cars"], vtd: ["OMS order", "Yard helper task: car on camera"] } },
-    entry: { hub: ["Car chosen", "Customer wants to drive today", "Valid DL on file"], vtd: ["Car chosen"] },
+      data: { walkin: ["OMS: create the order (car + customer)", "Yard task: prep the car and bring it to a bay", "Listing: hold the car for the TD window"], booked: ["OMS: keep or swap the booked car, add a second TD", "Yard task for an added car", "Listing: hold the cars"], vtd: ["OMS order", "Yard helper task: car on camera"] } },
+    entry: { hub: ["Car chosen", "Customer wants to drive today"], vtd: ["Car chosen"] },
     exits: {
-      walkin: [{ when: "Order created, prep raised", to: "O1", state: "ORDER BOOKED" }, { when: "No valid DL: book a drive for later", to: "N6" }, { when: "Car is in another TD", to: "T3" }],
-      booked: [{ when: "Cars confirmed, prep raised", to: "O1" }, { when: "Car is in another TD", to: "T3" }],
-      vtd: [{ when: "Car confirmed, helper has it on camera", to: "O2" }],
+      walkin: [{ when: "Order created, yard prep raised", to: "O1", state: "ORDER BOOKED" }, { when: "Car is in another TD", to: "T3" }],
+      booked: [{ when: "A car was added: it goes to the Yardie for prep", to: "O1" }, { when: "Only the booked car, already at the hub", to: "O2" }, { when: "Car is in another TD", to: "T3" }],
+      vtd: [{ when: "Car confirmed, helper has it on camera", to: "O3" }],
     },
     state: { walkin: "ORDER BOOKED", booked: null, vtd: null },
     screen: { name: "Car finding &rsaquo; Confirm", build: { walkin: "new", booked: "extend", vtd: "extend" },
-      pattern: { walkin: "Journey step with order summary; reuses booking-initiate and booking-confirm", booked: "Journey step with today's drive list", vtd: "Journey step with the car on camera" },
+      pattern: { walkin: "Journey step with order summary; reuses booking-initiate and booking-confirm", booked: "Journey step with today's drive list and where each car is", vtd: "Journey step with the car on camera" },
       route: { booked: "/test-drives/BK-88213?stage=car-finding&step=confirm", walkin: "/test-drives/VS-2041?stage=car-finding&step=confirm", vtd: "/test-drives/BK-88190?stage=video&step=confirm" } },
     dap: { walkin: "booking-initiate, then booking-confirm on OMS, done by the receptionist before check-in.", booked: "The booked car is fixed. A second car means a new booking.", vtd: null },
+    changed: { hub: "No licence check here any more: it moved to O4, right before the drive. Confirming a car now raises a yard task." },
   },
 
-  // ============================== O · On the road
-  { id: "O1", phase: "O", name: "Walk to the car", tracks: ["booked", "walkin"],
+  // ============================== O · On the road: the car to the hub, the DL, then the drive
+  { id: "O1", phase: "O", name: "Yard prep and bring", tracks: ["booked", "walkin"],
+    owner: "Yardie", device: "tvpair",
+    purpose: { walkin: "A walk-in's car was not expected, so it needs a quick prep first: a wash, a wipe inside, fuel and tyres. Then the Yardie brings it from the yard to the hub.", booked: "A car added today needs the same quick prep before it comes to the hub. The booked car is already here." },
+    source: { trigger: "Cars confirmed (T5)", data: ["Yard task: prep checklist, car, plate, yard spot, target bay", "Order from T5", "Token and DA, for the TV and the push"] },
+    entry: ["Car chosen and held for today"],
+    exits: [
+      { when: "Prepped and parked at the hub: the DA is told, the TV shows it", to: "O2", state: "CAR AT HUB" },
+      { when: "Prep finds a problem: the DA is told to pick another car", to: "T3" },
+    ],
+    state: "CAR AT HUB",
+    screen: { name: "Yard tasks (Yardie's phone) + ground TV", build: "new",
+      pattern: "The Yardie's task list: a prep checklist, then Picked up and At the hub. Each tap updates the TV's car column and notifies the DA", route: "/yard/tasks" },
+    changed: "New persona step: once a walk-in's car is chosen, the Yardie preps it and brings it to the hub.",
+  },
+  { id: "O2", phase: "O", name: "Walk to the car", tracks: ["booked", "walkin"],
     owner: "DA", device: "tablet",
     purpose: "Arrive at a car that is ready, with the customer.",
-    source: { trigger: "Cars confirmed, prep raised", data: ["Prep task: car ready at a bay, keys at the bay", "Yard bay map"] },
-    entry: ["Prep task done: car ready at the bay"],
-    exits: [{ when: "DA and customer at the car", to: "O2" }, { when: "Car not ready in 10 min: swap the car", to: "T3" }],
+    source: { trigger: "Car at the hub (S2 or O1)", data: ["Yard task done: car at a bay, keys at the bay", "Hub bay map"] },
+    entry: ["CAR AT HUB"],
+    exits: [{ when: "DA and customer at the car", to: "O3" }, { when: "Car not at the hub in 10 min: ask the Yardie, or swap the car", to: "T3" }],
     state: null,
     screen: { name: "Test drive &rsaquo; Walk to the car", build: "new",
-      pattern: "Journey stage Test drive, step Walk: prep status card", route: { booked: "/test-drives/BK-88213?stage=test-drive&step=walk", walkin: "/test-drives/BK-89004?stage=test-drive&step=walk" } },
+      pattern: "Journey stage Ready to drive, step Walk: bay map with who brought each car", route: { booked: "/test-drives/BK-88213?stage=test-drive&step=walk", walkin: "/test-drives/BK-89004?stage=test-drive&step=walk" } },
   },
-  { id: "O2", phase: "O", name: "Walkaround", tracks: ["booked", "walkin", "vtd"],
+  { id: "O3", phase: "O", name: "Walkaround", tracks: ["booked", "walkin", "vtd"],
     owner: { hub: "DA", vtd: "VTD operator, with a yard helper on camera" }, device: { hub: "tablet", vtd: "video" },
     purpose: { hub: "Show the car zone by zone before anyone drives.", vtd: "Walk the customer round the car on video, then play a drive clip." },
     source: { trigger: { hub: "At the car", vtd: "Car on camera" }, data: ["Inspection report", "Car features (Listing)", "Co-pilot talking points"] },
     entry: { hub: ["At the car"], vtd: ["Car on camera"] },
     exits: {
-      hub: [{ when: "Zones covered", to: "O3" }, { when: "Customer goes off the car: try another", to: "T3" }],
-      vtd: [{ when: "Walkaround and drive clip done", to: "O6" }],
+      hub: [{ when: "Zones covered, customer wants to drive", to: "O4" }, { when: "Customer goes off the car: try another", to: "T3" }],
+      vtd: [{ when: "Walkaround and drive clip done", to: "O8" }],
     },
     state: null,
     screen: { name: { hub: "Test drive &rsaquo; Walkaround", vtd: "VTD console &rsaquo; Live walkaround" }, build: "new",
       pattern: { hub: "Zone checklist with talking points", vtd: "Video panel (IFRAME_RENDERER) + zone checklist" },
       route: { booked: "/test-drives/BK-88213?stage=test-drive&step=walkaround", walkin: "/test-drives/BK-89004?stage=test-drive&step=walkaround", vtd: "/test-drives/BK-88190?stage=video&step=walkaround" } },
   },
-  { id: "O3", phase: "O", name: "Start TD", tracks: ["booked", "walkin"],
+  { id: "O4", phase: "O", name: "DL verify", tracks: ["booked", "walkin"],
+    owner: "DA", device: "tablet",
+    purpose: "Check the driving licence right before the drive, not at check-in. Car finding and the walkaround don't need a licence; driving does.",
+    source: { trigger: "Walkaround done, customer wants to drive",
+      data: {
+        booked: { staff: ["Docs: DL uploaded before the visit (P8)", "OCR: name, number, expiry", "Emirates ID name for the match"], qr: ["Docs: DL uploaded before the visit (P8), confirmed on the seat QR form", "OCR: name, number, expiry", "Emirates ID name for the match"] },
+        walkin: { staff: ["DL scanned now by the DA, front and back", "OCR: name, number, expiry", "Home-country DL if needed"], qr: ["Docs: DL photos taken on the seat QR form, if added", "OCR: name, number, expiry", "Home-country DL if needed"] },
+      } },
+    entry: ["Walkaround done", "Customer wants to drive"],
+    exits: [
+      { when: "DL valid, name matches, not expired", to: "O5", state: "DL VERIFIED" },
+      { when: "No valid DL: no drive today; book a drive for later", to: "N6" },
+      { when: "Name or photo mismatch: the DA checks Emirates ID by hand", to: "O5" },
+    ],
+    state: "DL VERIFIED",
+    screen: { name: "Test drive &rsaquo; DL verify", build: "new",
+      pattern: "Licence images (from the visit or scanned now) + OCR result + checks, on the DA's tablet", route: { booked: "/test-drives/BK-88213?stage=test-drive&step=dl-verify", walkin: "/test-drives/BK-89004?stage=test-drive&step=dl-verify" } },
+    dap: "DAP uploads the DL inside the DA's test-drive checkout form, after the TD has started.",
+    changed: "Moved from straight after check-in to right before Start TD. The DA does it, at the car.",
+  },
+  { id: "O5", phase: "O", name: "Start TD", tracks: ["booked", "walkin"],
     owner: "DA", device: "tablet",
     purpose: "Create the TD record: car, plate, odometer and time. The consent needs this record.",
-    source: { trigger: "Walkaround done, customer wants to drive", data: ["Test-drive service: START_TEST_DRIVE", "Odometer and fuel, entered by the DA"] },
-    entry: ["Walkaround done", "Valid DL on file", "Car not in another active TD"],
-    exits: [{ when: "TD record created", to: "O4", state: "TD STARTED" }],
+    source: { trigger: "DL verified", data: ["Test-drive service: START_TEST_DRIVE", "Odometer and fuel, entered by the DA"] },
+    entry: ["DL VERIFIED", "Walkaround done", "Car not in another active TD"],
+    exits: [{ when: "TD record created; the TV shows On test drive", to: "O6", state: "TD STARTED" }],
     state: "TD STARTED",
     screen: { name: "Test drive &rsaquo; Start", build: "extend",
       pattern: "Journey step with the start form", route: { booked: "/test-drives/BK-88213?stage=test-drive&step=start", walkin: "/test-drives/BK-89004?stage=test-drive&step=start" } },
     dap: "Start Test Drive sends START_TEST_DRIVE.",
   },
-  { id: "O4", phase: "O", name: "TD consent sign-off", tracks: ["booked", "walkin"],
+  { id: "O6", phase: "O", name: "TD consent sign-off", tracks: ["booked", "walkin"],
     owner: "Customer, with the DA", device: "customer",
     purpose: "The customer signs the TD consent for this car before it moves.",
-    source: { trigger: "TD STARTED", data: ["TD record from O3: car, plate, start time, odometer", "DL from check-in", "E-sign: signature pad, signed PDF saved to Docs"] },
+    source: { trigger: "TD STARTED", data: ["TD record from O5: car, plate, start time, odometer", "DL verified at O4", "E-sign: signature pad, signed PDF saved to Docs"] },
     entry: ["TD STARTED", "Customer at the car"],
     exits: [
-      { when: "Signed: the drive is unlocked", to: "O5", state: "TD CONSENT SIGNED" },
+      { when: "Signed: the drive is unlocked", to: "O7", state: "TD CONSENT SIGNED" },
       { when: "Customer refuses: TD cancelled, reason logged", to: "N1" },
     ],
     state: "TD CONSENT SIGNED",
@@ -543,24 +535,24 @@ const STEPS = [
     dap: "The declaration e-sign unlocks after Start Test Drive but is only enforced at Mark Test Drive Complete, so today a customer can drive before signing. Here it gates the drive. VTD needs none.",
     changed: "Moved here from check-in. One consent per car, signed right after TD start.",
   },
-  { id: "O5", phase: "O", name: "Drive", tracks: ["booked", "walkin"],
+  { id: "O7", phase: "O", name: "Drive", tracks: ["booked", "walkin"],
     owner: "DA", device: "tablet",
     purpose: "Let the car sell itself while the DA answers questions.",
     source: { trigger: "Consent signed", data: ["AI context engine: live notes", "Co-pilot: feature prompts for this car", "One-tap objection tags"] },
     entry: ["TD CONSENT SIGNED"],
-    exits: [{ when: "Back at the hub", to: "O6" }],
+    exits: [{ when: "Back at the hub", to: "O8" }],
     state: null,
     screen: { name: "Test drive &rsaquo; On the drive", build: "new",
       pattern: "Car row with a LIVE badge, live note and transcription with a timer, one-tap objection tags", route: { booked: "/test-drives/BK-88213?stage=test-drive&step=drive", walkin: "/test-drives/BK-89004?stage=test-drive&step=drive" } },
   },
-  { id: "O6", phase: "O", name: "End TD", tracks: ["booked", "walkin", "vtd"],
+  { id: "O8", phase: "O", name: "End TD", tracks: ["booked", "walkin", "vtd"],
     owner: { hub: "DA", vtd: "VTD operator" }, device: { hub: "tablet", vtd: "video" },
     purpose: { hub: "Close the drive, then another car or the debrief.", vtd: "Close the video session." },
     source: { trigger: { hub: "Car back at the hub", vtd: "Walkaround done" }, data: { hub: ["Test-drive service: end time and odometer", "Customer's quick reaction"], vtd: ["Video provider: session end", "Customer's quick reaction"] } },
     entry: { hub: ["TD STARTED, consent signed", "Car back at the hub"], vtd: ["Video walkaround done"] },
     exits: {
-      booked: [{ when: "Another car is queued: new walkaround, start and consent", to: "O1", state: "TD CONDUCTED" }, { when: "Done driving", to: "N1", state: "TD CONDUCTED" }],
-      walkin: [{ when: "Another car is queued: new walkaround, start and consent", to: "O1", state: "TD CONDUCTED" }, { when: "Done driving", to: "N1", state: "TD CONDUCTED" }],
+      booked: [{ when: "Another car is queued: its own walkaround, start and consent. The DL is already verified", to: "O2", state: "TD CONDUCTED" }, { when: "Done driving", to: "N1", state: "TD CONDUCTED" }],
+      walkin: [{ when: "Another car is queued: its own walkaround, start and consent. The DL is already verified", to: "O2", state: "TD CONDUCTED" }, { when: "Done driving", to: "N1", state: "TD CONDUCTED" }],
       vtd: [{ when: "Call wrapped up", to: "N1", state: "VTD CONDUCTED" }],
     },
     state: { hub: "TD CONDUCTED", vtd: "VTD CONDUCTED" },
@@ -664,7 +656,7 @@ const STEPS = [
     source: { trigger: "Always on", data: ["Every state on this page, with timestamps"] },
     entry: ["Manager role"],
     exits: {
-      hub: [{ when: "Customer waiting more than 5 min for a DA: reassign", to: "S3" }],
+      hub: [{ when: "Customer waiting more than 5 min for a DA: reassign", to: "S1" }],
       vtd: [{ when: "Customer waiting in the video room more than 5 min: reassign the operator", to: "I1" }],
     },
     state: null,
@@ -762,13 +754,13 @@ const PDAS = marketTable([
 
 // market strings the screens read directly
 const MK = marketTable({
-  hub: "Al Quoz hub", hubFull: "Al Quoz hub, Dubai", site: "cars24.ae", credit: "AECB score", idDoc: "Emirates ID", area: "Area",
+  hub: "Al Quoz hub", hubFull: "Al Quoz hub, Dubai", hubCode: "AQZ", site: "cars24.ae", credit: "AECB score", idDoc: "Emirates ID", area: "Area",
   langs: ["Arabic", "English", "Hindi", "Urdu", "Other"],
   budgets: ["Under AED 55k", "AED 55k&ndash;65k", "AED 55k&ndash;70k", "AED 65k&ndash;75k", "AED 75k+"],
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to Dubai", "Off-road"],
   token: 5000, privacy: "privacy notice",
 }, { au: {
-  hub: "Melbourne hub", hubFull: "Melbourne hub, VIC", site: "cars24.com.au", credit: "Credit score", idDoc: "Licence state", area: "Suburb",
+  hub: "Melbourne hub", hubFull: "Melbourne hub, VIC", hubCode: "MEL", site: "cars24.com.au", credit: "Credit score", idDoc: "Licence state", area: "Suburb",
   langs: ["English", "Mandarin", "Vietnamese", "Hindi", "Other"],
   budgets: ["Under $25k", "$25k&ndash;35k", "$27k&ndash;33k", "$32k&ndash;38k", "$40k+"],
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to the city", "Off-road"],
@@ -826,10 +818,10 @@ function localize(html) {
 // ---------------------------------------------------------------- what is configured per market (for the docs view)
 // [setting, UAE, India, Australia]. India is listed for the decision; the screens show the UAE and Australia.
 const MARKET_CONFIG = [
-  ["Check-in default", "At the desk: the receptionist checks the customer in", "At the desk", "By link: the customer checks in on their own phone"],
-  ["The other way", "By link, picked per visit", "By link, picked per visit", "At the desk, picked per visit"],
-  ["Link sent on", "WhatsApp and email", "WhatsApp and email", "WhatsApp and email (SMS to decide)"],
-  ["Proof of mobile", "Desk: OTP. Link: the one-time link itself", "Same", "Same"],
+  ["Check-in default", "By staff: a receptionist or DA fills the form with the customer", "By staff", "Seat QR: the customer checks in on their own phone"],
+  ["The other way", "Seat QR, for any visit", "Seat QR, for any visit", "By staff, for any visit"],
+  ["Proof of mobile", "OTP, both ways", "Same", "Same"],
+  ["Token and live tracker sent on", "WhatsApp", "WhatsApp", "WhatsApp, or SMS (to decide)"],
   ["Identity document", "Emirates ID", "To confirm", "Driver licence; no national ID"],
   ["Credit check", "AECB", "CIBIL", "Credit bureau to confirm"],
   ["Currency", "AED", "INR", "AUD, shown as $"],
