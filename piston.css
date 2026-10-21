@@ -693,17 +693,6 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .v2-funnel .t{font-size:11px; color:var(--v-muted); font-variant-numeric:tabular-nums;}
 .v2-funnel .t.late{color:var(--v-red-ink); font-weight:700;}
 
-/* customer view (the tablet turned to the customer) */
-.v2-cv{height:100%; display:flex; flex-direction:column; background:var(--v-panel);}
-.v2-cv-top{display:flex; align-items:center; justify-content:space-between; padding:14px 28px; border-bottom:1px solid var(--v-line);}
-.v2-cv-top .brand{display:flex; align-items:center; gap:9px; font-weight:700; font-size:15px; color:var(--v-ink);}
-.v2-cv-top .hand{font-size:12px; color:var(--v-muted); display:flex; align-items:center; gap:6px;}
-.v2-cv-top .hand .icon{width:14px; height:14px;}
-.v2-cv-body{flex:1; min-height:0; overflow:hidden; padding:24px 34px; display:flex; gap:28px;}
-.v2-cv-body .col{flex:1; min-width:0; display:flex; flex-direction:column; gap:12px;}
-.v2-cv h2{margin:0; font-size:24px; font-weight:700; letter-spacing:-.02em; color:var(--v-ink);}
-.v2-cv .lead{font-size:14.5px; color:var(--v-muted); margin:-6px 0 4px; line-height:1.5;}
-.v2-cv-foot{display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:14px 28px; border-top:1px solid var(--v-line);}
 .v2-insp{border:1px solid var(--v-line); border-radius:12px; overflow:hidden;}
 .v2-insp div{display:flex; justify-content:space-between; padding:10px 14px; border-bottom:1px solid var(--v-line); font-size:13.5px;}
 .v2-insp div:last-child{border-bottom:none;}
@@ -717,7 +706,7 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .v2-terms{margin:0; padding-left:18px; font-size:13.5px; line-height:1.75; color:var(--v-ink);}
 .v2-sig{border:1.5px dashed var(--v-faint); border-radius:14px; background:var(--v-panel-2); position:relative; height:220px;}
 .v2-sig canvas{width:100%; height:100%; display:block; cursor:crosshair; touch-action:none;}
-.v2-sig .ph{position:absolute; left:16px; bottom:12px; font-size:12px; color:var(--v-faint); pointer-events:none;}
+.v2-sig .sig-ph{position:absolute; left:16px; bottom:12px; font-size:12px; color:var(--v-faint); pointer-events:none;}
 .v2-sig .line{position:absolute; left:16px; right:16px; bottom:34px; border-top:1px solid var(--v-line); pointer-events:none;}
 .v2-agree{display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px;}
 .v2-agree label{display:flex; align-items:center; gap:8px;}
@@ -1136,3 +1125,49 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .ph-btn.sm{height:34px; font-size:13px; border-radius:10px;}
 .v2-ok.sm{font-size:11.5px;}
 .v2-ok.sm .icon{width:13px; height:13px;}
+
+/* matches header: the question and Compare on one line */
+.dc-mh{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+.dc-mh .v2-q{margin-bottom:0;}
+
+/* T4 quality promise, in the middle column: the car, then three columns */
+.qp-hero{display:flex; align-items:center; gap:12px; background:var(--v-panel); border:1px solid var(--v-line); border-radius:12px; padding:10px 12px; margin-bottom:10px; box-shadow:var(--v-shadow);}
+.qp-hero .ph{width:64px; height:44px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--v-muted); flex:none;}
+.qp-hero .mid{flex:1; min-width:0;}
+.qp-hero .mid b{display:block; font-size:14.5px; color:var(--v-ink);}
+.qp-hero .mid small{font-size:12px; color:var(--v-muted);}
+.qp-score{display:flex; flex-direction:column; align-items:flex-end; color:var(--v-green-ink);}
+.qp-score b{font-size:17px;}
+.qp-score small{font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--v-muted);}
+.qp-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:10px;}
+.qp-col{background:var(--v-panel); border:1px solid var(--v-line); border-radius:12px; padding:11px 12px; box-shadow:var(--v-shadow); display:flex; flex-direction:column; gap:8px; min-width:0;}
+.qp-h{display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--v-ink);}
+.qp-h .icon{width:16px; height:16px; color:var(--v-primary);}
+.qp-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px;}
+.qp-list li{display:flex; gap:7px; align-items:flex-start; font-size:12px; color:var(--v-ink); line-height:1.35;}
+.qp-list li .icon{width:14px; height:14px; flex:none; margin-top:1px;}
+.qp-list li.ok .icon{color:var(--v-green-ink);}
+.qp-list li.note .icon{color:var(--v-amber);}
+.qp-list li small{display:block; font-size:11px; color:var(--v-muted);}
+.qp-big{font-size:19px; font-weight:700; color:var(--v-ink); letter-spacing:-.01em;}
+.qp-big small{display:block; font-size:11px; font-weight:500; color:var(--v-muted); letter-spacing:0;}
+.qp-col .v2-link{margin-top:auto;}
+
+/* T5 book now: six slots on one row */
+.v2-slots.six{grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; margin-top:8px;}
+.v2-slots.six .v2-slot{padding:6px 7px; font-size:11.5px;}
+.v2-slots.six .v2-slot span{font-size:10px;}
+.bk-card .v2-car{margin:8px 0 0; box-shadow:none;}
+
+/* O3 consent, in the middle column: details, then terms and signature side by side */
+.cs-strip{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:10px;}
+.cs-strip .v2-kv b small{display:block; font-size:10.5px; color:var(--v-muted);}
+.cs-grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px;}
+.cs-col{display:flex; flex-direction:column; gap:10px; margin-bottom:0; padding:12px 14px;}
+.cs-h{display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--v-ink);}
+.cs-h .icon{width:16px; height:16px; color:var(--v-primary);}
+.cs-terms{margin:0; padding-left:17px; font-size:12.5px; line-height:1.6; color:var(--v-ink);}
+.cs-terms li{margin-bottom:3px;}
+.cs-col .v2-small{margin:auto 0 0;}
+.v2-sig.cs-sig{height:190px;}
+.cs-col .v2-agree{font-size:12px;}

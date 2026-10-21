@@ -199,69 +199,73 @@ const ANATOMY = {
 
   // ------------------------------------------------------------ T · Tailor
   T1: {
-    parts: [["wait-card", "Waiting customer", "CARD", "Who, which seat and token, booking or walk-in, where the car is, AI context"], ["met", "I've met the customer", "BUTTON", "The handshake, at the customer's seat"],
-      ["later", "Later today", "TABLE", "The DA's other visits"], ["alert-note", "The rule", "INFO", "Only after assignment, never at check-in. 5 minutes, then the receptionist and the manager are alerted"]],
-    fields: [["Waiting", "Timer", "Read only", "Since DA assigned", "Red at 5 min"]],
-    actions: [["I've met the customer", "DAP today: work order to MET_CUSTOMER; the TV shows them together", "MET CUSTOMER; T2"]],
-    states: [["Waiting", "Card with a running timer"], ["Late", "At 5 min the receptionist and the manager are alerted"]],
+    booked: {
+      parts: [["lead"], ["stages", null, null, "TD live starts here: Handshake, starting"], ["wait-card", "Waiting customer", "CARD", "Who, which seat and token, and the booked car parked at the hub by the Yardie"],
+        ["summary", "Car and driver", "KEY_VALUES", "The TD record's subject"], ["odo", "Odometer and fuel", "DYNAMIC_FORM", "Start reading"], ["route", "Route", "CHIPS", "City or highway loop"],
+        ["recording", "Recording", "TOGGLE", "Starts with the TD, on the consent given at check-in"], ["gpt"], ["foot"]],
+      fields: [["Odometer at start", "Number (km)", "Yes", "Typed or photo", "Not lower than the last reading"], ["Fuel", "Single select", "Yes", "DA", "1/4, 1/2, 3/4, full"], ["Route", "Single select", "No", "DA", "City or highway loop"],
+        ["Recording", "Toggle", "Read only", "Recording consent from check-in", "Off if the customer said no; then only the tags are kept"]],
+      actions: [["Met: start TD and recording", "DAP today: MET_CUSTOMER, then START_TEST_DRIVE, in one tap. Proposed: recording and live transcription start; the TV shows On test drive", "TD STARTED; O3"]],
+      states: [["Car not at the hub", "Start disabled until CAR AT HUB"], ["Late", "Not met within 5 min: the receptionist and the manager are alerted"], ["Customer said no to recording", "The drive starts without it"]],
+    },
+    walkin: {
+      parts: [["wait-card", "Waiting customer", "CARD", "Who, which seat and token, walk-in, AI context"], ["met", "I've met the customer", "BUTTON", "The handshake, at the customer's seat"],
+        ["later", "Later today", "TABLE", "The DA's other visits"], ["alert-note", "The rule", "INFO", "Only after assignment, never at check-in. 5 minutes, then the receptionist and the manager are alerted"]],
+      fields: [["Waiting", "Timer", "Read only", "Since DA assigned", "Red at 5 min"]],
+      actions: [["I've met the customer", "DAP today: work order to MET_CUSTOMER; the TV shows them together", "MET CUSTOMER; T2"]],
+      states: [["Waiting", "Card with a running timer"], ["Late", "At 5 min the receptionist and the manager are alerted"]],
+    },
   },
   T2: {
-    hub: {
-      parts: [["lead"], ["stages"], ["prefill", "Prefill tag", "TAG", "Booked customers start with answers from the booking"], ["needs", "Needs", "DYNAMIC_FORM", "Chips, so the DA can fill it while talking"], ["gpt"], ["foot"]],
+    walkin: {
+      parts: [["lead"], ["stages"], ["prefill", "Source tag", "TAG", "Captured in conversation: nothing to prefill for a walk-in"], ["pills", "Stepper pills", "STEPPER_PILLS", "Who it's for, budget, body type, fuel and gearbox, must-haves, matches. The same component as P3 Discovery"],
+        ["filter", "Filter step", "CHIPS", "One question per pill, with Next"], ["matches", "Matching cars", "CAR_LIST", "Live stock at this hub that fits, with a match score, select and a link to the car's page"], ["compare", "Compare", "COMPARE_MODAL", "Side by side for the matches"], ["gpt"], ["foot"]],
+      fields: [["Who it's for", "Single select", "No", "Asked", ""], ["Mostly for", "Multi select", "No", "Asked", ""], ["Budget", "Single select", "Yes", "Asked", "AED bands"], ["Paying by", "Single select", "No", "Asked", "Cash, finance, not sure"],
+        ["Body type", "Multi select", "Yes", "Asked", ""], ["Fuel and gearbox", "Single select", "No", "Asked", ""], ["Must-haves", "Multi select", "No", "Asked", ""], ["Cars picked", "Multi select", "Yes", "Matches", "One or two, live stock at this hub"]],
+      actions: [["Next (in each pill)", "Recommendation model with the filters so far", "The next pill"], ["Car page", "Opens the car on the consumer website, in a new tab", "Stays here"], ["Compare", "Compare modal", "Stays here"], ["Next: why this car", "Hold the picked cars", "T4"], ["Nothing fits: share shortlist", "Notification engine", "N4"]],
+      states: [["No match", "Loosen a filter"], ["Car busy", "A car in another TD shows when it is free"]],
     },
     vtd: {
       parts: [["video", null, null, "The operator shares the screen while asking"], ["stages"], ["prefill", "Prefill tag", "TAG", "Answers from the booking"], ["needs", "Needs", "DYNAMIC_FORM", "Chips"], ["foot"]],
-    },
-    all: {
-      fields: [["Budget", "Single select", "Yes", "Booking or CDP (prefilled for booked)", "AED bands"], ["Body type", "Multi select", "Yes", "Same", "Sedan, SUV, hatchback, pickup"], ["Transmission", "Single select", "No", "Same", ""],
+      fields: [["Budget", "Single select", "Yes", "Booking or CDP", "AED bands"], ["Body type", "Multi select", "Yes", "Same", "Sedan, SUV, hatchback, pickup"], ["Transmission", "Single select", "No", "Same", ""],
         ["Drive", "Single select", "No", "Asked", "2WD, 4WD"], ["Mostly for", "Multi select", "No", "Asked", ""], ["Must-haves", "Multi select", "No", "Asked", ""], ["Paying by", "Single select", "No", "Asked", "Cash, finance, not sure"]],
-      actions: [["Show matching cars", "Recommendation model with these needs", "T3"], ["Set on the booked car: skip (booked)", "None", "T4"]],
-      states: [["Prefilled", "Booked customers start from the booking"], ["Missing", "Show matching cars stays disabled until budget and body type are set"]],
+      actions: [["Show matching cars", "Recommendation model with these needs", "T3"]],
+      states: [["Prefilled", "Starts from the booking"], ["Missing", "Show matching cars stays disabled until budget and body type are set"]],
     },
   },
   T3: {
-    hub: {
-      parts: [["lead"], ["stages"], ["car-rows", "Car rows", "CAR_LIST", "Like the TD Journey booked list: order ID, title, price, match reason; tick to drive today"],
-        ["add-cars", "Add cars", "DRAWER", "Search live stock by order ID or car name; from the TD Journey file"], ["compare", "Compare", "COMPARE_MODAL", "Side by side for the ticked cars"], ["gpt"], ["foot"]],
-    },
-    vtd: {
-      parts: [["video", null, null, "Shown to the customer over screen share"], ["stages"], ["car-rows", "Car rows", "CAR_LIST", "Booked car and matches"], ["compare", "Compare", "COMPARE_MODAL", "Side by side"], ["foot"]],
-    },
-    all: {
-      fields: [["Drive today", "Tick per car", "Yes, at least one", "DA", "Up to 3 cars per visit (example)"], ["Match", "Percent", "Read only", "Recommendation model", "With the reason"]],
-      actions: [["Add cars", "Opens the drawer; adds cars to the list", "Stays on T3"], ["Compare", "Compare modal", "Stays on T3"], ["Next: why this car", "None", "T4"], ["Nothing fits: share shortlist", "Notification engine", "N4"]],
-      states: [["Booked car pinned", "Booked tag on the booked car"], ["Liked while waiting", "Tag on cars liked from the token page while waiting (I2)"], ["Busy", "A car in another TD shows when it is free"]],
-    },
+    parts: [["video", null, null, "Shown to the customer over screen share"], ["stages"], ["car-rows", "Car rows", "CAR_LIST", "Booked car and matches"], ["compare", "Compare", "COMPARE_MODAL", "Side by side"], ["foot"]],
+    fields: [["To see", "Tick", "Yes", "Operator", "One car on camera at a time"], ["Match", "Percent", "Read only", "Recommendation model", "With the reason"]],
+    actions: [["Compare", "Compare modal", "Stays on T3"], ["Next: why this car", "None", "T4"], ["Nothing fits: share shortlist", "Notification engine", "N4"]],
+    states: [["Booked car pinned", "Booked tag on the booked car"]],
   },
   T4: {
-    hub: {
-      parts: [["inspection", "Inspection summary", "INFO_LIST", "This car's own inspection"], ["promise", "Why CARS24", "INFO_CARDS", "Inspected, warranty, return window, finance estimate"], ["foot", "Customer actions", "SHELL_CTAS", "Large buttons for the customer"]],
+    walkin: {
+      parts: [["lead"], ["stages"], ["car", "The car", "CAR_HEADER", "Title, price, odometer, body, where it will be, and the inspection score"],
+        ["inspection", "Inspected", "INFO_COLUMN", "This car's own inspection, check by check, with the full report"], ["warranty", "Warranty and return", "INFO_COLUMN", "Warranty, return window, service history, fixed price"],
+        ["finance", "Finance", "INFO_COLUMN", "A monthly estimate, how they pay, and the pre-approval status"], ["turn", "Turn to the customer", "INFO", "The DA shows the tablet and talks it through"], ["gpt"], ["foot"]],
+      fields: [["Monthly estimate", "Money", "Read only", "Finance calculator", "Example only"], ["Pre-approval", "Status", "Read only", "Finance service", "From check-in"]],
+      actions: [["Drive it now: book the slot", "None", "T5"], ["Wants to think: share shortlist", "Notification engine", "N4"], ["Full report", "Opens the inspection report", "Stays here"]],
+      states: [["Marks noted", "Shown as a note, not hidden"], ["Not pre-approved", "Shows the 2-minute pre-approval"]],
     },
     vtd: {
       parts: [["video", null, null, "Shared on screen"], ["stages"], ["promise", "Why CARS24", "INFO_CARDS", "Inspected, warranty, return window, finance"], ["foot"]],
-    },
-    all: {
       fields: [],
-      actions: [["Let's drive it", "None", "T5"], ["I need to think", "None", "N4"]],
-      states: [["Customer view", "Large type; the DA hands the tablet over"]],
+      actions: [["Show the car on camera", "None", "T5"], ["Wants to think", "None", "N4"]],
+      states: [],
     },
   },
   T5: {
-    booked: {
-      parts: [["lead"], ["stages"], ["drives", "Today's drives", "CAR_LIST", "In driving order"], ["prep", "Where the car is", "STATUS_CHIP", "The booked car is at the hub; an added car gets a yard task"], ["summary", "Summary", "KEY_VALUES", "Customer, licence, order"], ["gpt"], ["foot"]],
-      actions: [["Confirm and request prep", "OMS: add the second TD to the visit; yard task for the added car", "O1"], ["Car is taken: pick again", "None", "T3"]],
-    },
     walkin: {
-      parts: [["lead"], ["stages"], ["drives", "Today's drive", "CAR_LIST", "The new order ID appears on the car"], ["prep", "Yard prep", "STATUS_CHIP", "Yard task raised for the Yardie"], ["summary", "Summary", "KEY_VALUES", "Customer, licence, new order"], ["gpt"], ["foot"]],
-      actions: [["Create order and request prep", "OMS booking-initiate, then booking-confirm; yard task to the Yardie", "ORDER BOOKED; O1"], ["Car is in another TD: pick again", "None", "T3"]],
+      parts: [["lead"], ["stages", null, null, "Car finding shows Booking the slot"], ["slot", "The current slot", "SLOT_PICKER", "Today's slots at this hub; past ones greyed, the current one picked"],
+        ["order", "The order", "CAR_ROW", "The new order ID on the car, booked for a TD"], ["prep", "Prep request", "TASK_CARD", "To the Yardie: from the yard spot to a bay, with the prep checklist"], ["gpt"], ["foot"]],
+      fields: [["Slot", "Time", "Yes", "Slot planner", "The current one by default; another slot today if it is full"], ["Car", "Car", "Read only", "Picked in T2", ""], ["Prep checklist", "Ticks", "Read only", "Yard task template", "Wash, inside wipe, fuel at least half, tyres"]],
+      actions: [["Book, create order, request prep", "Slot planner: book the slot. OMS booking-initiate, then booking-confirm. Proposed: yard.prep_requested to the Yardie", "ORDER BOOKED; O1"], ["Car is in another TD: pick again", "None", "T2"], ["No room now: book later today", "Slot planner", "N6"]],
+      states: [["Current slot full", "The next free slot today is picked instead"], ["Yard busy", "The ETA from the Yardie shows on the prep request"]],
     },
     vtd: {
       parts: [["video"], ["stages"], ["drives", "Car on camera", "KEY_VALUES", "Car, studio, yard helper, order"], ["foot"]],
-      actions: [["Start the walkaround", "None", "O5"]],
-    },
-    all: {
-      fields: [["Today's drives", "Ordered list", "Yes", "Ticked in T3", "Order of driving"], ["Licence", "Status", "Read only", "O4", "Checked at the car, after Start TD and the consent"]],
-      states: [["Car taken", "Back to T3"], ["Yard busy", "The ETA from the Yardie shows on the car"]],
+      fields: [], actions: [["Start the walkaround", "None", "O5"]], states: [],
     },
   },
 
@@ -278,9 +282,6 @@ const ANATOMY = {
     walkin: { parts: [["lead"], ["stages", null, null, "TD live starts here: Starting, recording"], ["meet-again", "Back to the customer", "CARD", "The car reached the hub, so the DA was told to go back: who, which seat and token, where the car is"],
       ["summary", "Car and driver", "KEY_VALUES", "The TD record's subject"], ["odo", "Odometer and fuel", "DYNAMIC_FORM", "Start reading"], ["route", "Route", "CHIPS", "City or highway loop"],
       ["recording", "Recording", "TOGGLE", "Starts with the TD, on the consent given at check-in"], ["gpt"], ["foot"]] },
-    booked: { parts: [["lead"], ["stages", null, null, "TD live starts here: Starting, recording"], ["meet-again", "Customer and car", "CARD", "The booked car has been at the hub since check-in"],
-      ["summary", "Car and driver", "KEY_VALUES", "The TD record's subject"], ["odo", "Odometer and fuel", "DYNAMIC_FORM", "Start reading"], ["route", "Route", "CHIPS", "City or highway loop"],
-      ["recording", "Recording", "TOGGLE", "Starts with the TD, on the consent given at check-in"], ["gpt"], ["foot"]] },
     all: {
       fields: [["Odometer at start", "Number (km)", "Yes", "Typed or photo", "Not lower than the last reading"], ["Fuel", "Single select", "Yes", "DA", "1/4, 1/2, 3/4, full"], ["Route", "Single select", "No", "DA", "City or highway loop"],
         ["Recording", "Toggle", "Read only", "Recording consent from check-in", "Off if the customer said no; then only the tags are kept"]],
@@ -289,11 +290,12 @@ const ANATOMY = {
     },
   },
   O3: {
-    parts: [["details", "TD details", "KEY_VALUES", "Driver, car, plate, start time, odometer"], ["terms", "Terms", "TERMS", "Example terms for the prototype"], ["signature", "Signature", "SIGNATURE_PAD", "Signed with a finger"],
-      ["agree", "I agree", "CHECKBOX", "Required with the signature"], ["foot", "Customer actions", "SHELL_CTAS", "Sign and continue stays disabled until signed and ticked"]],
+    parts: [["lead"], ["stages", null, null, "TD live shows Consent"], ["handover", "Hand over", "TAG", "The customer signs on the DA's tablet"], ["details", "TD details", "KEY_VALUES", "Driver, car and plate, start time and odometer, the DA"],
+      ["terms", "Terms", "TERMS", "What the customer agrees to; example terms for the prototype"], ["signature", "Signature", "SIGNATURE_PAD", "Signed with a finger, next to the terms"],
+      ["agree", "I agree", "CHECKBOX", "Required with the signature"], ["gpt"], ["foot", null, null, "Next (Signed: check the licence) stays disabled until signed and ticked. Customer declines is under the arrow"]],
     fields: [["Signature", "Drawing", "Yes", "Customer", "Not empty"], ["I agree", "Checkbox", "Yes", "Customer", ""]],
-    actions: [["Sign and continue", "Proposed: e-sign service saves the signed PDF to Docs; td.consent_signed event", "TD CONSENT SIGNED; O4"], ["Customer declines", "DAP today: CANCEL_TEST_DRIVE with a reason", "N1"]],
-    states: [["Unsigned", "Primary button disabled"], ["Signed", "On to the licence check"]],
+    actions: [["Signed: check the licence", "Proposed: e-sign service saves the signed PDF to Docs; td.consent_signed event", "TD CONSENT SIGNED; O4"], ["Customer declines: cancel the TD", "DAP today: CANCEL_TEST_DRIVE with a reason", "N1"]],
+    states: [["Unsigned", "Next disabled"], ["Signed", "On to the licence check; the PDF goes to Documents and to the customer"]],
   },
   O4: {
     parts: [["lead"], ["stages", null, null, "TD live shows DL check"], ["upload", "Licence images", "UPLOAD", "From before the visit, from the seat QR form, or scanned now"],
@@ -309,7 +311,7 @@ const ANATOMY = {
     vtd: { parts: [["video", null, null, "The yard helper's camera on the car"], ["stages"], ["zones", "Walkaround zones", "CHECKLIST", "Tick as each is shown"], ["foot"]] },
     all: {
       fields: [["Zones covered", "Checklist", "No", "DA", "Exterior, interior, bonnet, boot"]],
-      actions: [["Start driving (hub)", "None", "O6"], ["Play drive clip and wrap up (VTD)", "None", "O7"]],
+      actions: [["Start driving (hub)", "None", "O6"], ["Goes off the car", "Ends this TD", "O7 for a booking; T2 for a walk-in, to find another"], ["Play drive clip and wrap up (VTD)", "None", "O7"]],
       states: [["Covered", "Zones turn green"]],
     },
   },
@@ -321,12 +323,11 @@ const ANATOMY = {
     states: [["Transcription off", "If recording consent was no, only the tags are saved"]],
   },
   O7: {
-    booked: { parts: [["lead"], ["stages", null, null, "TD live shows 1/2 done"], ["done-car", "Done car", "CAR_ROW", "TD done badge"], ["end-form", "End reading", "DYNAMIC_FORM", "Odometer and duration"], ["reaction", "Customer's reaction", "CHIPS", ""], ["next-car", "Next car", "STATUS_CHIP", "Drive 2 ready at the hub"], ["gpt"], ["foot"]] },
-    walkin: { parts: [["lead"], ["stages"], ["done-car", "Done car", "CAR_ROW", "TD done badge"], ["end-form", "End reading", "DYNAMIC_FORM", "Odometer and duration"], ["reaction", "Customer's reaction", "CHIPS", ""], ["gpt"], ["foot"]] },
+    hub: { parts: [["lead"], ["stages"], ["done-car", "Done car", "CAR_ROW", "TD done badge"], ["end-form", "End reading", "DYNAMIC_FORM", "Odometer and duration"], ["reaction", "Customer's reaction", "CHIPS", ""], ["gpt"], ["foot"]] },
     vtd: { parts: [["video"], ["stages"], ["end-form", "Wrap-up", "CHIPS", "Reaction, and whether a real drive is wanted"], ["foot"]] },
     all: {
       fields: [["Odometer at end", "Number (km)", "Yes", "Typed", "Higher than the start"], ["Duration", "Minutes", "Read only", "Start and end times", ""], ["Customer reaction", "Single select", "No", "Asked", "Loved it, OK, not for me"]],
-      actions: [["Done driving: debrief", "DAP today: COMPLETE_TEST_DRIVE; the recording stops", "TD CONDUCTED; N1"], ["Start drive 2", "None", "O2, with its own start and consent; the licence is already verified"]],
+      actions: [["Done driving: debrief", "DAP today: COMPLETE_TEST_DRIVE; the recording stops", "TD CONDUCTED; N1"], ["Another car", "Starts its TD", "Walk-in: O2. Booking: its own consent (O3). The licence is already verified"]],
       states: [["More cars", "The stage bar shows 1/2 done"]],
     },
   },
