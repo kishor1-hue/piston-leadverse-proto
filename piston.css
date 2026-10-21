@@ -946,8 +946,9 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .tv-qr b{display:block; font-size:13.5px;}
 .tv-qr small{font-size:12px; color:var(--v-muted);}
 .tv-table{width:100%; border-collapse:collapse;}
-.tv-table th{text-align:left; font-size:13px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--v-muted); padding:14px 28px 10px; border-bottom:1px solid var(--v-line);}
-.tv-table td{font-size:19px; padding:17px 28px; border-bottom:1px solid var(--v-line); color:var(--v-ink); white-space:nowrap;}
+.tv-table th{text-align:left; font-size:13px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--v-muted); padding:14px 20px 10px; border-bottom:1px solid var(--v-line);}
+.tv-table th:first-child, .tv-table td:first-child{padding-left:28px;}
+.tv-table td{font-size:19px; padding:17px 20px; border-bottom:1px solid var(--v-line); color:var(--v-ink); white-space:nowrap;}
 .tv-table tr.me td{background:var(--v-hl);}
 .tv-table tr.me td:first-child{box-shadow:inset 5px 0 0 var(--v-primary);}
 .tv-tok{font-size:26px; font-weight:800; letter-spacing:.02em; font-variant-numeric:tabular-nums;}
@@ -1065,3 +1066,73 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .sa-card .mid small{display:block; font-size:12px; color:var(--v-muted); margin-top:2px; line-height:1.45;}
 .sa-rule{margin:0; padding-left:18px; font-size:12.5px; line-height:1.7; color:var(--v-ink-2);}
 .v2-alert.amber{background:var(--v-amber-soft); color:var(--v-amber);}
+
+/* =====================================================================
+   Standard footer, the lead view on the call, discovery, finance after check-in
+   ===================================================================== */
+/* Previous | hint | Next with a menu of the other exits */
+.v2-split{position:relative; display:inline-flex; flex:none;}
+.v2-split > .v2-btn:first-child:not(:last-child){border-top-right-radius:0; border-bottom-right-radius:0;}
+.v2-split .caret{border-top-left-radius:0; border-bottom-left-radius:0; padding:0 8px; margin-left:-1px;}
+.v2-split .caret.primary{border-left-color:rgba(255,255,255,.35);}
+.v2-menu{position:absolute; right:0; bottom:calc(100% + 6px); min-width:260px; background:var(--v-panel); border:1px solid var(--v-line); border-radius:10px; box-shadow:0 16px 32px -12px rgba(16,24,40,.3); padding:4px; z-index:8; display:flex; flex-direction:column;}
+.v2-menu button{display:flex; align-items:center; gap:8px; border:none; background:none; text-align:left; padding:8px 10px; border-radius:7px; font-family:inherit; font-size:12.5px; color:var(--v-ink); cursor:pointer; white-space:nowrap;}
+.v2-menu button:hover{background:var(--v-fill);}
+.v2-menu button .icon{width:14px; height:14px; color:var(--v-muted);}
+
+/* tabs that filter a table */
+.v2-tabs2 button{font-size:12.5px; font-weight:500; color:var(--v-muted); padding:6px 10px; border-radius:8px; border:none; background:none; font-family:inherit; cursor:pointer; white-space:nowrap;}
+.v2-tabs2 button.on{background:var(--v-fill); color:var(--v-ink);}
+
+/* the lead pane edited on the call */
+.v2-acts span.edit{border-style:dashed;}
+.v2-f.edit-row{flex-direction:column; align-items:stretch;}
+.v2-f.edit-row small{display:flex; align-items:center; gap:6px; margin-bottom:4px; flex-wrap:wrap;}
+.v2-input.sm{height:30px; font-size:12px;}
+.v2-tag.warn{background:var(--v-amber-soft); color:var(--v-amber);}
+.v2-note.amber{background:var(--v-amber-soft); color:var(--v-amber);}
+.v2-link{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--v-primary-ink); text-decoration:none; white-space:nowrap;}
+.v2-link .icon{width:13px; height:13px;}
+.v2-warn-txt{color:var(--v-amber); font-weight:600;}
+.hx-past{display:flex; align-items:center; gap:12px; padding:8px 10px; border:1px dashed var(--v-line-2); border-radius:12px;}
+.hx-past > div{flex:1; min-width:0;}
+.hx-past b{display:block; font-size:12.5px; color:var(--v-ink-2);}
+.hx-past small{font-size:11.5px; color:var(--v-muted);}
+.hx-past .v2-av .icon{width:14px; height:14px;}
+
+/* discovery: stepper pills, one filter per pill */
+.dc-pills{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+.dc-pill{display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px 0 6px; border-radius:16px; border:1px solid var(--v-line-2); background:var(--v-panel); font-family:inherit; font-size:12px; font-weight:500; color:var(--v-muted); cursor:pointer; white-space:nowrap;}
+.dc-pill i{font-style:normal; width:19px; height:19px; border-radius:50%; background:var(--v-fill); color:var(--v-muted); font-size:10.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center;}
+.dc-pill.on{border-color:var(--v-primary); background:var(--v-primary-soft); color:var(--v-primary-ink); font-weight:600;}
+.dc-pill.on i{background:var(--v-primary); color:#fff;}
+.dc-pill.done{color:var(--v-green-ink);}
+.dc-pill.done i{background:var(--v-green); color:#fff;}
+.dc-panel .v2-q{margin-top:2px;}
+.dc-next{display:flex; justify-content:flex-end; margin-top:12px;}
+
+/* TD type per car, and the booking read-back */
+.td-row{display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--v-line);}
+.td-row:last-child{border-bottom:none;}
+.td-row .ph{width:64px; height:42px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center;}
+.td-row .ph .icon{width:20px; height:20px; opacity:.55; color:#101828;}
+.td-row .mid{flex:1; min-width:0;}
+.td-row .mid b{display:block; font-size:13px; color:var(--v-ink);}
+.td-row .mid small{font-size:11.5px; color:var(--v-muted);}
+.td-row .v2-seg2 button:disabled{opacity:.4; cursor:not-allowed;}
+.bk-card{display:flex; gap:12px; align-items:flex-start; background:var(--v-panel); border:1px solid var(--v-line); border-radius:12px; padding:12px 14px; margin-bottom:10px; box-shadow:var(--v-shadow);}
+.bk-card .ic{width:34px; height:34px; border-radius:10px; background:var(--v-primary-soft); color:var(--v-primary); display:flex; align-items:center; justify-content:center; flex:none;}
+.bk-card .mid{flex:1; min-width:0;}
+.bk-card .mid b{display:block; font-size:14px; color:var(--v-ink);}
+.bk-card .mid small{font-size:12px; color:var(--v-muted);}
+
+/* the finance next step after check-in (token page and the staff form) */
+.ph-fin{display:flex; gap:12px; align-items:flex-start; border:1px solid var(--v-line); border-radius:14px; padding:12px; background:var(--v-panel-2); text-align:left; margin-top:12px;}
+.ph-fin svg{flex:none;}
+.ph-fin > div{flex:1; min-width:0;}
+.ph-fin p{margin:0; font-size:12.5px; line-height:1.45; color:var(--v-ink);}
+.ph-fin small{display:block; font-size:10.5px; color:var(--v-muted); margin:3px 0 8px; word-break:break-all;}
+.ph-fin.pre, .ph-fin.lender{border-color:var(--v-primary); background:var(--v-primary-soft);}
+.ph-btn.sm{height:34px; font-size:13px; border-radius:10px;}
+.v2-ok.sm{font-size:11.5px;}
+.v2-ok.sm .icon{width:13px; height:13px;}

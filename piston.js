@@ -325,6 +325,10 @@ function mountScreen(root) {
   const showFlow = (group, step) => {
     root.querySelectorAll(`[data-flow="${group}"]`).forEach(p => { p.hidden = p.dataset.flowStep !== step; });
     root.querySelectorAll("[data-flow-dim]").forEach(d => { d.hidden = !step; });
+    // stepper pills follow the panel: earlier ones done, the current one on
+    const pills = [...root.querySelectorAll(`[data-flow-pill^="${group}:"]`)];
+    const at = pills.findIndex(p => p.dataset.flowPill === `${group}:${step}`);
+    pills.forEach((p, i) => { p.classList.toggle("on", i === at); p.classList.toggle("done", at >= 0 && i < at); });
   };
   root.querySelectorAll("[data-step-to]").forEach(b => b.addEventListener("click", () => { const [g, s] = b.dataset.stepTo.split(":"); showFlow(g, s); }));
   root.querySelectorAll("[data-close-flow]").forEach(b => b.addEventListener("click", () => { const p = b.closest("[data-flow]"); if (p) showFlow(p.dataset.flow, null); }));
@@ -333,6 +337,14 @@ function mountScreen(root) {
   const dims = () => root.querySelectorAll("[data-drawer-dim]");
   root.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.open); if (o) { o.hidden = false; dims().forEach(d => { d.hidden = false; }); } }));
   root.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.close); if (o) o.hidden = true; dims().forEach(d => { d.hidden = true; }); }));
+  // the arrow next to Next opens the other exits; any other click closes it
+  root.querySelectorAll("[data-menu]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); const m = b.nextElementSibling; m.hidden = !m.hidden; }));
+  root.addEventListener("click", (e) => { if (!e.target.closest("[data-menu]")) root.querySelectorAll(".v2-menu").forEach(m => { m.hidden = true; }); });
+  // filter tabs over a table: rows carry data-cat
+  root.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => {
+    b.parentElement.querySelectorAll("[data-filter]").forEach(x => x.classList.toggle("on", x === b));
+    root.querySelectorAll("tr[data-cat]").forEach(r => { r.hidden = b.dataset.filter !== "all" && r.dataset.cat !== b.dataset.filter; });
+  }));
   // pins follow the visible parts after any in-screen change
   root.addEventListener("click", () => setTimeout(drawPins, 0));
   mountSignature(root);
@@ -360,6 +372,8 @@ function mountSync(stage) {
   // capture phase: the phone's own choice handlers stop propagation, and the other screen must still hear every tap
   if (phone) phone.addEventListener("click", (e) => {
     const a = e.target.closest("[data-sync]");
+    // an answer can switch what shows elsewhere: data-when="key=value" is shown only for the chosen value
+    if (a && a.dataset.syncKey) { const k = a.dataset.syncKey.split("=")[0]; screens.forEach(root => root.querySelectorAll(`[data-when^="${k}="]`).forEach(el => { el.hidden = el.dataset.when !== a.dataset.syncKey; })); }
     if (a) screens.forEach(root => root.querySelectorAll(`[data-synced="${a.dataset.sync}"]`).forEach(el => {
       el.innerHTML = a.dataset.syncVal || a.textContent.trim();
       const row = el.closest("[data-sync-row]");
@@ -579,6 +593,14 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;Pitch in CarGPT, no Welcome step, contact edits on the left. Start the lead view from the customer's orders and cars. Discovery as stepper pills, hub and video slots by TD type, a standard footer, and finance after check-in&rdquo;</div><h4>The call starts from what the customer already wants</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">P2 Welcome &rarr; P3 Contact (order) &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book slot</span><span class="k">After</span><span class="seq"><em>P2 Orders and cars of interest</em> &rarr; (<em>P3 Discovery</em>, only if unsure) &rarr; <em>P4 TD type per car</em> &rarr; <em>P5 Hub slot</em> and/or <em>P6 Video slot</em> &rarr; P7 Book</span></div>
+        <p><b>Two kinds of enquiry.</b> With a mobile and an email, an order already exists: a clear intent, so the agent confirms it and moves on. Without both, the cars the customer liked sit on the contact by appointment ID; the agent asks which ones to drive, adds the missing email on the left, and that creates one order per car. Discovery is only for a customer who is still unsure.</p>
+        <p><b>The script lives in CarGPT.</b> The opening line and the CARS24 pitch are the same on every call, so they sit on the right, not as steps. Name, mobile and email are edited in the left pane.</p>
+        <p><b>Slots follow the TD type.</b> Each car gets hub or video. All the same: one slot step. Mixed (say 2 hub, 2 video): the hub slot, then the video slot, then one read-back that books both.</p>
+        <p><b>One footer everywhere.</b> Previous and Next; every other exit, including a customer dropping off (to the disposition), is under the arrow next to Next.</p>
+        <p><b>Finance after check-in.</b> The form asks: Do you need financing after the test drive? The token page then shows the next step with a QR: the 2-minute pre-approval, a check against their own lender, or take a seat and browse the cars if they don't need finance or are already pre-approved.</p>
+        ${links(stepLink("P1", "Queue tabs"), stepLink("P2", "Order exists", { track: "booked" }), stepLink("P2", "Cars of interest, no order", { track: "vtd" }), stepLink("P3", "Discovery"), stepLink("P4", "TD type, mixed", { track: "vtd" }), stepLink("P6", "Video slot", { track: "vtd" }), stepLink("I1", "Finance question on the seat QR", { market: "au", mode: "qr", track: "walkin" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;Start TD is when the DA meets the customer and starts the recording. Then the consent, then the DL. A walk-in waits on their token until the Yardie brings the car, and the DA meets them again&rdquo;</div><h4>The test drive starts when the DA and the customer meet at the car</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">O2 Walk to the car &rarr; O3 Walkaround &rarr; O4 DL verify &rarr; O5 Start TD &rarr; O6 Consent &rarr; O7 Drive &rarr; O8 End</span><span class="k">After</span><span class="seq"><em>O2 Start TD, recording on</em> &rarr; <em>O3 Consent</em> &rarr; <em>O4 DL verify</em> &rarr; O5 Walkaround &rarr; O6 Drive &rarr; O7 End</span></div>
         <p><b>Start TD is the meeting at the car.</b> Starting the TD creates the TD record and turns the recording on. Recording consent is still asked at check-in, so it can start straight away. The customer signs the TD consent next, then the DA checks the licence, the last check before the car moves. Live notes and transcription now cover the drive, not the wait.</p>
@@ -607,9 +629,9 @@ function renderChanges() {
         <p>The Fields view collects every field into one data dictionary for engineering.</p>
         ${links(`<button class="linklike" data-view="fields">Open the fields</button>`, stepLink("I1", "Check-in anatomy"))}</div>
       <div class="chg-card"><div class="q">&ldquo;Capture intent should be its own persona task&rdquo;</div><h4>The booking call becomes a Tasks persona</h4>
-        <div class="ba"><span class="k">Before</span><span class="seq">P1 Capture intent on the lead page &rarr; P2 Pick a slot</span><span class="k">After</span><span class="seq"><em>P1 Lead in queue &rarr; P2 Welcome &rarr; P3 Contact &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book</em></span></div>
-        <p>No lead, no call: every lead with a mobile number lands as a TD booking call task. The agent captures the name, then email and mobile, and that creates the order (BOOKING INITIATED). Then the pitch, car discovery with likes and dislikes, the final car and TD or VTD, then the slot. Booking closes the task.</p>
-        ${links(stepLink("P1", "Queue"), stepLink("P3", "Contact"), stepLink("P5", "Discovery"), stepLink("P7", "Book"))}</div>
+        <div class="ba"><span class="k">Before</span><span class="seq">P1 Capture intent on the lead page &rarr; P2 Pick a slot</span><span class="k">After</span><span class="seq"><em>P1 Lead in queue &rarr; P2 Orders and interest &rarr; P4 TD type &rarr; P5/P6 Slots &rarr; P7 Book</em></span></div>
+        <p>No lead, no call: every enquiry with a mobile number lands as a TD booking call task. The call starts from the customer's orders and cars of interest, and booking closes the task. (Reworked again in the card above.)</p>
+        ${links(stepLink("P1", "Queue"), stepLink("P2", "Orders and interest"), stepLink("P7", "Book"))}</div>
       <div class="chg-card"><div class="q">&ldquo;TD consent sign-off after TD start&rdquo;</div><h4>The TD consent moves to the car</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Check-in: OTP, DL, <em>TD declaration</em>, recording consent</span><span class="k">After</span><span class="seq">O2 Start TD &rarr; <em>O3 Consent</em> &rarr; O4 DL verify &rarr; O6 Drive</span></div>
         <p>Consent is about one drive in one car, so it needs the car, plate and start odometer that exist only once the TD starts. It is signed once per car; a VTD needs none. DAP already unlocks the declaration only after Start Test Drive but checks it at Mark Test Drive Complete, so today a customer can drive before signing. ${stepLink("O3")} makes it a gate before the car moves.</p>
@@ -645,7 +667,7 @@ function renderChanges() {
     <div class="bp-scroll"><table class="cmp-tbl">
       <thead><tr><th style="width:150px;">Who</th><th>Console today</th><th>PISTON screens</th><th>Effect</th></tr></thead>
       <tbody>
-        <tr><td><b>Calling agent</b></td><td class="seq">Not in the Console</td><td class="seq">P1 Queue &rarr; P2 Welcome &rarr; P3 Contact &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book</td><td>A new persona in Tasks (b2c-lead-td-booking-by-cc). The order is created on the call and booked at its last step.</td></tr>
+        <tr><td><b>Calling agent</b></td><td class="seq">Not in the Console</td><td class="seq">P1 Queue (tabs) &rarr; P2 Orders and interest &rarr; P3 Discovery if unsure &rarr; P4 TD type per car &rarr; P5 Hub slot / P6 Video slot &rarr; P7 Book</td><td>A new persona in Tasks (b2c-lead-td-booking-by-cc). An order exists, or the call creates one per car; one call can book a hub TD and a video TD.</td></tr>
         <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign DA</td><td class="seq">I1 Check-in (the form creates the lead) &rarr; S1 DA assigned automatically</td><td>Car choice and the order move to the DA, after the handshake. The receptionist assigns a DA only when every DA is busy.</td></tr>
         <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign DA</td><td class="seq">I1 Check-in, or the customer does it from the seat QR &rarr; S1 automatic</td><td>No Mark arrived: check-in is the arrival. No licence check at the desk.</td></tr>
         <tr><td><b>Customer</b></td><td class="seq">Not in the Console</td><td class="seq">Seat QR &rarr; Mobile and OTP &rarr; About today &rarr; Consent &rarr; Token page</td><td>A public page outside Leadverse, then a live token page with the same status as the TV.</td></tr>
@@ -668,6 +690,9 @@ function renderChanges() {
 
     <h3 class="doc-h3">Decisions needed</h3>
     <div class="decide">
+      <div><b>Orders without an email</b>An order needs a mobile and an email, so a mobile-only enquiry stays a contact with appointment IDs until the call adds the email. Confirm OMS keeps that rule, and whether a missing email should block the TD booking.</div>
+      <div><b>One call, two bookings</b>A mixed call books a hub TD and a video TD at once, with one order per car. Confirm the slot planner holds both from one task, and who owns the video one.</div>
+      <div><b>Finance links after check-in</b>The pre-approval and listing pages, and the pre-approval status, come from consumer web. Confirm the URLs, and whether "own loan" customers should also see pre-approval when they are already pre-approved.</div>
       <div><b>Token order</b>B for bookings, served at their slot time, and W for walk-ins, in arrival order, on one board. Or one queue for everyone?</div>
       <div><b>Names on the TV</b>The board shows the token with a first name and initial. The TV is in a public room: is the token alone enough?</div>
       <div><b>The auto-assignment rule</b>Free now, under today's cap, a free slot for the next hour, then the booking's DA or the best language. When every DA is busy, does the receptionist or the manager pick?</div>

@@ -38,7 +38,7 @@ const STAFF_AV = marketTable({ receptionist: "K", da: "OH", operator: "SI", mana
   { au: { receptionist: "K", da: "JM", operator: "PS", manager: "AP", cc: "CD", rm: "GL" } });
 
 const PILL = {
-  P1: ["grey", "New lead"], P2: ["grey", "New lead"], P3: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
+  P1: ["grey", "New lead"], P2: ["violet", "Booking initiated"], P3: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
   P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
   I1: ["red", "Not checked-in"], I2: ["green", "Checked in"], S1: ["green", "Checked in"], S2: ["violet", "DA assigned"],
   T1: ["violet", "With DA"], T2: ["violet", "With DA"], T3: ["violet", "With DA"], T4: ["violet", "With DA"], T5: ["violet", "With DA"],
@@ -47,7 +47,7 @@ const PILL = {
   N1: ["green", "TD done"], N2: ["amber", "Token pending"], N3: ["green", "Token paid"], N4: ["amber", "Follow-up set"], N5: ["amber", "Follow-up due"],
   N6: ["violet", "New TD booked"], N7: ["red", "Dropped"],
 };
-const PILL_VTD = { I1: ["red", "Not checked-in"], T2: ["violet", "On video"], T3: ["violet", "On video"], T4: ["violet", "On video"], T5: ["violet", "On video"], O5: ["red", "Video live"], O7: ["green", "Video TD done"] };
+const PILL_VTD = { P2: ["grey", "Contact, no order"], P3: ["grey", "Contact, no order"], I1: ["red", "Not checked-in"], T2: ["violet", "On video"], T3: ["violet", "On video"], T4: ["violet", "On video"], T5: ["violet", "On video"], O5: ["red", "Video live"], O7: ["green", "Video TD done"] };
 
 const AI_AU = {
   booked: {
@@ -144,8 +144,9 @@ function leadPane(t, stepId, opts = {}) {
       <div class="v2-sec">Details &amp; contacts</div>
       <div class="v2-group">
         <div class="v2-f"><div><small>${idLabel}</small><b>${idVal}</b></div><span class="v2-copy">${ic("copy")}</span></div>
-        <div class="v2-f"><div><small>Phone</small><b>${p.phone}</b></div><div class="v2-acts"><span class="call">${ic("phone")}</span><span class="wa">${ic("message-circle")}</span><span>${ic("message-square")}</span></div></div>
-        <div class="v2-f"><div><small>Email</small><b>${p.email}</b></div><div class="v2-acts"><span>${ic("mail")}</span></div></div>
+        <div class="v2-f"><div><small>Phone</small><b>${p.phone}</b></div><div class="v2-acts">${isLead ? `<span class="edit" title="Edit">${ic("pencil")}</span>` : ""}<span class="call">${ic("phone")}</span><span class="wa">${ic("message-circle")}</span>${isLead ? "" : `<span>${ic("message-square")}</span>`}</div></div>
+        ${opts.emailEdit ? `<div class="v2-f edit-row" data-part="edit-email"><div><small>Email <span class="v2-tag warn">Was missing: added on this call</span></small><input class="v2-input sm" value="${p.email}" aria-label="Email"></div></div>`
+          : `<div class="v2-f"><div><small>Email</small><b>${p.email}</b></div><div class="v2-acts">${isLead ? `<span class="edit" title="Edit">${ic("pencil")}</span>` : ""}<span>${ic("mail")}</span></div></div>`}
         <div class="v2-f"><div><small>Lead source</small><b>${v.src}</b></div></div>
         <div class="v2-f"><div><small>${isLead ? "Lead owner" : "DA"}</small><b>${isLead ? v.owner : t === "vtd" ? PSTAFF.operator.name : ["I1", "I2"].includes(stepId) ? "Not assigned yet" : stepId === "S1" ? `${PSTAFF.da.name} (auto)` : PSTAFF.da.name}</b></div></div>
       </div>
@@ -218,13 +219,23 @@ function prevOf(t, id) {
   const i = list.findIndex(s => s.id === id);
   return i > 0 ? list[i - 1].id : null;
 }
-// buttons: [label, go, kind, icon, iconAfter]
+// The standard footer: Previous, the step's main exit as Next, and every other exit in a menu under the arrow next
+// to it, so no screen carries a row of buttons. A customer drop-off (to the disposition) is always in that menu.
+// buttons: [label, go, kind, icon, iconAfter, attrs]; the primary one (or the last) is Next.
 function foot(t, id, hint, buttons) {
   const prev = prevOf(t, id);
+  let mi = buttons.map(b => b[2]).lastIndexOf("primary");
+  if (mi < 0) mi = buttons.length - 1;
+  const main = buttons[mi];
+  const phase = id[0];
+  const drop = phase === "P" ? ["Customer dropped off: call disposition", "N7", "", "phone-off"] : phase === "N" ? null : ["Customer left: fill the disposition", "N1", "", "log-out"];
+  const items = [...buttons.filter((_, i) => i !== mi), ...(drop ? [drop] : [])];
+  const btn = ([label, go, kind, icon, after, attrs]) => `<button class="v2-btn ${kind || ""}" ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon && !after ? ic(icon) : ""}${label}${icon && after ? ic(icon) : ""}</button>`;
   return `<div class="v2-foot" data-part="foot">
     <button class="v2-btn" ${prev ? `data-go="${prev}"` : "disabled"}>${ic("arrow-left")}Previous</button>
     <span class="v2-hint">${hint}</span>
-    <div class="v2-foot-r">${buttons.map(([label, go, kind, icon, after, attrs]) => `<button class="v2-btn ${kind || ""}" ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon && !after ? ic(icon) : ""}${label}${icon && after ? ic(icon) : ""}</button>`).join("")}</div>
+    <div class="v2-split">${main ? btn(main) : ""}${items.length ? `<button class="v2-btn ${main && main[2] === "primary" ? "primary" : ""} caret" data-menu aria-label="More actions" title="More actions">${ic("chevron-down")}</button>
+      <div class="v2-menu" hidden>${items.map(([label, go, , icon]) => `<button ${go ? `data-go="${go}"` : ""}>${icon ? ic(icon) : ""}${label}</button>`).join("")}</div>` : ""}</div>
   </div>`;
 }
 function head2(title, desc, right) {
@@ -311,12 +322,13 @@ function slotGrid(onSlot) {
 const kv = (k, v) => `<div class="v2-kv"><small>${k}</small><b>${v}</b></div>`;
 
 // ================================================================== list pages
-function page({ who, active, crumb, title, sub, actions, tools, tabs, table, extra, manager, overlay, cls }) {
+function page({ who, active, crumb, title, sub, actions, tools, tabs, filterTabs, table, extra, manager, overlay, cls }) {
   const body = `<div class="v2-body"><div class="v2-page${cls ? " " + cls : ""}">
     <div class="v2-ph"><div><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ""}</div><div class="v2-ph-r">${actions || ""}</div></div>
     ${extra && extra.top ? extra.top : ""}
     ${tools ? `<div class="v2-tools">${tools}</div>` : ""}
     ${tabs ? `<div class="v2-tabs2">${tabs.map(([l, on]) => `<span class="${on ? "on" : ""}">${l}</span>`).join("")}</div>` : ""}
+    ${filterTabs ? `<div class="v2-tabs2" data-filter-tabs data-part="tabs">${filterTabs.map(([l, key, on]) => `<button class="${on ? "on" : ""}" data-filter="${key}">${l}</button>`).join("")}</div>` : ""}
     ${table || ""}
     ${extra && extra.bottom ? extra.bottom : ""}
   </div>${overlay || ""}</div>`;
@@ -325,7 +337,7 @@ function page({ who, active, crumb, title, sub, actions, tools, tabs, table, ext
 const toolsRow = (ph, buttons) => `<div class="v2-search inline">${ic("search")}<span>${ph}</span></div>${buttons.map(([l, icon]) => `<span class="v2-btn">${icon ? ic(icon) : ""}${l}</span>`).join("")}`;
 function table(cols, rows, part) {
   return `<div class="v2-tbl" ${part ? `data-part="${part}"` : ""}><table class="v2-table"><thead><tr><th class="cb"><span class="v2-cb"></span></th>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map(r => `<tr class="${r.hl ? "hl" : ""}"><td class="cb"><span class="v2-cb"></span></td>${r.cells.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
+    <tbody>${rows.map(r => `<tr class="${r.hl ? "hl" : ""}"${r.cat ? ` data-cat="${r.cat}"${r.hide ? " hidden" : ""}` : ""}><td class="cb"><span class="v2-cb"></span></td>${r.cells.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
     <div class="v2-tfoot">0 of ${rows.length + 9} row(s) selected.</div></div>`;
 }
 const cust = (nm, sub2) => `<div class="v2-cust"><span class="v2-av">${inits(nm)}</span><div><b>${nm}</b>${sub2 ? `<small>${sub2}</small>` : ""}</div></div>`;
@@ -333,20 +345,22 @@ const pill = (tone, text) => `<span class="v2-pill ${tone}">${text}</span>`;
 
 // ================================================================== the TD booking call (calling team persona task)
 const CALL_TASK = { booked: "TK-6120", vtd: "TK-6127" };
-const CALL_STEPS = ["Welcome", "Contact", "Pitch", "Discovery", "Finalize", "Book"];
+const CALL_STEPS = ["Interest", "Discovery", "TD type", "Slots", "Book"];
 function callStages(t, idx) {
-  const done = { Welcome: first(t), Contact: "Order created", Pitch: "Interested", Discovery: "2 liked", Finalize: t === "vtd" ? "Camry &middot; Video" : "Altima &middot; Hub", Book: "Booked" };
+  const done = t === "vtd"
+    ? { Interest: "4 cars, 4 orders", Discovery: "Not needed", "TD type": "2 hub, 2 video", Slots: "Hub + video", Book: "Booked" }
+    : { Interest: `Order ${PEOPLE[t].id}`, Discovery: "Not needed", "TD type": "1 hub", Slots: "Today 2:30 PM", Book: "Booked" };
   return `<div class="v2-stages" data-part="stages">${CALL_STEPS.map((n, i) => {
     const state = i < idx ? "done" : i === idx ? "cur" : "todo";
     return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${state === "done" ? done[n] : state === "cur" ? "In progress" : "Pending"}</span></div>`;
   }).join("")}</div>`;
 }
-function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards }) {
+function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts }) {
   const p = PEOPLE[t];
   const callbar = `<div class="v2-call" data-part="call"><span class="cb">${ic("phone-call")}</span><div><b>On call with ${first(t)}</b><small>${p.phone} &middot; ${secs}</small></div><span class="v2-recpill"><i></i>Recording</span>
     <div class="v2-call-r"><span>${ic("mic-off")}</span><span>${ic("pause")}</span><span class="end">${ic("phone-off")}</span></div></div>`;
   const content = `<div class="v2-body">
-    ${leadPane(t, id)}
+    ${leadPane(t, id, leadOpts || {})}
     <section class="v2-center">${callbar}${callStages(t, idx)}<div class="v2-content">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, buttons)}</section>
     ${gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}` })}
   </div>`;
@@ -357,98 +371,136 @@ function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, c
 const SCREENS = {
   // ------------------------------------------------------------ P · Plan: the TD booking call
   P1: (t) => {
+    const B = PEOPLE.booked, V = PEOPLE.vtd;
+    const call = (trk) => `<button class="v2-btn ${trk === t ? "primary" : ""} sm" ${trk === t ? `data-go="P2" data-part="call-now"` : ""}>${ic("phone")}Call now</button>`;
+    // [track, tab, name, sub, source, intent, cars, waiting, attempts, action]
     const rows = [
-      ["booked", "Fatima Al Suwaidi", "fatima.s@example.com", "Consumer app", "Nissan Altima SV", "4 min", "0 of 3"],
-      ["vtd", "Khalid Al Jaberi", "khalid.j@example.com", "Chatbot", "Toyota Camry GLE", "9 min", "0 of 3"],
-      ["", "Hamad Al Ketbi", "hamad.k@example.com", "Website", "Kia Sportage", "26 min", "1 of 3", "Callback 4:00 PM"],
-      ["", "Sana Malik", "Mobile only", "Missed call", "&mdash;", "1 h", "2 of 3", "Callback tomorrow"],
+      ["booked", "queue", B.name, B.email, "Consumer app", pill("violet", `${ic("file-check")}Order ${B.id}`), carShort(B.car), "4 min", "0 of 3", call("booked")],
+      ["vtd", "queue", V.name, V.phone, "Chatbot", pill("grey", "No order: email missing"), "4 cars", "9 min", "0 of 3", call("vtd")],
+      ["", "callbacks", "Hamad Al Ketbi", "hamad.k@example.com", "Website", pill("violet", `${ic("file-check")}Order BK-88199`), carShort("c4"), "26 min", "1 of 3", pill("amber", "Callback 4:00 PM")],
+      ["", "callbacks", "Sana Malik", "Mobile only", "Missed call", pill("grey", "No order: mobile only"), "&mdash;", "1 h", "2 of 3", pill("amber", "Callback tomorrow")],
+      ["", "missed", "Maryam Rashidi", "BK-88177", "Consumer app", pill("red", "Missed TD at 11:00 AM"), carShort("c3"), "2 h", "0 of 3", `<button class="v2-btn sm">${ic("phone")}Call to rebook</button>`],
+      ["", "closed", "Rashid Al Falasi", "BK-88140", "Website", pill("green", "TD booked"), carShort("c2"), "&mdash;", "1 of 3", `<span class="v2-muted">Closed 1:20 PM</span>`],
     ];
-    return page({ who: "cc", active: "tasks", crumb: crumbOf("Tasks", "TD booking call"), title: "TD booking call", sub: "Lead &middot; Reem Khalifa's queue",
-      extra: { top: `<div class="v2-note">${ic("sparkles")}<span><b>A persona task of its own.</b> Every lead with a mobile number lands here. The agent works it on the call: welcome, contact, pitch, discovery, finalize, book. Booking closes the task.</span></div>` },
-      tools: toolsRow("Search by name and UID", [["Saved filters", "save"], ["Filters", "list-filter"], ["Sort by", "arrow-up-down"], ["TD booking call", "chevron-down"]]),
-      tabs: [["Queue &middot; 12", true], ["Callbacks &middot; 3"], ["Closed today &middot; 27"]],
-      table: table(["Lead", "Source", "Car of interest", "Waiting", "Attempts", ""], rows.map(([trk, nm, mail, src, car, wait, att, cb]) => ({ hl: trk === t,
-        cells: [cust(nm, mail), pill("grey", src), car, wait, att, cb ? pill("amber", cb) : `<button class="v2-btn ${trk === t ? "primary" : ""} sm" ${trk === t ? `data-go="P2" data-part="call-now"` : ""}>${ic("phone")}Call now</button>`] })), "queue") });
+    return page({ who: "cc", active: "tasks", crumb: crumbOf("Tasks", "TD booking call"), title: "TD booking call", sub: `Lead &middot; ${PSTAFF.cc.name}'s queue`,
+      extra: { top: `<div class="v2-note">${ic("sparkles")}<span><b>Every enquiry with a mobile number lands here.</b> With a mobile and an email, an order already exists. Without both, the cars of interest wait on the contact by appointment ID, and the call creates the orders.</span></div>` },
+      tools: toolsRow("Search by name, mobile or appointment ID", [["Saved filters", "save"], ["Filters", "list-filter"], ["Sort by", "arrow-up-down"]]),
+      filterTabs: [["All &middot; 44", "all", true], ["Queue &middot; 12", "queue"], ["Callbacks &middot; 3", "callbacks"], ["Closed today &middot; 27", "closed"], ["Today missed TD &middot; 2", "missed"]],
+      table: table(["Lead", "Source", "Intent", "Cars", "Waiting", "Attempts", ""], rows.map(([trk, cat, nm, sub, src, intent, cars, wait, att, act]) => ({ hl: trk === t, cat,
+        cells: [cust(nm, sub), pill("grey", src), intent, cars, wait, att, act] })), "queue") });
   },
 
+  // the lead view: the customer's orders and cars first; the opening line and the pitch are in CarGPT
   P2: (t) => {
-    const p = PEOPLE[t], car = PCARS[p.car].title;
-    return callTask(t, 0, "P2", { secs: "00:18", title: "Welcome", desc: "Open the call. The name comes first, nothing else yet.",
-      body: `<div class="v2-script" data-part="script">${ic("quote")}<p>&ldquo;Hi, this is Reem from CARS24. Am I speaking with ${first(t)}? ${t === "vtd" ? `You asked our chatbot about a video viewing of the ${car}.` : `You were looking at the ${car} in our app.`} Is now a good time for a few minutes?&rdquo;</p></div>
-        <div class="v2-card" style="margin-top:10px;">
-          ${row("Name", `<div class="v2-inline"><input class="v2-input" id="c-name" value="${p.name}"><span class="v2-tag ai">${ic("sparkles")}From the ${t === "vtd" ? "chatbot" : "app profile"}</span></div>`, "name")}
-          ${row("Language", chips("lang", MK.langs, [p.language.split(",")[0].trim()]), "lang")}
-        </div>`,
-      hint: "Exit: name confirmed", buttons: [["Call back later", "P9", "", "phone-forwarded"], ["Wrong number", "N7", "", "circle-x"], ["Name confirmed", "P3", "primary", "arrow-right", true]],
-      cards: [["Say next", "message-square", `<p>Confirm the name, then ask for the email.</p>`], ["Lead signals", "sparkles", `<p>${t === "vtd" ? "Chatbot lead, asked for a video viewing." : "Viewed the Altima 3 times. Asked about finance."}</p>`]] });
-  },
-
-  P3: (t) => {
-    const p = PEOPLE[t];
-    return callTask(t, 1, "P3", { secs: "01:02", title: "Email and mobile", desc: "These basic details create the order.",
-      body: `<div class="v2-card">
-          ${row("Mobile", `<span class="v2-ok">${ic("circle-check")}${p.phone} &middot; from the lead</span>`, "mobile")}
-          ${row("Same on WhatsApp?", chips("wa", ["Yes", "No, another number"], ["Yes"]), "whatsapp")}
-          ${row("Email", `<div class="v2-inline"><input class="v2-input" id="c-mail" value="${p.email}">${t === "vtd" ? `<span class="v2-tag">Typed on the call</span>` : `<span class="v2-tag ai">${ic("sparkles")}From the app profile</span>`}</div>`, "email")}
+    const p = PEOPLE[t], vtd = t === "vtd", fn = first(t), cc = PSTAFF.cc.name.split(" ")[0];
+    const link = (cid) => `<a class="v2-link" href="${PCARS[cid].url}" target="_blank" rel="noopener" title="Opens the car's page on the consumer website">${ic("external-link")}Car page</a>`;
+    const script = vtd
+      ? `&ldquo;Hi, this is ${cc} from CARS24. Am I speaking with ${fn}? You asked our chatbot about 4 cars, including the ${PCARS[p.car].title}. Is now a good time for a few minutes?&rdquo;`
+      : `&ldquo;Hi, this is ${cc} from CARS24. Am I speaking with ${fn}? You were looking at the ${PCARS[p.car].title} in our app. Is now a good time for a few minutes?&rdquo;`;
+    const cards = [["Say this", "quote", `<p>${script}</p>`], ["Why CARS24, once", "shield-check", `<p>Every car inspected, warranty included, a return window, finance and trade-in. Cover it early, then let the customer talk.</p>`]];
+    const body = vtd
+      ? `<div class="v2-note amber" data-part="intent">${ic("info")}<span><b>No order yet.</b> Only a mobile came from the chatbot, so the cars sit on contact LD-55127 by appointment ID. Ask which ones ${fn} wants to drive. No previous orders.</span></div>
+        <div class="v2-card" data-part="interest"><div class="sc-h" style="border:none; padding-bottom:4px;"><b>Cars of interest &middot; 4</b><span class="v2-ok sm" data-part="order-rule">${ic("circle-check")}Mobile and email in: one order per ticked car</span></div>
+          ${["c2", "c1", "c3", "c4"].map((cid, i) => carRow(cid, { check: true, selected: true, sub: `Appointment ${PCARS[cid].appt} &middot; ${money(PCARS[cid].price)}`, part: i === 0 ? "car-rows" : null, right: link(cid) })).join("")}
+        </div>`
+      : `<div class="v2-note" data-part="intent">${ic("file-check")}<span><b>Clear intent: an order exists.</b> ${fn} gave a mobile and an email in the app, so the order was created. Confirm it and go to the TD type.</span></div>
+        <div class="v2-card" data-part="history"><div class="sc-h" style="border:none; padding-bottom:4px;"><b>Orders and cars, newest first</b><small>Current and previous</small></div>
+          ${carRow(p.car, { check: true, selected: true, oid: p.id, sub: `Appointment ${PCARS[p.car].appt} &middot; from the app, 2 days ago`, badge: pill("violet", "Booking initiated"), part: "car-rows", right: link(p.car) })}
+          <div class="hx-past" data-part="past"><span class="v2-av">${ic("history")}</span><div><b>BK-87410 &middot; 2019 Toyota Corolla Ascent</b><small>Appointment 09981230 &middot; March 2026</small></div>${pill("grey", "TD done, not bought")}</div>
         </div>
-        <div style="margin-top:10px;">${toggle(true, "Booking updates on WhatsApp", "Confirmation, reminders and the video link go to this number.", "wa-consent")}</div>
-        <div class="v2-note" style="margin-top:10px;" data-part="order-note">${ic("file-plus")}<span>Next creates the order in OMS as BOOKING INITIATED, with the ${PCARS[p.car].title}. The car can still change at Finalize.</span></div>`,
-      hint: "Exit: email and mobile confirmed, order created", buttons: [["Create order and continue", "P4", "primary", "arrow-right", true]] });
+        <div class="v2-card" data-part="viewed"><div class="sc-h" style="border:none; padding-bottom:6px;"><b>Also viewed in the app</b><small>No order yet</small></div>
+          <div class="v2-chips">${["c3", "c2"].map(cid => `<button class="v2-chip" data-pick="multi">${ic("plus")}${PCARS[cid].title}</button>`).join("")}</div>
+          <p class="v2-small">Adding a car here creates an order for it too.</p></div>`;
+    return callTask(t, 0, "P2", { secs: "00:40", title: vtd ? `Which cars does ${fn} want to drive?` : `${fn}'s order`, desc: "Contact details are edited on the left. The opening line and the pitch are in CarGPT.",
+      body, cards, leadOpts: vtd ? { emailEdit: true } : {},
+      hint: vtd ? "Exit: cars picked, orders created" : "Exit: order confirmed",
+      buttons: [["Not sure: discover cars together", "P3", "", "compass"], ["Call back later", "P9", "", "phone-forwarded"], ["Wrong number or not interested", "N7", "", "circle-x"],
+        [vtd ? "Create 4 orders: TD type" : "Next: TD type", "P4", "primary", "arrow-right", true]] });
   },
 
-  P4: (t) => {
-    const pts = [
-      ["clipboard-check", "Every car inspected", "The report is shared before you decide", true],
-      ["shield-check", "Warranty included", "Terms apply", true],
-      ["rotate-ccw", "Return window", "Change your mind within the window", true],
-      ["landmark", "Finance and trade-in", "Monthly plans; we take your current car", false],
-      ["layout-grid", "Live stock to choose from", "Filter by budget and body type", false],
-      ["video", "Test drive your way", "At a hub, or on a video call", false],
+  // discovery: a stepper of filters, ending in the matching cars
+  P3: (t) => {
+    const p = PEOPLE[t], n = p.needs;
+    const steps = [
+      ["who", "Who it's for", `<b class="v2-q">Who is the car for?</b>${chips("who", ["Just me", "Couple", "Family with kids", "Business", "First car"], [t === "vtd" ? "Just me" : "Family with kids"])}
+        <b class="v2-q" style="margin-top:14px;">Mostly for</b>${chips("multi", MK.usage, n.usage)}`],
+      ["budget", "Budget", `<b class="v2-q">What's the budget?</b>${chips("budget", MK.budgets, [n.budget])}
+        <b class="v2-q" style="margin-top:14px;">Paying by</b>${chips("pay", ["Cash", "Finance", "Not sure yet"], [t === "vtd" ? "Finance" : "Finance"])}`],
+      ["body", "Body type", `<b class="v2-q">Which body type?</b>${chips("multi", ["Sedan", "SUV", "Hatchback", "Ute", "7 seats"], n.body)}`],
+      ["fuel", "Fuel and gearbox", `<b class="v2-q">Fuel</b>${chips("fuel", ["Petrol", "Hybrid", "Diesel", "Electric"], [n.fuel])}
+        <b class="v2-q" style="margin-top:14px;">Gearbox</b>${chips("trans", ["Automatic", "Manual"], [n.trans])}`],
+      ["must", "Must-haves", `<b class="v2-q">Anything they can't do without?</b>${chips("multi", ["Apple CarPlay", "Rear camera", "Adaptive cruise", "7 airbags", "Sunroof", "Heated seats"], n.must)}`],
+      ["cars", "Matches", `<b class="v2-q">${p.picks.length} cars match. Pick one or two.</b>
+        ${p.picks.map(([cid, match, why], i) => carRow(cid, { check: true, selected: i < 2, sub: `${money(PCARS[cid].price)} &middot; ${why}`, badge: `<span class="v2-badge match">${match}% match</span>`, part: i === 0 ? "matches" : null,
+          right: `<a class="v2-link" href="${PCARS[cid].url}" target="_blank" rel="noopener">${ic("external-link")}Car page</a>` })).join("")}`],
     ];
-    return callTask(t, 2, "P4", { secs: "03:40", title: "Why CARS24", desc: "Tick each point as you cover it. Move on once the customer is interested.",
-      right: `<span class="v2-pill violet" data-part="order-chip">${ic("file-check")}BOOKING INITIATED &middot; ${PEOPLE[t].id}</span>`,
-      body: `<div class="v2-pitch" data-part="pitch-points">${pts.map(([icon, k, s, d]) => `<button class="v2-check ${d ? "done" : ""}" data-zone>${ic(icon)}<b>${k}</b><span>${s}</span></button>`).join("")}</div>
-        <div class="v2-card" style="margin-top:10px;">
-          ${row("Customer", chips("rx", ["Interested", "Has questions", "Not now", "Not interested"], ["Interested"]), "reaction")}
-          ${row("Objections", chips("multi", ["Price", "Trust", "Finance", "Already bought"], ["Price"]), "objections")}
-        </div>`,
-      hint: "Exit: customer interested", buttons: [["Call back", "P9", "", "phone-forwarded"], ["Not interested", "N7", "", "circle-x"], ["Show cars", "P5", "primary", "arrow-right", true]],
-      cards: [["Objection help", "shield-check", `<p>On price: every car is inspected and comes with a return window, so the price buys certainty.</p>`]] });
+    const body = `<div class="dc-pills" data-part="pills">${steps.map(([k, l], i) => `<button class="dc-pill ${i === 0 ? "on" : ""}" data-step-to="dc:${k}" data-flow-pill="dc:${k}"><i>${i + 1}</i>${l}</button>`).join("")}</div>
+      ${steps.map(([k, , html], i) => `<div class="v2-card dc-panel" data-flow="dc" data-flow-step="${k}"${i ? " hidden" : ""} data-part="${i === 0 ? "filter" : `filter-${k}`}">${html}
+        ${i < steps.length - 1 ? `<div class="dc-next"><button class="v2-btn primary sm" data-step-to="dc:${steps[i + 1][0]}">Next: ${steps[i + 1][1].toLowerCase()}${ic("arrow-right")}</button></div>` : ""}</div>`).join("")}`;
+    return callTask(t, 1, "P3", { secs: "03:10", title: `Find the right car with ${first(t)}`, desc: "Five quick filters, then the cars that match. Open a car's page on the website for more detail.",
+      body, hint: "Exit: one or two cars picked",
+      buttons: [["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Next: TD type", "P4", "primary", "arrow-right", true]],
+      cards: [["Ask", "message-square", `<p>&ldquo;Who usually rides with you, and what do you drive most: city or highway?&rdquo;</p>`]] });
+  },
+
+  // TD type per car: the mix decides the slot steps
+  P4: (t) => {
+    const vtd = t === "vtd", p = PEOPLE[t];
+    const cars = vtd ? [["c1", "hub", "BK-88191"], ["c3", "hub", "BK-88192"], ["c2", "video", "BK-88190"], ["c4", "video", "BK-88193"]] : [[p.car, "hub", p.id]];
+    const rowsHtml = cars.map(([cid, type, oid], i) => {
+      const c = PCARS[cid], only = vtd && cid === "c2";
+      return `<div class="td-row" ${i === 0 ? `data-part="td-rows"` : ""}><span class="ph" style="background:${c.color}">${ic("car")}</span>
+        <div class="mid"><b>${c.title}</b><small>Order ${oid}${vtd ? " (new)" : ""} &middot; appointment ${c.appt}${only ? ` &middot; <span class="v2-warn-txt">${MK.videoOnly}</span>` : ""}</small></div>
+        <div class="v2-seg2"><button class="${type === "hub" ? "on" : ""}" data-pick="tdt-${cid}" ${only ? "disabled" : ""}>${ic("store")}Hub TD</button><button class="${type === "video" ? "on" : ""}" data-pick="tdt-${cid}">${ic("video")}Video TD</button></div></div>`;
+    }).join("");
+    return callTask(t, 2, "P4", { secs: "06:20", title: "Hub or video, for each car", desc: vtd ? "4 orders were created from the cars of interest. Pick the TD type car by car." : `One car, on order ${p.id}.`,
+      body: `<div class="v2-card">${rowsHtml}</div>
+        <div class="v2-note" data-part="next-steps">${ic("route")}<span>${vtd ? "<b>2 for a hub TD, 2 for a video TD.</b> Next comes the hub slot, then the video slot." : "<b>All cars for a hub TD.</b> One slot step next."} If every car had the same type, there would be a single slot step.</span></div>`,
+      hint: "Exit: a TD type for every car",
+      buttons: [["Call back later", "P9", "", "phone-forwarded"], ["Next: hub slot", "P5", "primary", "arrow-right", true]],
+      cards: [["Tip", "lightbulb", `<p>${vtd ? "Cars at another hub or interstate can only be shown on video." : "A car at this hub can also be shown on video if the customer prefers."}</p>`]] });
   },
 
   P5: (t) => {
-    const p = PEOPLE[t], n = p.needs;
-    const cars = t === "vtd" ? [["c2", "like", "Viewed 4 times"], ["c1", "like", ""], ["c3", "pass", ""]] : [["c1", "like", "Viewed 3 times"], ["c3", "like", ""], ["c2", "pass", ""]];
-    return callTask(t, 3, "P5", { secs: "06:12", title: `What does ${first(t)} like?`, desc: "Describe each car on the call. Every answer narrows the next cars.",
-      right: `<button class="v2-btn" data-part="send">${ic("send")}Send liked cars on WhatsApp</button>`,
-      body: `<div class="v2-chips" style="margin-bottom:10px;" data-part="filters">${[n.budget, ...n.body, n.trans].map(x => `<span class="v2-chip on">${x}</span>`).join("")}<span class="v2-chip">${ic("plus")}Filter</span><span class="v2-tag ai">${ic("sparkles")}From ${t === "vtd" ? "the chat" : "app browsing"}</span></div>
-        ${cars.map(([cid, v, note], i) => carRow(cid, { likes: v, badge: note ? `<span class="v2-badge booked">${note}</span>` : "", part: i === 0 ? "car-rows" : null, right: " " })).join("")}
-        <p class="v2-small">2 liked &middot; 1 disliked. A dislike removes similar cars from the next set.</p>`,
-      hint: "Exit: liked cars shortlisted", buttons: [["Nothing fits: alert and call back", "P9", "", "bell"], ["Next: finalize", "P6", "primary", "arrow-right", true]] });
+    const vtd = t === "vtd", p = PEOPLE[t];
+    const cars = vtd ? ["c1", "c3"] : [p.car];
+    return callTask(t, 3, "P5", { secs: "08:05", title: `Hub test drive: ${cars.length === 1 ? "1 car" : `${cars.length} cars, one visit`}`, desc: `Slots at the ${MK.hubFull} for ${cars.map(cid => carShort(cid)).join(" and ")}. Shown because ${cars.length === 1 ? "this car is" : "these cars are"} for a hub TD.`,
+      body: `<div class="v2-card">
+          ${row("Cars", `<div class="v2-chips">${cars.map(cid => `<span class="v2-tag">${ic("car")}${PCARS[cid].title}</span>`).join("")}</div>`, "hub-cars")}
+          ${row("Where", `<b class="v2-b">${MK.hubFull}</b>`)}
+          ${row("Day", chips("dday", ["Today", "Thu 8 Oct", "Fri 9 Oct", "Sat 10 Oct"], [vtd ? "Sat 10 Oct" : "Today"]), "day")}
+          <div style="margin-top:8px;">${slotGrid(vtd ? "10:00 AM" : "2:30 PM")}</div>
+          <p class="v2-small">A slot shows as free only when a DA and every car are free together. Today this comes from the slot planner; the target is the central Appointment Service.</p>
+        </div>`,
+      hint: vtd ? "Exit: hub slot picked, video slot next" : "Exit: hub slot picked",
+      buttons: [["No slot works: call back", "P9", "", "phone-forwarded"], [vtd ? "Next: video slot" : "Next: confirm", vtd ? "P6" : "P7", "primary", "arrow-right", true]] });
   },
 
   P6: (t) => {
-    const p = PEOPLE[t], vtd = t === "vtd";
-    const liked = vtd ? ["c2", "c1"] : ["c1", "c3"];
-    return callTask(t, 4, "P6", { secs: "08:31", title: "Finalize the car and the test drive", desc: `Pick from the cars ${first(t)} liked.`,
-      body: `<div class="v2-card" data-part="final-car"><div class="v2-sec" style="margin-top:0;">Final car</div>${liked.map((cid, i) => `<button class="v2-radio ${i === 0 ? "on" : ""}" data-pick="fc"><i class="dot"></i>${PCARS[cid].title} &middot; ${money(PCARS[cid].price)}<span class="v2-r-note">${i === 0 ? "Car of interest" : "Liked on this call"}</span></button>`).join("")}</div>
-        <div class="v2-card" data-part="td-type"><div class="v2-sec" style="margin-top:0;">Test drive</div>
-          <div class="v2-seg2" data-tabs><button class="${vtd ? "" : "on"}" data-tab="hub">${ic("store")}Hub test drive</button><button class="${vtd ? "on" : ""}" data-tab="vtd">${ic("video")}Video test drive</button></div>
-          <p class="v2-small">${vtd ? "This car can be shown on video from Studio 1." : "This car is at Al Quoz hub."}</p></div>
-        <div class="v2-ok" style="margin-top:10px;" data-part="order-update">${ic("circle-check")}Order ${p.id} &middot; car set to ${PCARS[liked[0]].title}</div>`,
-      hint: "Exit: car and TD type final", buttons: [["Next: pick a slot", "P7", "primary", "arrow-right", true]] });
+    const cars = ["c2", "c4"];
+    return callTask(t, 3, "P6", { secs: "09:30", title: "Video test drive: 2 cars, one call", desc: `Slots for ${cars.map(cid => carShort(cid)).join(" and ")} on video. Shown because these cars are for a video TD.`,
+      body: `<div class="v2-card">
+          ${row("Cars", `<div class="v2-chips">${cars.map(cid => `<span class="v2-tag">${ic("video")}${PCARS[cid].title}</span>`).join("")}</div>`, "video-cars")}
+          ${row("Where", `<b class="v2-b">Video call, link by WhatsApp</b>`)}
+          ${row("Day", chips("dday", ["Today", "Thu 8 Oct", "Fri 9 Oct", "Sat 10 Oct"], ["Today"]), "day")}
+          <div style="margin-top:8px;">${slotGrid("3:00 PM")}</div>
+          <p class="v2-small">A slot shows as free only when a video operator is free and both cars can be on camera.</p>
+        </div>`,
+      hint: "Exit: video slot picked",
+      buttons: [["No slot works: call back", "P9", "", "phone-forwarded"], ["Next: confirm", "P7", "primary", "arrow-right", true]] });
   },
 
   P7: (t) => {
-    const p = PEOPLE[t], vtd = t === "vtd";
-    return callTask(t, 5, "P7", { secs: "09:47", title: `Book the ${vtd ? "video" : "hub"} test drive`, desc: `Slots for the ${PCARS[p.car].title}${vtd ? " on video" : " at Al Quoz hub"}. Booking closes this task.`,
-      body: `<div class="v2-card">
-          ${row("Where", `<b class="v2-b">${vtd ? "Video call, link by WhatsApp" : "Al Quoz hub, Dubai"}</b>`)}
-          ${row("Day", chips("dday", ["Today", "Thu 8 Oct", "Fri 9 Oct", "Sat 10 Oct"], ["Today"]), "day")}
-          <div style="margin-top:8px;">${slotGrid(vtd ? "3:00 PM" : "2:30 PM")}</div>
-          <p class="v2-small">A slot shows as free only when ${vtd ? "a video operator" : "a DA"} and the car are both free. Today this comes from the slot planner; the target is the central Appointment Service.</p>
-        </div>`,
-      hint: "Exit: slot booked, calling task closed", buttons: [["No slot works: call back", "P9", "", "phone-forwarded"], ["Book test drive", "P8", "primary", "calendar-check"]] });
+    const vtd = t === "vtd", p = PEOPLE[t];
+    const card = (icon, type, when, where, cars) => `<div class="bk-card"><span class="ic">${ic(icon)}</span><div class="mid"><b>${type} &middot; ${when}</b><small>${where}</small>
+      <div class="v2-chips" style="margin-top:6px;">${cars.map(([cid, oid]) => `<span class="v2-tag">${PCARS[cid].title} &middot; ${oid}</span>`).join("")}</div></div></div>`;
+    const cards = vtd
+      ? card("store", "Hub TD", "Sat 10 Oct, 10:00 AM", MK.hubFull, [["c1", "BK-88191"], ["c3", "BK-88192"]]) + card("video", "Video TD", "Today, 3:00 PM", "Video call, link by WhatsApp", [["c2", "BK-88190"], ["c4", "BK-88193"]])
+      : card("store", "Hub TD", "Today, 2:30 PM", MK.hubFull, [[p.car, p.id]]);
+    return callTask(t, 4, "P7", { secs: "10:15", title: vtd ? "Read back both bookings" : "Read back the booking", desc: "Booking confirms on WhatsApp and SMS, sends any video link, and closes this task.",
+      body: `<div data-part="bookings">${cards}</div>`,
+      hint: "Exit: booked, task closed",
+      buttons: [["Change a slot", vtd ? "P6" : "P5", "", "calendar"], [vtd ? "Book both and close the task" : "Book and close the task", "P8", "primary", "calendar-check"]] });
   },
 
   P8: (t) => {
@@ -469,11 +521,12 @@ const SCREENS = {
 
   P9: (t) => {
     const p = PEOPLE[t];
-    const rows = [[p.name, "Busy, call after work", "Today, 5:30 PM", "1 of 3", true, "Welcome"], ["Hamad Al Ketbi", "No answer", "Today, 4:00 PM", "2 of 3", false, "Welcome"], ["Sana Malik", "Call after payday", "Tomorrow, 10:00 AM", "2 of 3", false, "Discovery"]];
-    return page({ who: "cc", active: "tasks", crumb: crumbOf("Tasks", "TD booking call", "Callbacks"), title: "TD booking call", sub: "Lead &middot; Reem Khalifa's callbacks",
-      tabs: [["Queue &middot; 12"], ["Callbacks &middot; 3", true], ["Closed today &middot; 27"]],
-      table: table(["Lead", "Why", "Callback", "Attempts", "Resumes at"], rows.map(([nm, why, when, att, hl, step]) => ({ hl, cells: [cust(nm), why, when, pill(att.startsWith("2") ? "amber" : "grey", att), `<span ${hl ? `data-part="resume"` : ""}>${step}</span>`] })), "table"),
-      extra: { bottom: `<div class="v2-card" style="margin-top:12px;"><div class="v2-ch" style="margin-bottom:6px;"><div><h3>Call ${first(t)} back</h3><p>The task resumes at Welcome, where the last call stopped. After 3 attempts it closes as dropped.</p></div></div>
+    const rows = [[p.name, "callbacks", "Busy, call after work", "Today, 5:30 PM", "1 of 3", true, "Orders and interest"], ["Hamad Al Ketbi", "callbacks", "No answer", "Today, 4:00 PM", "2 of 3", false, "Orders and interest"],
+      ["Sana Malik", "callbacks", "Call after payday", "Tomorrow, 10:00 AM", "2 of 3", false, "Discovery"], ["Maryam Rashidi", "missed", "Missed the 11:00 AM TD", "Today, 1:00 PM", "0 of 3", false, "Hub slot"]];
+    return page({ who: "cc", active: "tasks", crumb: crumbOf("Tasks", "TD booking call", "Callbacks"), title: "TD booking call", sub: `Lead &middot; ${PSTAFF.cc.name}'s callbacks`,
+      filterTabs: [["All &middot; 44", "all"], ["Queue &middot; 12", "queue"], ["Callbacks &middot; 3", "callbacks", true], ["Closed today &middot; 27", "closed"], ["Today missed TD &middot; 2", "missed"]],
+      table: table(["Lead", "Why", "Callback", "Attempts", "Resumes at"], rows.map(([nm, cat, why, when, att, hl, step]) => ({ hl, cat, hide: cat !== "callbacks", cells: [cust(nm), why, when, pill(att.startsWith("2") ? "amber" : "grey", att), `<span ${hl ? `data-part="resume"` : ""}>${step}</span>`] })), "table"),
+      extra: { bottom: `<div class="v2-card" style="margin-top:12px;"><div class="v2-ch" style="margin-bottom:6px;"><div><h3>Call ${first(t)} back</h3><p>The task resumes where the last call stopped. After 3 attempts it closes as dropped.</p></div></div>
           ${row("Move the callback", chips("cbk", ["In 2 hours", "This evening", "Tomorrow morning", "Pick a time"], ["This evening"]), "reschedule")}
           <div class="v2-btnrow"><button class="v2-btn primary" data-go="P2" data-part="call-now">${ic("phone")}Call now</button><button class="v2-btn">${ic("phone-missed")}No answer: try later</button><button class="v2-btn" data-go="N7">${ic("circle-x")}Not interested</button></div></div>` } });
   },
@@ -514,8 +567,8 @@ const SCREENS = {
           ${walk ? `<div class="v2-grid2">${inp("First name", p.name.split(" ")[0], "w-fn")}${inp("Last name", p.name.split(" ").slice(1).join(" "), "w-ln")}${inp("Mobile", p.phone, "w-mb")}${inp("Email", p.email, "w-em")}</div>
               <div class="v2-field" data-part="purpose"><label>Purpose of visit</label>${chips("purpose", purposes, ["Buy or test drive"])}</div>`
             : `<div class="v2-found" data-part="booking">${ic("calendar-check")}<div><b>Test drive &middot; 2:30 PM &middot; ${p.id}</b><small>${PCARS[p.car].title} &middot; licence uploaded before the visit</small></div><span class="v2-tag">From the booking</span></div>`}
-          <div class="v2-grid2">${sel("Accompanied by", walk ? "Alone" : "Spouse")}${sel("Paying by", walk ? "Cash" : "Loan EMI")}</div>
-          ${sel(MK.area, VISIT[t].area)}
+          <div class="v2-grid2">${sel("Accompanied by", walk ? "Alone" : "Spouse")}${sel(MK.area, VISIT[t].area)}</div>
+          <div data-part="finance">${sel("Do you need financing after the test drive?", FIN[0][1])}</div>
           ${toggle(true, "Recording consent", `${first(t)} agrees to record the test drive, from Start TD to the end, for AI notes and service quality. Saying no doesn't change the visit.`, "consent")}
         </div>
         <div class="v2-mf"><span class="v2-small" style="margin:0; align-self:center;">OTP goes to ${p.phone}</span><button class="v2-btn primary wide" data-step-to="ci:otp">Send OTP</button></div>
@@ -527,13 +580,14 @@ const SCREENS = {
       </div>
       <div class="v2-modal sm" data-flow="ci" data-flow-step="token" data-part="token" hidden>
         <div class="v2-mb center"><div class="v2-success"><span class="big">${ic("check")}</span><h4>${first(t)} is checked in</h4><p>Please take ${tk.seat.toLowerCase()}. ${walk ? "A DA is being assigned now." : `${PSTAFF.da.name.split(" ")[0]}, your DA, is being told now.`}</p></div>
-          <div class="v2-tokcard" data-part="token-card"><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span></div></div>
+          <div class="v2-tokcard" data-part="token-card"><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span></div>
+          ${finCard(t, "need", "fin-card")}</div>
         <div class="v2-mf"><button class="v2-btn primary wide" data-go="I2">Done: show the token on the TV</button></div>
       </div>`;
     // by QR: the receptionist only watches; the answers arrive in the side panel as the customer gives them
     const answers = walk
-      ? [["name", "Name and email", "", `data-on-you="${p.name} &middot; ${p.email}"`], ["purpose", "Purpose", "", `data-def-you="Not answered"`], ["acc", "Accompanied by", "", `data-def-today="Not answered"`], ["pay", "Paying by", "", `data-def-today="Not answered"`], ["area", MK.area, "", `data-on-today="${VISIT[t].area}"`], ["licence", "Licence", "", `data-def-submitted="Not added: scan it at the car"`], ["rec", "Recording consent", "", ""]]
-      : [["booking", "Booking", "", `data-on-verified="${p.id} &middot; 2:30 PM"`], ["acc", "Accompanied by", "", `data-def-today="Not answered"`], ["pay", "Paying by", "", `data-def-today="Not answered"`], ["area", MK.area, "", `data-on-today="${VISIT[t].area}"`], ["licence", "Licence", "On file &middot; uploaded 2 days ago", ""], ["rec", "Recording consent", "", ""]];
+      ? [["name", "Name and email", "", `data-on-you="${p.name} &middot; ${p.email}"`], ["purpose", "Purpose", "", `data-def-you="Not answered"`], ["acc", "Accompanied by", "", `data-def-today="Not answered"`], ["pay", "Finance", "", `data-def-today="Not answered"`], ["area", MK.area, "", `data-on-today="${VISIT[t].area}"`], ["licence", "Licence", "", `data-def-submitted="Not added: scan it at the car"`], ["rec", "Recording consent", "", ""]]
+      : [["booking", "Booking", "", `data-on-verified="${p.id} &middot; 2:30 PM"`], ["acc", "Accompanied by", "", `data-def-today="Not answered"`], ["pay", "Finance", "", `data-def-today="Not answered"`], ["area", MK.area, "", `data-on-today="${VISIT[t].area}"`], ["licence", "Licence", "On file &middot; uploaded 2 days ago", ""], ["rec", "Recording consent", "", ""]];
     const tl = [["Scanned", walk ? "2:41 PM" : "2:24 PM", walk ? "done" : "", walk ? "" : `data-cls-scanned="done"`],
       ["Mobile verified", "", "", `data-cls-verified="done"`], ["Details", "", "", `data-cls-today="done"`], ["Submitted", "", "", `data-cls-submitted="done"`]];
     const side = `<aside class="v2-drawer side" data-part="live-checkin">
@@ -856,7 +910,7 @@ const SCREENS = {
           <div class="v2-sec">Call outcome</div>
           <div data-part="outcome">${radios("rmout", ["Ready: send a payment link", "Book another drive", "No answer: try again", "Not interested"], "Ready: send a payment link")}</div>
         </div>
-        <div class="v2-foot" data-part="foot"><span class="v2-hint">Exit: one call outcome</span><div class="v2-foot-r"><button class="v2-btn" data-go="N7">${ic("circle-x")}Not interested</button><button class="v2-btn" data-go="N6">${ic("calendar")}Book another drive</button><button class="v2-btn primary" data-go="N2">${ic("link")}Send payment link</button></div></div>
+        ${foot(t, "N5", "Exit: one call outcome", [["Not interested", "N7", "", "circle-x"], ["Book another drive", "N6", "", "calendar"], ["Send payment link", "N2", "primary", "link"]])}
       </section>
       ${gpt("rm", { cards: [["Visit summary", "sparkles", `<p>Liked it; price is the question. A shortlisted car dropped AED 1,000 since the visit.</p>`]] })}
     </div>`;
@@ -866,7 +920,7 @@ const SCREENS = {
   N6: (t) => {
     const p = PEOPLE[t];
     const car = t === "walkin" ? PCARS.c3 : PCARS.c2;
-    return daStep(t, { id: "N6", ordered: true, title: t === "vtd" ? "Book a hub test drive" : "Book another drive", desc: t === "vtd" ? "Khalid wants to drive the Camry. Same slot picker as P7." : `${car.title} for ${first(t)}. Same slot picker as P7.`,
+    return daStep(t, { id: "N6", ordered: true, title: t === "vtd" ? "Book a hub test drive" : "Book another drive", desc: t === "vtd" ? "Khalid wants to drive the Camry. Same slot picker as P5." : `${car.title} for ${first(t)}. Same slot picker as P5.`,
       body: `<div class="v2-card">${row("Where", `<b class="v2-b">Al Quoz hub, Dubai</b>`)}${row("Day", chips("dday", ["Today", "Thu 8 Oct", "Fri 9 Oct", "Sat 10 Oct"], ["Thu 8 Oct"]))}<div style="margin-top:8px;">${slotGrid("4:00 PM")}</div></div>`,
       footer: foot(t, "N6", "Exit: slot confirmed", [["Confirm booking", "P8", "primary", "calendar-check"]]) });
   },
@@ -957,6 +1011,20 @@ function tvBoard(t, ctx) {
 // and data-sync-event fires a status change there.
 const phStatus = (time) => `<div class="ph-status"><b>${time}</b><span>${ic("signal")}${ic("wifi")}${ic("battery-full")}</span></div>`;
 const phBrand = () => `<div class="ph-brand"><span class="v2-logo sm">${ic("car-front")}</span><b>CARS24</b><span>${MK.hub}</span></div>`;
+// After check-in, the next thing to do depends on the financing answer and whether the customer is pre-approved:
+// might need finance and not pre-approved: the 2-minute pre-approval; own loan: a check against their lender;
+// no finance, or already pre-approved: take a seat, with the listing page to browse. Each has a QR and a link.
+const FIN = [["need", "I might need finance from CARS24"], ["none", "I don't need finance"], ["own", "I have already arranged my own loan"]];
+function finCard(t, key, part, hidden) {
+  const pre = VISIT[t].pre === "Eligible";
+  const kind = key === "own" ? "lender" : key === "need" && !pre ? "pre" : "seat";
+  const [text, url, cta] = {
+    pre: ["While you wait, please do our 2-minute finance pre-approval. It helps us show you the best payment plan options.", `${MK.site}/finance/pre-approval`, "Start pre-approval"],
+    lender: [`Want to see if we can beat your lender? 2-minute check. We work with ${MK.lenders}.`, `${MK.site}/finance/pre-approval`, "Start the 2-minute check"],
+    seat: [`${pre && key === "need" ? "You're already pre-approved. " : ""}Please take a seat. Our team will show you to your car shortly.`, `${MK.site}/buy-used-cars`, "Browse our cars"],
+  }[kind];
+  return `<div class="ph-fin ${kind}" data-part="${part}" data-when="fin=${key}"${hidden ? " hidden" : ""}>${qrSvg(15, 3)}<div><p>${text}</p><small>${url}</small><button class="ph-btn sm">${cta}</button></div></div>`;
+}
 function tokenPanel(t, { flowed } = {}) {
   const p = PEOPLE[t], walk = t === "walkin", tk = TOKEN[t], da = PDAS[0].name, daFirst = da.split(" ")[0];
   const steps = [["Checked in", "done", ""], ["DA on the way", "", `data-cls-assigned="done"`], ["With your DA", "", `data-cls-met="done"`], ["Car ready", "", `data-cls-hub="done"`], ["Test drive", "", `data-cls-drive="done"`]];
@@ -969,7 +1037,7 @@ function tokenPanel(t, { flowed } = {}) {
       <div class="ph-row">${ic("user-round")}<div><small>Your DA</small><b data-on-assigned="${da}">Assigning one now&hellip;</b></div></div>
       <div class="ph-row">${ic("car-front")}<div><small>Your car</small><b${walk ? ` data-on-chosen="${PCARS.c4.title}"` : ""}>${walk ? "You'll choose it with your DA" : PCARS[p.car].title}</b>
         <span${walk ? ` data-on-chosen="Being prepped in the yard, about 12 min. Wait at your seat" data-on-hub="At the hub, Bay 1. ${daFirst} is coming back to you"` : ` data-on-yard="On its way from the yard, about 3 min" data-on-hub="At the hub, Bay 2"`} data-on-drive="On the road with you">${walk ? "&nbsp;" : "Prepped, waiting in the yard"}</span></div></div>
-      <button class="ph-btn ghost">${ic("car-front")}Browse cars while you wait</button>
+      ${FIN.map(([key]) => finCard(t, key, "ph-fin", key !== "need")).join("")}
       <p class="ph-legal">This page updates by itself. We've sent it to your WhatsApp too.</p>
     </div></div>`;
 }
@@ -1045,7 +1113,8 @@ const PHONES = {
           ${walk ? `<p class="ph-sub">Three quick questions, so your DA can help you faster.</p>` : `<div class="ph-visit">${ic("calendar-check")}<div><b>Test drive &middot; today 2:30 PM</b><small>${c.title}</small></div></div>`}
           ${prog(walk ? 3 : 2, "About today")}
           <b class="ph-q">Who's with you today?</b>${choose("acc", ["Just me", "Partner", "Family", "A friend"])}
-          <b class="ph-q">How are you thinking of paying?</b>${choose("pay", ["Cash", "Finance", "Not sure yet"])}
+          <b class="ph-q">Do you need financing after the test drive?</b>
+          <div class="ph-radios" data-part="ph-finance">${FIN.map(([key, label]) => `<button class="ph-radio" data-pick="fin" data-sync="pay" data-sync-key="fin=${key}" data-sync-val="${label}"><i></i>${label}</button>`).join("")}</div>
           <b class="ph-q">${MK.area}</b><div class="ph-input">${VISIT[t].area}</div>
         </div>
         <div class="ph-foot"><button class="ph-btn" data-step-to="ph:consent" data-sync-event="today">Next</button></div>
