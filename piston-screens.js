@@ -42,12 +42,12 @@ const PILL = {
   P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
   I1: ["red", "Not checked-in"], I2: ["green", "Checked in"], S1: ["green", "Checked in"], S2: ["violet", "DA assigned"],
   T1: ["violet", "With DA"], T2: ["violet", "With DA"], T3: ["violet", "With DA"], T4: ["violet", "With DA"], T5: ["violet", "With DA"],
-  O1: ["violet", "Car on its way"], O2: ["violet", "With DA"], O3: ["violet", "With DA"], O4: ["violet", "DL check"],
-  O5: ["red", "TD live"], O6: ["red", "TD live"], O7: ["red", "TD live"], O8: ["green", "TD done"],
+  O1: ["violet", "Car on its way"], O2: ["red", "TD live"], O3: ["red", "TD live"], O4: ["red", "TD live"],
+  O5: ["red", "TD live"], O6: ["red", "TD live"], O7: ["green", "TD done"],
   N1: ["green", "TD done"], N2: ["amber", "Token pending"], N3: ["green", "Token paid"], N4: ["amber", "Follow-up set"], N5: ["amber", "Follow-up due"],
   N6: ["violet", "New TD booked"], N7: ["red", "Dropped"],
 };
-const PILL_VTD = { I1: ["red", "Not checked-in"], T2: ["violet", "On video"], T3: ["violet", "On video"], T4: ["violet", "On video"], T5: ["violet", "On video"], O3: ["red", "Video live"], O8: ["green", "Video TD done"] };
+const PILL_VTD = { I1: ["red", "Not checked-in"], T2: ["violet", "On video"], T3: ["violet", "On video"], T4: ["violet", "On video"], T5: ["violet", "On video"], O5: ["red", "Video live"], O7: ["green", "Video TD done"] };
 
 const AI_AU = {
   booked: {
@@ -124,10 +124,10 @@ function shell({ active, who, crumb, body, manager }) {
 const crumbOf = (...parts) => parts.map((p, i) => i === parts.length - 1 ? `<b>${p}</b>` : `<span>${p}</span>${ic("chevron-right")}`).join("");
 
 // ================================================================== lead pane
-// the licence is checked at O4, right before the drive; until then it shows as to verify
+// the licence is checked at O4, after Start TD and the consent; until then it shows as to verify
 const PRE_DL = ["I1", "I2", "S1", "S2", "T1", "T2", "T3", "T4", "T5", "O1", "O2", "O3", "O4"];
 // the queue token shows while the customer is on the floor; it is not the payment token of N2
-const ON_FLOOR = ["I2", "S1", "S2", "T1", "T2", "T3", "T4", "T5", "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "N1"];
+const ON_FLOOR = ["I2", "S1", "S2", "T1", "T2", "T3", "T4", "T5", "O1", "O2", "O3", "O4", "O5", "O6", "O7", "N1"];
 function leadPane(t, stepId, opts = {}) {
   const p = PEOPLE[t], v = VISIT[t];
   const [tone, label, pillAttrs] = opts.pill || (t === "vtd" && PILL_VTD[stepId]) || PILL[stepId] || ["grey", "Open"];
@@ -158,10 +158,10 @@ function leadPane(t, stepId, opts = {}) {
 }
 
 // ================================================================== stage bar
-const VISIT_STAGES = { hub: ["Check-in", "Car finding", "Ready to drive", "TD live", "Disposition"], vtd: ["Check-in", "Car finding", "Video TD", "Disposition"] };
+const VISIT_STAGES = { hub: ["Check-in", "Car finding", "Car to hub", "TD live", "Disposition"], vtd: ["Check-in", "Car finding", "Video TD", "Disposition"] };
 const STAGE_AT = {
-  hub: { I1: 0, I2: 0, S1: 1, S2: 1, T1: 1, T2: 1, T3: 1, T4: 1, T5: 1, O1: 2, O2: 2, O3: 2, O4: 2, O5: 3, O6: 3, O7: 3, O8: 3, N1: 4, N2: 4, N3: 5, N4: 4, N6: 4, N7: 4 },
-  vtd: { I1: 0, T2: 1, T3: 1, T4: 1, T5: 1, O3: 2, O8: 2, N1: 3, N2: 3, N3: 4, N4: 3, N6: 3, N7: 3 },
+  hub: { I1: 0, I2: 0, S1: 1, S2: 1, T1: 1, T2: 1, T3: 1, T4: 1, T5: 1, O1: 2, O2: 3, O3: 3, O4: 3, O5: 3, O6: 3, O7: 3, N1: 4, N2: 4, N3: 5, N4: 4, N6: 4, N7: 4 },
+  vtd: { I1: 0, T2: 1, T3: 1, T4: 1, T5: 1, O5: 2, O7: 2, N1: 3, N2: 3, N3: 4, N4: 3, N6: 3, N7: 3 },
 };
 function stageSub(t, name, state, stepId) {
   if (state === "todo") return "Pending";
@@ -171,8 +171,8 @@ function stageSub(t, name, state, stepId) {
   switch (name) {
     case "Check-in": return done ? (t === "vtd" ? "3:01 PM" : `${self ? "QR &middot; " : ""}${TOKEN[t].no} &middot; ${walk ? "2:44 PM" : "2:27 PM"}`) : "In progress";
     case "Car finding": return done ? (walk ? "1 car" : t === "vtd" ? "Camry" : "2 cars") : stepId === "S1" ? "Assigning DA" : t === "vtd" ? "On screen share" : `With ${PSTAFF.da.name.split(" ")[0]}`;
-    case "Ready to drive": return done ? "DL verified" : stepId === "O4" ? "Checking the DL" : stepId === "O3" ? "Walkaround" : "Car at the hub";
-    case "TD live": return done ? (walk ? "1/1 done" : "2/2 done") : stepId === "O8" ? (walk ? "1/1 done" : "1/2 done") : (walk ? "0/1 done" : "0/2 done");
+    case "Car to hub": return done ? "At the hub" : "With the Yardie";
+    case "TD live": return done ? (walk ? "1/1 done" : "2/2 done") : ({ O2: "Starting &middot; recording", O3: "Consent", O4: "DL check", O5: "Walkaround", O6: "Driving" }[stepId] || (walk ? "1/1 done" : "1/2 done"));
     case "Video TD": return done ? "Done" : "Live";
     case "Disposition": return done ? "Token paid" : "Open";
   }
@@ -207,7 +207,10 @@ function gpt(who, { cards = [], transcribing = null } = {}) {
       : `<div class="v2-trans">${ic("audio-lines")}Start live transcription</div>`}
   </aside>`;
 }
-const TRANSCRIBING = { booked: "since 2:27 PM", walkin: "since 2:44 PM", vtd: "since 3:01 PM" };
+// the recording starts when the DA starts the TD (O2); a video TD is recorded from the start of the call
+const START = { booked: "2:52 PM", walkin: "3:08 PM" };
+const TRANSCRIBING = { booked: "since 2:52 PM", walkin: "since 3:08 PM", vtd: "since 3:01 PM" };
+const RECORDING = ["O2", "O3", "O4", "O5", "O6", "O7", "N1", "N2", "N3", "N4", "N6", "N7"];
 
 // ================================================================== center column parts
 function prevOf(t, id) {
@@ -265,7 +268,7 @@ function vtdVisit({ id, title, desc, right, body, footer, video, overlay }) {
 // DA steps run on the DA's tablet for hub tracks, and on the operator's video console for VTD
 function daStep(t, o) {
   if (!isHub(t)) return vtdVisit(o);
-  return visit({ ...o, t, who: "da", gptOpts: o.gptOpts || { cards: o.cards || [], transcribing: TRANSCRIBING[t] } });
+  return visit({ ...o, t, who: "da", gptOpts: o.gptOpts || { cards: o.cards || [], transcribing: RECORDING.includes(o.id) && o.id !== "O2" ? TRANSCRIBING[t] : null } });
 }
 
 // ================================================================== small components
@@ -513,7 +516,7 @@ const SCREENS = {
             : `<div class="v2-found" data-part="booking">${ic("calendar-check")}<div><b>Test drive &middot; 2:30 PM &middot; ${p.id}</b><small>${PCARS[p.car].title} &middot; licence uploaded before the visit</small></div><span class="v2-tag">From the booking</span></div>`}
           <div class="v2-grid2">${sel("Accompanied by", walk ? "Alone" : "Spouse")}${sel("Paying by", walk ? "Cash" : "Loan EMI")}</div>
           ${sel(MK.area, VISIT[t].area)}
-          ${toggle(true, "Recording consent", `${first(t)} agrees to record today's conversation for AI notes and service quality. Saying no doesn't change the visit.`, "consent")}
+          ${toggle(true, "Recording consent", `${first(t)} agrees to record the test drive, from Start TD to the end, for AI notes and service quality. Saying no doesn't change the visit.`, "consent")}
         </div>
         <div class="v2-mf"><span class="v2-small" style="margin:0; align-self:center;">OTP goes to ${p.phone}</span><button class="v2-btn primary wide" data-step-to="ci:otp">Send OTP</button></div>
       </div>
@@ -670,11 +673,11 @@ const SCREENS = {
     if (!isHub(t)) {
       return vtdVisit({ id: "T5", title: "Car on camera", desc: `${yard.split(" ")[0]} has the Camry at Studio 1 with the yard camera on.`,
         body: `<div class="v2-card" data-part="drives"><div class="v2-kvs">${kv("Car", PCARS[p.car].title)}${kv("Where", "Studio 1")}${kv("Yard helper", `${yard}, camera on`)}${kv("Order", `${p.id} (unchanged)`)}</div></div>`,
-        footer: foot(t, "T5", "Exit: car confirmed and on camera", [["Start the walkaround", "O3", "primary", "video"]]) });
+        footer: foot(t, "T5", "Exit: car confirmed and on camera", [["Start the walkaround", "O5", "primary", "video"]]) });
     }
     const drives = walk ? [["c4", "Drive 1", "Bay 1 when ready", "prep"]] : [["c1", "Drive 1 &middot; booked", "Bay 2", "here"], ["c3", "Drive 2 &middot; added", "Bay 4 when ready", "prep"]];
     const badge = (st, i) => st === "here" ? `<span class="v2-badge match" ${i === 0 ? `data-part="prep"` : ""}>${ic("map-pin")}At the hub</span>` : `<span class="v2-badge busy" ${i === 0 || walk ? `data-part="prep"` : ""}>${ic("wrench")}Yard prep requested</span>`;
-    return daStep(t, { id: "T5", title: walk ? "Create the order and call the car" : "Lock today's drives", desc: walk ? "This creates order BK-89004 in OMS and gives the Yardie a prep task for the car." : "The Tucson joins today's visit. The Yardie preps it; the Altima is already at the hub.",
+    return daStep(t, { id: "T5", title: walk ? "Create the order and call the car" : "Lock today's drives", desc: walk ? `This creates order BK-89004 in OMS and gives the Yardie a prep task. ${first(t)} waits on token ${TOKEN[t].no} until the car is at the hub, and you are told when it arrives.` : "The Tucson joins today's visit. The Yardie preps it while the Altima's drive starts.",
       body: `<div data-part="drives">${drives.map(([cid, label, bay, st], i) => carRow(cid, { oid: walk ? (i === 0 ? "BK-89004 (new)" : null) : i === 0 ? p.id : null, sub: `${label} &middot; ${bay}`, badge: badge(st, i), right: " " })).join("")}</div>
         <div class="v2-card" data-part="summary"><div class="v2-kvs">${kv("Customer", walk ? `${p.name}, verified` : `${first(t)}, verified`)}${kv("Driving licence", "Checked at the car (O4)")}${kv("Order", walk ? "BK-89004, new" : `${p.id}, updated`)}</div></div>`,
       footer: foot(t, "T5", "Exit: order ready, yard task raised", walk ? [["Car is in another TD: pick again", "T3", "", "rotate-ccw"], ["Create order and request prep", "O1", "primary", "check"]] : [["Car is taken: pick again", "T3", "", "rotate-ccw"], ["Confirm and request prep", "O1", "primary", "check"]]),
@@ -685,39 +688,44 @@ const SCREENS = {
   // the Yardie preps the chosen car and brings it from the yard; the ground TV's car column follows each tap
   O1: (t) => tvBoard(t, "o1"),
 
+  // Start TD: the DA meets the customer at the car (for a walk-in, again, once the car is at the hub) and starts the recording
   O2: (t) => {
-    const walk = t === "walkin", yard = PSTAFF.prep.name;
-    return daStep(t, { id: "O2", ordered: true, title: walk ? "Kia Sportage is ready at Bay 1" : "Altima is ready at Bay 2", desc: `Brought from the yard by ${yard} (Yardie) at 2:49 PM. Keys at the bay, fuel 3/4, cleaned.`,
-      body: `<div class="v2-bays" data-part="bays">${["Bay 1", "Bay 2", "Bay 3", "Bay 4"].map(b => {
-          const here = walk ? b === "Bay 1" : b === "Bay 2", next = !walk && b === "Bay 4";
-          return `<div class="v2-bay ${here ? "here" : next ? "next" : ""}"><small>${b}</small><b>${here ? (walk ? "Kia Sportage" : "Nissan Altima") : next ? "Hyundai Tucson" : "Free"}</b><span>${here ? "Ready" : next ? "With the Yardie, 4 min" : ""}</span></div>`;
-        }).join("")}</div>
-        ${walk ? "" : carRow("c3", { sub: "Drive 2 &middot; Bay 4", badge: `<span class="v2-badge busy" data-part="next-car">${ic("wrench")}Being prepped</span>`, right: " " })}`,
-      footer: foot(t, "O2", "Exit: DA and customer at the car", [["Car not at the hub: swap", "T3", "", "rotate-ccw"], ["We're at the car", "O3", "primary", "map-pin"]]),
-      cards: [["On the walk", "message-square", `<p>Ask about the daily commute. Mention the return window if not covered yet.</p>`]] });
+    const p = PEOPLE[t], walk = t === "walkin", tk = TOKEN[t], c = PCARS[walk ? "c4" : p.car], yard = PSTAFF.prep.name.split(" ")[0];
+    const meet = walk
+      ? `<div class="v2-wait" data-part="meet-again"><span class="v2-av lg">${inits(p.name)}</span>
+          <div class="mid"><b>${p.name}</b> <span class="v2-muted">is waiting at ${tk.seat.toLowerCase()} &middot; token ${tk.no}</span>
+            <p class="v2-small" style="margin:6px 0 0;">${ic("bell-ring")} Told at 3:05 PM: the ${c.title.replace(/^\d{4} /, "")} is at the hub, ${c.bay}, brought by ${yard} (Yardie). Go back to ${first(t)} and start the drive together.</p></div>
+          <div class="v2-timer"><b>3 min</b><small>since the car arrived</small></div></div>`
+      : `<div class="v2-card" data-part="meet-again"><div class="v2-row"><label>With you</label><div><b class="v2-b">${first(t)} &middot; token ${tk.no}</b></div></div><div class="v2-row"><label>Car</label><div><b class="v2-b">${c.title} &middot; at the hub, ${c.bay} since 2:35 PM</b></div></div></div>`;
+    return daStep(t, { id: "O2", ordered: true, title: walk ? `Back to ${first(t)}: start the test drive` : "Start the test drive", desc: "Starting creates the TD record (car, plate, time and odometer) and turns the recording on. The consent and the licence check come next.",
+      body: `${meet}
+        <div class="v2-card" data-part="summary"><div class="v2-kvs two" style="margin-bottom:0;">${kv("Car", `${c.title} &middot; ${c.plate}`)}${kv("Driver", `${p.name} &middot; licence checked next (O4)`)}</div></div>
+        <div class="v2-card"><div class="v2-grid2" data-part="odo">${inp("Odometer at start (km)", walk ? "31,214" : "18,412", "o-odo")}<div class="v2-field"><label>Fuel</label>${chips("fuel", ["1/4", "1/2", "3/4", "Full"], ["3/4"])}</div></div>
+          ${row("Route", chips("route", ["City loop &middot; 15 min", "Highway loop &middot; 20 min"], [walk ? "Highway loop &middot; 20 min" : "City loop &middot; 15 min"]), "route")}</div>
+        ${toggle(true, "Recording starts with the drive", `${first(t)} agreed at check-in. Live notes and transcription run from this tap until the drive ends.`, "recording")}`,
+      footer: foot(t, "O2", "Exit: TD record created, recording on", [["Start TD and recording", "O3", "primary", "play"]]),
+      cards: [["Checks", "list-checks", `<p>Car at the hub. Not in another TD. Recording consent given at check-in.</p>`], ["Next", "pen-line", `<p>${first(t)} signs the TD consent, then you check the licence, then the walkaround.</p>`]] });
   },
 
   O3: (t) => {
-    const p = PEOPLE[t];
-    const c = PCARS[t === "walkin" ? "c4" : p.car];
-    const zones = [["Exterior", "scan", "Paint and panels, tyres, lights", true], ["Interior", "armchair", "Seats, screen and CarPlay, rear seats", true], ["Under the bonnet", "wrench", "Engine bay, service history", false], ["Boot", "luggage", "Boot space, spare wheel", false]];
-    const body = `<div class="v2-zones" data-part="zones">${zones.map(([nm, icon, pts, d]) => `<button class="v2-check ${d ? "done" : ""}" data-zone>${ic(icon)}<b>${nm}</b><span>${pts}</span></button>`).join("")}</div>`;
-    if (!isHub(t)) {
-      return vtdVisit({ id: "O3", title: `Walk round the ${c.title.replace(/^\d{4} /, "")}`, desc: "The yard helper moves the camera; tick each zone as you cover it.", body,
-        footer: foot(t, "O3", "Exit: walkaround and drive clip done", [["Play drive clip and wrap up", "O8", "primary", "play"]]),
-        video: videoPanel({ main: carTile("c2"), pip: first(t) }) });
-    }
-    return daStep(t, { id: "O3", ordered: true, title: `Walk round the ${c.title.replace(/^\d{4} /, "")}`, desc: "Tap a zone once it's covered. Talking points come from this car's inspection and features.", body,
-      footer: foot(t, "O3", "Exit: zones covered, wants to drive", [["Try another car", "T3", "", "rotate-ccw"], ["Check the licence", "O4", "primary", "id-card"]]),
-      cards: [["Say at the bonnet", "message-square", `<p>Point to the service stamps. The inspection found no leaks.</p>`], ["Customer asked", "message-circle", `<p>&ldquo;Does it have CarPlay?&rdquo; Yes, wired.</p>`]] });
+    const p = PEOPLE[t], walk = t === "walkin";
+    const c = PCARS[walk ? "c4" : p.car];
+    const left = `<div class="v2-kvs two" data-part="details">${kv("Driver", `${p.name}<small>Licence checked next</small>`)}${kv("Car", `${c.title}<small>${c.plate}</small>`)}${kv("Started", `${START[t]} &middot; ${walk ? "31,214" : "18,412"} km`)}${kv("With", "Omar Hassan, CARS24")}</div>
+      <ul class="v2-terms" data-part="terms"><li>I hold a valid driving licence and I am fit to drive.</li><li>I will follow UAE traffic laws and speed limits.</li><li>I am responsible for traffic fines during this drive.</li><li>A CARS24 associate rides with me for the whole drive.</li></ul>
+      <p class="v2-small">Example terms for the prototype. One consent per car.</p>`;
+    const right = `<b class="v2-q">Sign here</b>
+      <div class="v2-sig" data-part="signature"><canvas id="sig" aria-label="Signature pad"></canvas><div class="line"></div><div class="ph">Sign with your finger</div></div>
+      <div class="v2-agree" data-part="agree"><label><input type="checkbox" id="agree"> I have read and agree to these terms.</label><button class="v2-btn" data-sig-clear>${ic("eraser")}Clear</button></div>`;
+    return customerView({ title: "Test drive consent", lead: "Please check the details and sign. Your DA checks your licence next, then you're off.", left, right,
+      foot: `<span class="v2-hint left" id="sig-hint">Sign and tick the box to continue</span><button class="v2-btn" data-go="N1">${ic("circle-x")}Customer declines</button><button class="v2-btn primary lg" id="sig-go" data-go="O4" disabled>${ic("pen-line")}Sign and continue</button>` });
   },
 
-  // DL verify moved here: the DA checks the licence at the car, right before Start TD
+  // DL verify: the DA checks the licence after the consent, the last check before the car moves
   O4: (t) => {
     const p = PEOPLE[t], walk = t === "walkin", qr = CTX.mode === "qr";
     const got = walk ? (qr ? "from the seat QR form" : "scanned now") : "uploaded 2 days ago";
     const desc = walk ? (qr ? `${first(t)} added both sides on the seat QR form. Check the photo against them.` : "Scan both sides now. The licence is linked to the contact once verified.") : "Uploaded before the visit. Check the photo against the customer.";
-    return daStep(t, { id: "O4", ordered: true, title: "Check the licence before the drive", desc,
+    return daStep(t, { id: "O4", ordered: true, title: "Check the licence before the car moves", desc,
       body: `<div class="v2-uploads" data-part="upload">
           ${["Front", "Back"].map(side => `<div class="v2-drop done"><span class="v2-dl">${ic("id-card")}<i>${side}</i></span><div><b>DL ${side.toLowerCase()} &middot; ${got}</b><small>dl-${side.toLowerCase()}.jpg &middot; 1.2 MB</small></div><span class="v2-ib">${ic("refresh-cw")}</span></div>`).join("")}
         </div>
@@ -727,65 +735,55 @@ const SCREENS = {
         </div>
         <div class="v2-card" data-part="checks"><div class="v2-sec" style="margin-top:0;">Checks</div>
           <div class="v2-checks"><span class="ok">${ic("circle-check")}Name matches the Emirates ID</span><span class="ok">${ic("circle-check")}Not expired</span><button class="v2-check2" data-zone>${ic("square")}Photo matches the customer (DA)</button></div></div>`,
-      footer: foot(t, "O4", "Exit: DL verified, or no drive today", [["No valid DL: no drive today", "N6", "", "calendar"], ["Verify and start the drive", "O5", "primary", "arrow-right", true]]),
-      cards: [["OCR", "scan-line", `<p>All fields read with high confidence. ${walk ? (p.homeDl ? "Home-country DL noted for the record." : qr ? "Read from the photos on the seat QR form." : "Read from the scan.") : "Matches the copy uploaded before the visit."}</p>`], ["Why here", "info", `<p>Car finding and the walkaround don't need a licence. Driving does, so the check sits right before the start.</p>`]] });
+      footer: foot(t, "O4", "Exit: DL verified, or the drive is cancelled", [["No valid DL: cancel the drive", "N6", "", "calendar"], ["Verified: on to the walkaround", "O5", "primary", "arrow-right", true]]),
+      cards: [["OCR", "scan-line", `<p>All fields read with high confidence. ${walk ? (p.homeDl ? "Home-country DL noted for the record." : qr ? "Read from the photos on the seat QR form." : "Read from the scan.") : "Matches the copy uploaded before the visit."}</p>`], ["Why here", "info", `<p>The TD is started and signed. The licence is the last check before the car moves.</p>`]] });
   },
 
   O5: (t) => {
     const p = PEOPLE[t];
     const c = PCARS[t === "walkin" ? "c4" : p.car];
-    return daStep(t, { id: "O5", ordered: true, title: "Start the test drive", desc: "Starting creates the TD record: car, plate, time and odometer. The consent refers to it.",
-      body: `<div class="v2-card" data-part="summary"><div class="v2-kvs">${kv("Car", `${c.title} &middot; ${c.plate}`)}${kv("Driver", `${p.name} &middot; DL ${p.dl}`)}</div></div>
-        <div class="v2-card"><div class="v2-grid2" data-part="odo">${inp("Odometer at start (km)", t === "walkin" ? "31,214" : "18,412", "o-odo")}<div class="v2-field"><label>Fuel</label>${chips("fuel", ["1/4", "1/2", "3/4", "Full"], ["3/4"])}</div></div>
-          ${row("Route", chips("route", ["City loop &middot; 15 min", "Highway loop &middot; 20 min"], [t === "walkin" ? "Highway loop &middot; 20 min" : "City loop &middot; 15 min"]), "route")}</div>
-        <div class="v2-note pink" data-part="note">${ic("pen-line")}<span>Next the customer signs the TD consent for this car, before it moves.</span></div>`,
-      footer: foot(t, "O5", "Exit: TD record created", [["Start test drive", "O6", "primary", "play"]]),
-      cards: [["Checks", "list-checks", `<p>DL verified at O4. Car not in another TD. Walkaround done.</p>`]] });
+    const zones = [["Exterior", "scan", "Paint and panels, tyres, lights", true], ["Interior", "armchair", "Seats, screen and CarPlay, rear seats", true], ["Under the bonnet", "wrench", "Engine bay, service history", false], ["Boot", "luggage", "Boot space, spare wheel", false]];
+    const body = `<div class="v2-zones" data-part="zones">${zones.map(([nm, icon, pts, d]) => `<button class="v2-check ${d ? "done" : ""}" data-zone>${ic(icon)}<b>${nm}</b><span>${pts}</span></button>`).join("")}</div>`;
+    if (!isHub(t)) {
+      return vtdVisit({ id: "O5", title: `Walk round the ${c.title.replace(/^\d{4} /, "")}`, desc: "The yard helper moves the camera; tick each zone as you cover it.", body,
+        footer: foot(t, "O5", "Exit: walkaround and drive clip done", [["Play drive clip and wrap up", "O7", "primary", "play"]]),
+        video: videoPanel({ main: carTile("c2"), pip: first(t) }) });
+    }
+    return daStep(t, { id: "O5", ordered: true, title: `Walk round the ${c.title.replace(/^\d{4} /, "")}`, desc: "Tap a zone once it's covered. The recording is on, so the talk around the car is in the notes.", body,
+      footer: foot(t, "O5", "Exit: zones covered", [["Try another car", "T3", "", "rotate-ccw"], ["Start driving", "O6", "primary", "car"]]),
+      cards: [["Say at the bonnet", "message-square", `<p>Point to the service stamps. The inspection found no leaks.</p>`], ["Customer asked", "message-circle", `<p>&ldquo;Does it have CarPlay?&rdquo; Yes, wired.</p>`]] });
   },
 
   O6: (t) => {
     const p = PEOPLE[t];
-    const c = PCARS[t === "walkin" ? "c4" : p.car];
-    const left = `<div class="v2-kvs two" data-part="details">${kv("Driver", `${p.name}<small>DL ${p.dl}</small>`)}${kv("Car", `${c.title}<small>${c.plate}</small>`)}${kv("Started", `2:52 PM &middot; ${t === "walkin" ? "31,214" : "18,412"} km`)}${kv("With", "Omar Hassan, CARS24")}</div>
-      <ul class="v2-terms" data-part="terms"><li>I hold a valid driving licence and I am fit to drive.</li><li>I will follow UAE traffic laws and speed limits.</li><li>I am responsible for traffic fines during this drive.</li><li>A CARS24 associate rides with me for the whole drive.</li></ul>
-      <p class="v2-small">Example terms for the prototype. One consent per car.</p>`;
-    const right = `<b class="v2-q">Sign here</b>
-      <div class="v2-sig" data-part="signature"><canvas id="sig" aria-label="Signature pad"></canvas><div class="line"></div><div class="ph">Sign with your finger</div></div>
-      <div class="v2-agree" data-part="agree"><label><input type="checkbox" id="agree"> I have read and agree to these terms.</label><button class="v2-btn" data-sig-clear>${ic("eraser")}Clear</button></div>`;
-    return customerView({ title: "Test drive consent", lead: "Please check the details and sign. The car moves once this is signed.", left, right,
-      foot: `<span class="v2-hint left" id="sig-hint">Sign and tick the box to continue</span><button class="v2-btn" data-go="N1">${ic("circle-x")}Customer declines</button><button class="v2-btn primary lg" id="sig-go" data-go="O7" disabled>${ic("pen-line")}Sign and start driving</button>` });
-  },
-
-  O7: (t) => {
-    const p = PEOPLE[t];
     const cid = t === "walkin" ? "c4" : p.car;
     const tags = [["Price", "vs other cars"], ["Mileage", "km on the clock"], ["Condition", "marks, wear"], ["Features", "missing something"], ["Finance", "EMI, down payment"], ["Other", "anything else"]];
     const other = t === "walkin" ? "Tucson" : "Camry";
-    return daStep(t, { id: "O7", ordered: true, title: "Test drive live", desc: "Begin the drive, tag objections as they come up, and keep an eye on the live transcription.",
-      body: carRow(cid, { oid: t === "walkin" ? "BK-89004" : p.id, sub: `Today, 2:52 PM &middot; Agent: Omar Hassan`, badge: `<span class="v2-badge live">${ic("circle-dot")}LIVE</span>`, part: "live-car", right: " " })
+    return daStep(t, { id: "O6", ordered: true, title: "Test drive live", desc: "Drive, tag objections as they come up, and keep an eye on the live transcription.",
+      body: carRow(cid, { oid: t === "walkin" ? "BK-89004" : p.id, sub: `Today, ${START[t]} &middot; Agent: Omar Hassan`, badge: `<span class="v2-badge live">${ic("circle-dot")}LIVE</span>`, part: "live-car", right: " " })
         + `<div class="v2-tx" data-part="transcript"><div class="v2-tx-h"><span>Live note &amp; transcription</span><span class="t"><i></i>00:12:40</span></div>
           <div class="v2-tx-b"><p><span class="ts">12:02</span><b>${first(t)}:</b> It's smooth. How does it compare with the ${other} on price?</p><p><span class="ts">12:20</span><b>Omar:</b> The ${other} costs more; this one has fewer km and a warranty.</p><p><span class="ts">12:38</span><b>${first(t)}:</b> Can I get it on monthly payments?</p></div></div>
         <div class="v2-sec">Tap when an objection comes up</div>
         <div class="v2-tags" data-part="objections">${tags.map(([k, s], i) => `<button class="v2-tagbtn ${i === 0 ? "on" : ""}" data-pick="multi"><b>${k}</b><span>${s}</span></button>`).join("")}</div>`,
-      footer: foot(t, "O7", "Exit: back at the hub", [["Report an incident", null, "", "triangle-alert"], ["Back at the hub: end drive", "O8", "primary", "flag"]]),
+      footer: foot(t, "O6", "Exit: back at the hub", [["Report an incident", null, "", "triangle-alert"], ["Back at the hub: end drive", "O7", "primary", "flag"]]),
       cards: [["Try now", "zap", `<p>Highway stretch: cruise control and lane assist. Parking: rear camera.</p>`], ["Suggested answer", "sparkles", `<p>Monthly payments: pre-approval looks eligible. Offer an EMI estimate at the debrief.</p>`]] });
   },
 
-  O8: (t) => {
+  O7: (t) => {
     if (!isHub(t)) {
-      return vtdVisit({ id: "O8", title: "Wrap up the video viewing", desc: "Walkaround done, drive clip played. 24 min on the call.",
+      return vtdVisit({ id: "O7", title: "Wrap up the video viewing", desc: "Walkaround done, drive clip played. 24 min on the call.",
         body: `<div class="v2-card" data-part="end-form">${row(`${first(t)}'s reaction`, chips("react", ["Loved it", "It's okay", "Not for me"], ["Loved it"]))}${row("Wants a real drive?", chips("rd", ["Yes, at a hub", "No need"], ["Yes, at a hub"]))}</div>`,
-        footer: foot(t, "O8", "Exit: call wrapped up", [["End video TD", "N1", "primary", "flag"]]) });
+        footer: foot(t, "O7", "Exit: call wrapped up", [["End video TD", "N1", "primary", "flag"]]) });
     }
     const p = PEOPLE[t], walk = t === "walkin";
     const cid = walk ? "c4" : p.car;
-    return daStep(t, { id: "O8", ordered: true, title: "End the drive", desc: "Recorded as TD CONDUCTED for this car. The TV shows the customer back, wrapping up.",
-      body: carRow(cid, { oid: walk ? "BK-89004" : p.id, sub: "Today, 2:52 PM &middot; 19 min &middot; Agent: Omar Hassan", badge: `<span class="v2-badge done">TD done</span>`, part: "done-car", right: " " })
+    return daStep(t, { id: "O7", ordered: true, title: "End the drive", desc: "Recorded as TD CONDUCTED for this car. The recording stops; the TV shows the customer back, wrapping up.",
+      body: carRow(cid, { oid: walk ? "BK-89004" : p.id, sub: `Today, ${START[t]} &middot; 19 min &middot; Agent: Omar Hassan`, badge: `<span class="v2-badge done">TD done</span>`, part: "done-car", right: " " })
         + `<div class="v2-card" data-part="end-form"><div class="v2-grid2">${inp("Odometer at end (km)", walk ? "31,236" : "18,431", "o-odo2")}<div class="v2-field"><label>Duration</label><div class="v2-select ph"><span>19 min</span></div></div></div>
           ${row("Customer's reaction", chips("react", ["Loved it", "It's okay", "Not for me"], ["Loved it"]), "reaction")}</div>
-        ${walk ? "" : carRow("c3", { sub: "Drive 2 &middot; Bay 4 &middot; ready", badge: `<span class="v2-badge booked" data-part="next-car">Queued</span>`, right: " " })}`,
-      footer: foot(t, "O8", "Exit: TD conducted", walk ? [["Another car", "O2", "", "rotate-ccw"], ["Done driving: debrief", "N1", "primary", "arrow-right", true]] : [["Start drive 2: Tucson", "O2", "", "car"], ["Done driving: debrief", "N1", "primary", "arrow-right", true]]),
-      cards: [["Next car", "car", `<p>${walk ? "No second car queued." : "Drive 2 needs its own walkaround, start and consent. The licence is already verified."}</p>`]] });
+        ${walk ? "" : carRow("c3", { sub: "Drive 2 &middot; Bay 4 &middot; brought by the Yardie during drive 1", badge: `<span class="v2-badge booked" data-part="next-car">Ready</span>`, right: " " })}`,
+      footer: foot(t, "O7", "Exit: TD conducted", walk ? [["Another car", "O2", "", "rotate-ccw"], ["Done driving: debrief", "N1", "primary", "arrow-right", true]] : [["Start drive 2: Tucson", "O2", "", "car"], ["Done driving: debrief", "N1", "primary", "arrow-right", true]]),
+      cards: [["Next car", "car", `<p>${walk ? "No second car queued." : "Drive 2 needs its own start and consent. The licence is already verified."}</p>`]] });
   },
 
   // ------------------------------------------------------------ N · Next step
@@ -794,7 +792,7 @@ const SCREENS = {
     const notes = t === "walkin" ? "Liked the space and the rear camera. Paying cash; wants the service history before reserving." : t === "vtd" ? "Liked the clean interior and adaptive cruise. Wants to feel it on the road before deciding." : "Customer liked the car. Wants EMI options and confirmation of the scratch repair before payment.";
     const decs = [["Ready to buy", "badge-check", "Take the token now", "good", "N2"], ["Needs time", "clock", "Agree a date", "warn", "N4"], [t === "vtd" ? "Hub drive" : "Another car", "car", t === "vtd" ? "Book a real drive" : "Book another drive", "warn", "N6"], ["Not interested", "circle-x", "Record the reason", "bad", "N7"]];
     const suggested = t === "vtd" ? 2 : 0;
-    return daStep(t, { id: "N1", ordered: true, title: "Disposition form", desc: "Prefilled from the conversation since check-in. Edit anything that's off.",
+    return daStep(t, { id: "N1", ordered: true, title: "Disposition form", desc: "Prefilled from the recording since Start TD. Edit anything that's off.",
       body: `<div class="v2-acc" data-part="outcome"><div class="v2-acc-h">Outcome${ic("chevron-down")}</div><div class="v2-acc-b">${radios("out", [hub ? "TD conducted: interested" : "Video TD conducted: interested", hub ? "TD conducted: not interested" : "Video TD conducted: not interested", "TD not conducted"], hub ? "TD conducted: interested" : "Video TD conducted: interested")}</div></div>
         <div class="v2-acc" data-part="objection"><div class="v2-acc-h">Primary objection <span class="v2-tag ai">${ic("sparkles")}AI: Price</span>${ic("chevron-down")}</div></div>
         <div class="v2-acc" data-part="notes"><div class="v2-acc-h">Agent notes <span class="v2-tag ai">${ic("sparkles")}AI draft</span></div><div class="v2-acc-b"><div class="v2-textarea">${notes}</div></div></div>
@@ -886,7 +884,7 @@ const SCREENS = {
 
   // ------------------------------------------------------------ M · Oversight
   M1: () => {
-    const rows = [["BOOKED TODAY", 24, "", ""], ["CHECKED IN", 26, "incl. 7 walk-ins", ""], ["DA ASSIGNED", 26, "1 min &middot; 3 by hand", ""], ["MET CUSTOMER", 25, "4 min", "late"], ["CAR AT HUB", 23, "8 min", ""], ["DL VERIFIED", 20, "2 min", ""], ["TD STARTED", 19, "1 min", ""], ["TD CONSENT SIGNED", 19, "1 min", ""], ["TD CONDUCTED", 17, "18 min", ""], ["TOKEN PAID", 5, "9 min", "good"]];
+    const rows = [["BOOKED TODAY", 24, "", ""], ["CHECKED IN", 26, "incl. 7 walk-ins", ""], ["DA ASSIGNED", 26, "1 min &middot; 3 by hand", ""], ["MET CUSTOMER", 25, "4 min", "late"], ["CAR AT HUB", 23, "8 min", ""], ["TD STARTED", 21, "3 min", ""], ["TD CONSENT SIGNED", 20, "1 min", ""], ["DL VERIFIED", 19, "2 min", ""], ["TD CONDUCTED", 17, "18 min", ""], ["TOKEN PAID", 5, "9 min", "good"]];
     return page({ who: "manager", active: "oversight", manager: true, crumb: crumbOf("Manager Oversight", "TD funnel"), title: "Test drive funnel", sub: "Al Quoz &middot; today &middot; every hexagon on the PISTON board is a row here",
       actions: pill("green", `${ic("circle-dot")}Live`),
       extra: { top: `<div class="v2-alert" data-part="alert">${ic("triangle-alert")}<span>B-07 Fatima Al Suwaidi has waited 7 min since check-in for a handshake (target 5 min)</span><button class="v2-btn sm" data-go="S1">${ic("users")}Reassign DA</button></div>
@@ -921,16 +919,16 @@ function tvBoard(t, ctx) {
   const F = {
     i2: walk
       ? { tone: "wait", status: "Waiting for a DA", da: "&mdash;", car: "Chosen with the DA", wait: "1 min",
-          hooks: { status: { assigned: [`${da} is coming to you`, "wait>coming"], met: [`With ${da} &middot; car finding`, "coming>with"], hub: ["Car ready at Bay 1", "with>ready"], drive: ["On test drive", "ready>live with>live"] },
-            da: { assigned: da }, car: { chosen: `${carW} &middot; being prepped`, hub: `${carW} &middot; at the hub, Bay 1`, drive: `${carW} &middot; on the road` }, wait: { met: "&mdash;" } } }
+          hooks: { status: { assigned: [`${da} is coming to you`, "wait>coming"], met: [`With ${da} &middot; car finding`, "coming>with"], chosen: ["Waiting for the car", "with>wait"], hub: [`Car ready &middot; ${da} is coming`, "wait>ready"], drive: ["On test drive", "ready>live"] },
+            da: { assigned: da }, car: { chosen: `${carW} &middot; being prepped`, hub: `${carW} &middot; at the hub, Bay 1`, drive: `${carW} &middot; on the road` }, wait: { met: "&mdash;", chosen: "car in ~12 min", hub: "&mdash;" } } }
       : { tone: "wait", status: "Waiting for a DA", da: "&mdash;", car: `${carB} &middot; in the yard, prepped`, wait: "2 min",
           hooks: { status: { assigned: [`${da} is coming to you`, "wait>coming"], met: [`With ${da} &middot; car finding`, "coming>with"], drive: ["On test drive", "with>live"] },
             da: { assigned: da }, car: { yard: `${carB} &middot; on its way, about 3 min`, hub: `${carB} &middot; at the hub, Bay 2`, drive: `${carB} &middot; on the road` }, wait: { met: "&mdash;" } } },
     s2: { tone: "coming", status: `${da} is coming to you`, da, car: `${carB} &middot; in the yard, prepped`, wait: "2 min",
       hooks: { car: { picked: `${carB} &middot; on its way, about 3 min`, hub: `${carB} &middot; at the hub, Bay 2` } } },
     o1: walk
-      ? { tone: "with", status: `With ${da} &middot; car chosen`, da, car: `${carW} &middot; being prepped`, wait: "&mdash;",
-          hooks: { car: { prepped: `${carW} &middot; prepped, leaving the yard`, picked: `${carW} &middot; on its way, about 3 min`, hub: `${carW} &middot; at the hub, Bay 1` }, status: { hub: ["Car ready at Bay 1", "with>ready"] } } }
+      ? { tone: "wait", status: "Waiting for the car", da, car: `${carW} &middot; being prepped`, wait: "car in ~12 min",
+          hooks: { car: { prepped: `${carW} &middot; prepped, leaving the yard`, picked: `${carW} &middot; on its way, about 3 min`, hub: `${carW} &middot; at the hub, Bay 1` }, status: { hub: [`Car ready &middot; ${da} is coming`, "wait>ready"] }, wait: { picked: "car in ~3 min", hub: "&mdash;" } } }
       : { tone: "with", status: `With ${da} &middot; 2 cars`, da, car: `${carAdd} &middot; being prepped`, wait: "&mdash;",
           hooks: { car: { prepped: `${carAdd} &middot; prepped, leaving the yard`, picked: `${carAdd} &middot; on its way, about 3 min`, hub: `${carAdd} &middot; at the hub, Bay 4` } } },
   }[ctx];
@@ -970,7 +968,7 @@ function tokenPanel(t, { flowed } = {}) {
         <div class="ph-steps">${steps.map(([k, cls, a]) => `<span class="${cls}"${a ? " " + a : ""}><i></i>${k}</span>`).join("")}</div></div>
       <div class="ph-row">${ic("user-round")}<div><small>Your DA</small><b data-on-assigned="${da}">Assigning one now&hellip;</b></div></div>
       <div class="ph-row">${ic("car-front")}<div><small>Your car</small><b${walk ? ` data-on-chosen="${PCARS.c4.title}"` : ""}>${walk ? "You'll choose it with your DA" : PCARS[p.car].title}</b>
-        <span${walk ? ` data-on-chosen="Being prepped in the yard" data-on-hub="At the hub, Bay 1"` : ` data-on-yard="On its way from the yard, about 3 min" data-on-hub="At the hub, Bay 2"`} data-on-drive="On the road with you">${walk ? "&nbsp;" : "Prepped, waiting in the yard"}</span></div></div>
+        <span${walk ? ` data-on-chosen="Being prepped in the yard, about 12 min. Wait at your seat" data-on-hub="At the hub, Bay 1. ${daFirst} is coming back to you"` : ` data-on-yard="On its way from the yard, about 3 min" data-on-hub="At the hub, Bay 2"`} data-on-drive="On the road with you">${walk ? "&nbsp;" : "Prepped, waiting in the yard"}</span></div></div>
       <button class="ph-btn ghost">${ic("car-front")}Browse cars while you wait</button>
       <p class="ph-legal">This page updates by itself. We've sent it to your WhatsApp too.</p>
     </div></div>`;
@@ -1059,8 +1057,8 @@ const PHONES = {
           ${prog(total, "Licence and consent")}
           ${walk ? `<b class="ph-q">Your driving licence <span class="ph-tag">optional</span></b><div class="ph-tiles sm">${["Front", "Back"].map((side, i) => `<button class="ph-tile" data-zone data-sync="licence" data-sync-val="${i ? "Front and back added" : "Front added"}">${ic("camera")}<b>${side}</b><small>Take a photo</small></button>`).join("")}</div><p class="ph-legal">Or show it to your DA at the car.</p>`
             : `<div class="ph-onfile">${ic("badge-check")}<div><b>Licence already on file</b><small>Uploaded 2 days ago. Your DA checks it before the drive.</small></div></div>`}
-          <b class="ph-q">Can we record today's conversation?</b>
-          <p class="ph-sub">It helps your DA keep notes. Your visit is the same either way.</p>
+          <b class="ph-q">Can we record your test drive?</b>
+          <p class="ph-sub">From the moment your DA starts it. It helps your DA keep notes. Your visit is the same either way.</p>
           <div class="ph-radios">
             <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="Yes, recording on" data-enables="ph-submit"><i></i>Yes, that's fine</button>
             <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="No: AI notes off for this visit" data-enables="ph-submit"><i></i>No, please don't</button>

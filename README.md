@@ -14,7 +14,7 @@ On the ground:
 - **A token on the ground TV (I2).** Hospital logic: every check-in gets a token (B for bookings, W for walk-ins). The TV and the customer's phone show each token's status, DA and car, and change only when staff act. Use **Play the staff actions** on I2 to watch both update.
 - **DA assigned automatically (S1)**, by availability and today's slots; staff assign by hand only when every DA is busy. The **handshake (T1)** comes after that, at the customer's seat.
 - **The Yardie.** Cars wait in a yard about 500 m away. A booked car is prepped before the day and brought over when the customer checks in (S2). A walk-in's car is prepped once it is chosen, then brought over (O1). Each tap updates the TV.
-- **DL verify (O4)** happens right before Start TD, done by the DA at the car.
+- **Start TD (O2) is when the DA meets the customer at the car** and turns the recording on. Then the TD consent (O3), the licence check (O4), the walkaround, the drive and the end. A walk-in waits on their token while the Yardie preps the car; the DA comes back when it reaches the hub.
 
 Steps with two devices (I1 by seat QR, I2, S2, O1) show them side by side. **Screen only** shows them larger. The *What changed* view lists what is set per market and the decisions still open.
 
@@ -34,7 +34,7 @@ python3 -m http.server 8000
 - **Fields**: every field on every screen in one data dictionary.
 - **What changed**: the review notes applied, what they do to the Test Drive Console, and the decisions still open.
 
-Deep links: `#booked-I1`, `#walkin-T2`, `#vtd-O3`, `#blueprint`, `#fields`, `#changes`. Prefix `au-` for Australia (`#au-booked-I1`), and add `-staff` or `-qr` when the check-in way differs from the market default (`#booked-I1-qr`).
+Deep links: `#booked-I1`, `#walkin-T2`, `#vtd-O5`, `#blueprint`, `#fields`, `#changes`. Prefix `au-` for Australia (`#au-booked-I1`), and add `-staff` or `-qr` when the check-in way differs from the market default (`#booked-I1-qr`).
 
 ## Files
 
