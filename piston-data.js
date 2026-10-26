@@ -124,13 +124,13 @@ const STEPS = [
   { id: "P2", phase: "P", name: "Orders and cars of interest", tracks: ["booked", "vtd"],
     owner: "Calling agent", device: "desktop",
     purpose: {
-      booked: "The lead view opens on the customer's history: current and previous orders, and the cars behind them (appointment IDs). Mobile and email were both given, so an order already exists: a clear intent to take forward. The opening line is in CarGPT; contact details are edited on the left.",
-      vtd: "The lead view opens on the customer's history. Only a mobile was given, so no order exists: the cars of interest (appointment IDs) sit on the contact. Ask which of them to drive. Picking cars creates the orders, once the email is added on the left.",
+      booked: "Everything CARS24 knows before the agent speaks, as context on top and detail below. Context: orders, finance, wishlist and what was viewed. Detail, in tabs: current and past orders with their cars (appointment IDs), the wishlist and recently viewed cars, and the finance picture (pre-approval, amount, repayment). Mobile and email were both given, so an order already exists: a clear intent to take forward.",
+      vtd: "Everything CARS24 knows before the agent speaks, as context on top and detail below. Only a mobile was given, so no order exists: the cars of interest (appointment IDs) sit on the contact, next to the wishlist and the finance picture. Ask which cars to drive. Picking them creates the orders, once the email is added on the left.",
     },
     source: { trigger: "Call connected",
       data: {
-        booked: ["OMS: current and previous orders for this mobile", "Listing: each order's car, by appointment ID", "Lead: mobile and email (editable in the left pane)", "CarGPT: the opening line and the CARS24 pitch"],
-        vtd: ["Lead: the contact and its cars of interest (appointment IDs), no order", "Lead: mobile only; the email is added on the call, in the left pane", "OMS: create one order per car picked", "CarGPT: the opening line and the CARS24 pitch"],
+        booked: ["OMS: current and previous orders for this mobile", "Listing: each order's car, by appointment ID, with availability and price changes", "Consumer app: wishlist and cars viewed", "Finance service: pre-approval status, amount, validity and repayment", "Lead: mobile and email (editable in the left pane)", "CarGPT: the opening line and the CARS24 pitch"],
+        vtd: ["Lead: the contact and its cars of interest (appointment IDs), no order", "Consumer app: wishlist and cars viewed", "Finance service: pre-approval status, amount, validity and repayment", "Lead: mobile only; the email is added on the call, in the left pane", "OMS: create one order per car picked", "CarGPT: the opening line and the CARS24 pitch"],
       } },
     entry: ["Call connected"],
     exits: {
@@ -149,23 +149,61 @@ const STEPS = [
     },
     state: { booked: null, vtd: "BOOKING INITIATED" },
     screen: { name: "TD booking call &rsaquo; Orders and interest", build: "new",
-      pattern: { booked: "Lead view: order history first, the current order selected. Call script and pitch in CarGPT", vtd: "Lead view: no order, the cars of interest as selectable cards with a link to each car's page. Call script and pitch in CarGPT" },
+      pattern: { booked: "Context and detail: four context tiles (orders, finance, wishlist, viewed), then tabs for Orders, Cars and Finance. Opens on Orders, the current order selected. Script and pitch in CarGPT", vtd: "Context and detail: four context tiles, then tabs for Orders, Cars and Finance. Opens on Cars: the cars of interest as selectable rows, wishlisted ones marked. Script and pitch in CarGPT" },
       route: { booked: "/tasks/TK-6120?step=interest", vtd: "/tasks/TK-6127?step=interest" } },
-    changed: "Replaces Welcome, Contact and Pitch. The opening line and the pitch moved into CarGPT, contact edits into the left pane, and the step starts from the customer's orders and cars.",
+    changed: "Replaces Welcome, Contact and Pitch. Now the customer's whole picture before the pitch: orders, finance (pre-approved or not), wishlist and viewed cars, as context tiles and detail tabs.",
   },
-  { id: "P3", phase: "P", name: "Discovery", tracks: ["booked", "vtd"], branch: true,
+  // Discovery, only when the customer is unsure: the website's listing inside the call, then one car's page, or 2 to 3 side by side
+  { id: "P3", phase: "P", name: "Discovery: car listing", tracks: ["booked", "vtd"], branch: true,
     owner: "Calling agent", device: "desktop",
-    purpose: "Only when the customer is unsure: narrow down with five quick filters, then pick one or two cars from the matches.",
-    source: { trigger: "Customer is unsure which car", data: ["Listing service: live inventory", "CDP: cars viewed", "Recommendation model", "Consumer website: each car's detail page"] },
+    purpose: "Only when the customer is unsure: browse live stock together, the way the website does. Search by make, model or appointment ID, filter, and read the car cards. The filters start from what the customer said and wanted. Open a car for its full page, or tick 2 or 3 cars to compare them on the same page.",
+    source: { trigger: "Customer is unsure which car",
+      data: ["Listing service: live stock, the same as the consumer listing", "Search: make, model or appointment ID", "Filters prefilled from the needs, the wishlist and the budget", "Consumer app: wishlist and cars viewed", "Recommendation model: best match first"] },
     entry: ["Customer is unsure"],
     exits: [
-      { when: "One or two cars picked from the matches", to: "P4" },
+      { when: "A car card is opened", to: "P3a" },
+      { when: "2 or 3 cars ticked: compare them on the same page", to: "P3b" },
       { when: "Nothing fits: alert on new arrivals, call back", to: "P9" },
     ],
     state: null,
-    screen: { name: "TD booking call &rsaquo; Discovery", build: "new",
-      pattern: "Stepper pills: who it's for, budget, body type, fuel and gearbox, must-haves, then the matching cars with select and a link to the car's page", route: { booked: "/tasks/TK-6120?step=discovery", vtd: "/tasks/TK-6127?step=discovery" } },
-    changed: "Now a stepper of filters ending in the matching cars, and only used when the customer is unsure.",
+    screen: { name: "TD booking call &rsaquo; Discovery &rsaquo; Listing", build: "extend",
+      pattern: "The consumer listing inside the call task: a search that takes an appointment ID, filter pills, tabs (best for the customer, wishlist, price drops), and car cards with a Compare tick in the corner. CarGPT folds to a strip to give the cars room",
+      route: { booked: "/tasks/TK-6120/discovery", vtd: "/tasks/TK-6127/discovery" } },
+    changed: "Discovery is now the website's listing, its car page and a compare, instead of a stepper of questions.",
+  },
+  { id: "P3a", phase: "P", name: "Car details (CDP)", tracks: ["booked", "vtd"], branch: true,
+    owner: "Calling agent", device: "desktop",
+    purpose: "One car in full, as on the website's car page, without leaving the call: gallery, price and repayment, why this car, overview and specs, condition and imperfections, service history, finance, and the CARS24 promises. On top of it, what only the agent sees: the customer's own context for this car (wishlist, views, price drop, pre-approval, where they live).",
+    source: { trigger: "A car card is opened",
+      data: ["Listing service: the car page data (photos, specs, features)", "Inspection report: condition, imperfections, the checks passed", "Service history", "Finance: calculator and the customer's pre-approval", "Consumer app: wishlist and views for this car", "Similar cars (recommendation model)"] },
+    entry: ["A car opened from the listing, the compare or the similar cars"],
+    exits: [
+      { when: "Customer wants to drive it: an order is created if none exists", to: "P4", state: "BOOKING INITIATED" },
+      { when: "Compare it with others", to: "P3b" },
+      { when: "Back to the results", to: "P3" },
+      { when: "Nothing fits: alert on new arrivals, call back", to: "P9" },
+    ],
+    state: null,
+    screen: { name: "TD booking call &rsaquo; Discovery &rsaquo; Car details", build: "extend",
+      pattern: "The consumer car page (CDP) sections in the call task, with a sticky price card on the right and the customer's context for this car above it",
+      route: { booked: "/tasks/TK-6120/discovery/car/10213456", vtd: "/tasks/TK-6127/discovery/car/10198762" } },
+    changed: "New: the car page inside the call, with the customer's own context for the car.",
+  },
+  { id: "P3b", phase: "P", name: "Compare", tracks: ["booked", "vtd"], branch: true,
+    owner: "Calling agent", device: "desktop",
+    purpose: "The cars ticked on the listing, side by side on the same page: 2 or 3 columns with the same sections as the car page, row by row. The best value in each row is marked, and the grid scrolls as one. Pick the cars to drive, or open one in full.",
+    source: { trigger: "2 or 3 cars ticked on the listing", data: ["Listing service: the car page data for each car", "Inspection reports", "Finance: repayment per car against the pre-approval", "Consumer app: wishlist and views"] },
+    entry: ["2 or 3 cars ticked"],
+    exits: [
+      { when: "Cars picked to drive: orders created if none exist", to: "P4", state: "BOOKING INITIATED" },
+      { when: "Open one car in full", to: "P3a" },
+      { when: "Back to the results", to: "P3" },
+    ],
+    state: null,
+    screen: { name: "TD booking call &rsaquo; Discovery &rsaquo; Compare", build: "new",
+      pattern: "The same listing page with the results swapped for a compare grid: a label column and 2 or 3 car columns, a sticky car header, sections row by row, Best marks, and Pick for TD on each car",
+      route: { booked: "/tasks/TK-6120/discovery?compare=c1,c3,c5", vtd: "/tasks/TK-6127/discovery?compare=c2,c1,c3" } },
+    changed: "New: compare on the same page as the listing, in 2 or 3 columns.",
   },
   { id: "P4", phase: "P", name: "TD type per car", tracks: ["booked", "vtd"],
     owner: "Calling agent", device: "desktop",
@@ -719,11 +757,47 @@ const PCARS = marketTable({
   c2: { id: "c2", appt: "10198762", title: "2022 Toyota Camry GLE", price: 71500, km: "24,100 km", body: "Sedan", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E5DED0", url: "https://www.cars24.ae/buy-used-toyota-camry-cars-dubai/", plate: "Dubai K 30190", bay: "Studio 1" },
   c3: { id: "c3", appt: "10224519", title: "2023 Hyundai Tucson", price: 68200, km: "12,900 km", body: "SUV", drive: "4WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#D9E2DC", url: "https://www.cars24.ae/buy-used-hyundai-tucson-cars-dubai/", plate: "Dubai R 77105", bay: "Bay 4" },
   c4: { id: "c4", appt: "10187733", title: "2022 Kia Sportage", price: 59900, km: "31,200 km", body: "SUV", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E6D9D9", url: "https://www.cars24.ae/buy-used-kia-sportage-cars-dubai/", plate: "Dubai M 21877", bay: "Bay 1" },
+  c5: { id: "c5", appt: "10230871", title: "2021 Mitsubishi Outlander GLX", price: 64999, km: "38,500 km", body: "SUV", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 7, color: "#D8DCE6", url: "https://www.cars24.ae/buy-used-cars-dubai/", plate: "Dubai T 50871", bay: "Bay 5" },
+  c6: { id: "c6", appt: "10241102", title: "2023 MG ZS Comfort", price: 45999, km: "29,800 km", body: "SUV", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E3E0D6", url: "https://www.cars24.ae/buy-used-cars-dubai/", plate: "Sharjah 3 41102", bay: "Bay 6" },
 }, { au: {
   c1: { id: "c1", appt: "10213456", title: "2021 Mazda3 G20 Evolve", price: 27990, km: "41,200 km", body: "Sedan", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#DCE3EA", url: "https://www.cars24.com.au/", plate: "VIC 1QZ 4KT", bay: "Bay 2" },
   c2: { id: "c2", appt: "10198762", title: "2022 Toyota Camry Ascent Hybrid", price: 36490, km: "38,900 km", body: "Sedan", drive: "2WD", fuel: "Hybrid", trans: "Automatic", seats: 5, color: "#E5DED0", url: "https://www.cars24.com.au/", plate: "VIC 2BR 7LM", bay: "Studio 1" },
   c3: { id: "c3", appt: "10224519", title: "2022 Hyundai Tucson Elite", price: 34990, km: "29,500 km", body: "SUV", drive: "AWD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#D9E2DC", url: "https://www.cars24.com.au/", plate: "VIC 1TX 9PW", bay: "Bay 4" },
   c4: { id: "c4", appt: "10187733", title: "2022 Kia Sportage S", price: 31490, km: "33,800 km", body: "SUV", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E6D9D9", url: "https://www.cars24.com.au/", plate: "VIC 1KS 3RD", bay: "Bay 1" },
+  c5: { id: "c5", appt: "10230871", title: "2020 Mazda CX-5 GT", price: 28790, km: "47,000 km", body: "SUV", drive: "AWD", fuel: "Petrol", trans: "Automatic", seats: 5, color: "#E8D6D6", url: "https://www.cars24.com.au/buy-used-cars-australia/", plate: "VIC 1CX 5GT", bay: "Bay 5" },
+  c6: { id: "c6", appt: "10241102", title: "2019 Mazda CX-9 Touring", price: 25790, km: "63,000 km", body: "SUV", drive: "2WD", fuel: "Petrol", trans: "Automatic", seats: 7, color: "#DADDE3", url: "https://www.cars24.com.au/buy-used-cars-australia/", plate: "NSW CX9 19T", bay: "Bay 6" },
+} });
+
+// ---------------------------------------------------------------- the car page (CDP) details, per car
+// variant, engine, fuel use, colour, where it is, the listing badge, imperfections, services on record, a price drop
+const CARX = marketTable({
+  c1: { variant: "SV &middot; 2.5 L", engine: "2.5 L 4-cyl, petrol", cons: "7.2 L/100 km", colour: "Pearl white", loc: "Dubai", badge: "1.99% interest", imp: 3, svc: 4, drop: 0 },
+  c2: { variant: "GLE &middot; 2.5 L", engine: "2.5 L 4-cyl, petrol", cons: "6.8 L/100 km", colour: "Silver", loc: "Abu Dhabi", badge: "", imp: 2, svc: 5, drop: 0 },
+  c3: { variant: "GL &middot; 2.0 L", engine: "2.0 L 4-cyl, petrol", cons: "8.4 L/100 km", colour: "Amazon grey", loc: "Dubai", badge: "New stock", imp: 1, svc: 3, drop: 1000 },
+  c4: { variant: "LX &middot; 2.0 L", engine: "2.0 L 4-cyl, petrol", cons: "8.1 L/100 km", colour: "Snow white", loc: "Dubai", badge: "", imp: 4, svc: 4, drop: 0 },
+  c5: { variant: "GLX &middot; 2.5 L", engine: "2.5 L 4-cyl, petrol", cons: "8.0 L/100 km", colour: "Black", loc: "Dubai", badge: "1.99% interest", imp: 2, svc: 3, drop: 0 },
+  c6: { variant: "Comfort &middot; 1.5 L", engine: "1.5 L 4-cyl, petrol", cons: "6.9 L/100 km", colour: "Dover white", loc: "Sharjah", badge: "", imp: 5, svc: 2, drop: 500 },
+}, { au: {
+  c1: { variant: "G20 Evolve", engine: "2.0 L 4-cyl, petrol", cons: "6.2 L/100 km", colour: "Soul Red", loc: "Melbourne", badge: "Cars24 Select", imp: 3, svc: 5, drop: 0 },
+  c2: { variant: "Ascent Hybrid", engine: "2.5 L 4-cyl, hybrid", cons: "4.2 L/100 km", colour: "Graphite", loc: "Sydney", badge: "Cars24 Select", imp: 2, svc: 4, drop: 0 },
+  c3: { variant: "Elite (AWD)", engine: "2.0 L 4-cyl, petrol", cons: "8.1 L/100 km", colour: "Amazon Grey", loc: "Melbourne", badge: "New stock", imp: 1, svc: 3, drop: 300 },
+  c4: { variant: "S (2WD)", engine: "2.0 L 4-cyl, petrol", cons: "7.7 L/100 km", colour: "Clear White", loc: "Melbourne", badge: "", imp: 4, svc: 4, drop: 0 },
+  c5: { variant: "GT (AWD)", engine: "2.5 L 4-cyl, turbo petrol", cons: "8.2 L/100 km", colour: "Soul Red", loc: "Melbourne", badge: "Cars24 Select", imp: 2, svc: 6, drop: 300 },
+  c6: { variant: "Touring (FWD)", engine: "2.5 L 4-cyl, turbo petrol", cons: "8.4 L/100 km", colour: "Machine Grey", loc: "Sydney", badge: "", imp: 5, svc: 4, drop: 0 },
+} });
+
+// ---------------------------------------------------------------- what CARS24 knows about the customer before the call
+// wishlist (hearted cars), cars viewed this week, the most viewed car, finance (pre-approval), and past orders
+const P360 = marketTable({
+  booked: { wish: ["c1", "c3", "c5"], viewed: 6, top: ["c1", 3], past: ["BK-87410", "2019 Toyota Corolla Ascent", "09981230", "March 2026", "TD done, not bought"],
+    fin: { status: "Pre-approved", amount: "AED 70,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "AED 1,060/mo", deposit: "AED 0", term: "5 years" }, pay: "Finance", trade: "None recorded" },
+  vtd: { wish: ["c2", "c4"], viewed: 9, top: ["c2", 4], past: null,
+    fin: { status: "Pre-approved", amount: "AED 80,000", until: "30 Nov 2026", lender: "CARS24 Finance", repay: "AED 1,180/mo", deposit: "AED 5,000", term: "5 years" }, pay: "Finance", trade: "2016 Honda Accord, asked the chatbot" },
+}, { au: {
+  booked: { wish: ["c1", "c3", "c5"], viewed: 6, top: ["c1", 3], past: ["BK-87410", "2019 Toyota Corolla Ascent", "09981230", "March 2026", "TD done, not bought"],
+    fin: { status: "Pre-approved", amount: "$35,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "$139/week", deposit: "$0", term: "5 years" }, pay: "Finance", trade: "None recorded" },
+  vtd: { wish: ["c2", "c4"], viewed: 9, top: ["c2", 4], past: null,
+    fin: { status: "Pre-approved", amount: "$40,000", until: "30 Nov 2026", lender: "CARS24 Finance", repay: "$181/week", deposit: "$2,000", term: "5 years" }, pay: "Finance", trade: "2016 Honda Accord, asked the chatbot" },
 } });
 
 const PEOPLE = marketTable({
@@ -786,6 +860,11 @@ const MK = marketTable({
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to Dubai", "Off-road"],
   token: 5000, privacy: "privacy notice",
   lenders: "the UAE's top lenders", videoOnly: "At another hub: video only",
+  // the listing and the car page, as on cars24.ae
+  stock: "1,652 used cars in Dubai", per: "/mo", perDiv: 66, perNote: "for 5 yrs, 0 down payment", priceNote: "Listed price", dap: "See what's included", cardTags: ["GCC", "Flood free"],
+  filters: ["Make &amp; model", "Budget", "Monthly EMI", "Body type", "Kms driven", "Fuel"], inspect: "150+ point inspection", safety: "GCC spec, flood free",
+  edge: ["30-day free return", "150+ point inspection", "Up to 6 months warranty", "Transparent documents, no hidden costs", "Help with the transfer"],
+  assure: ["GCC specification", "Flood free", "No major accidental damage"],
 }, { au: {
   hub: "Melbourne hub", hubFull: "Melbourne hub, VIC", hubCode: "MEL", site: "cars24.com.au", credit: "Credit score", idDoc: "Licence state", area: "Suburb",
   langs: ["English", "Mandarin", "Vietnamese", "Hindi", "Other"],
@@ -793,6 +872,11 @@ const MK = marketTable({
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to the city", "Off-road"],
   token: 1000, privacy: "privacy collection notice",
   lenders: "Australia's top lenders", videoOnly: "Interstate: video only",
+  // the listing and the car page, as on cars24.com.au
+  stock: "1,107 used cars in Australia", per: "/week", perDiv: 202, perNote: "", priceNote: "Excl. Govt charges", dap: "See drive away price", cardTags: [],
+  filters: ["Seller type", "Make &amp; Model", "Video tour", "Price", "Finance", "Body type"], inspect: "300-point inspection", safety: "5-star ANCAP rating",
+  edge: ["30-Day Return Guarantee", "300-Point Inspection", "Car Condition Report", "RWC &amp; PPSR included", "3-month roadside assistance", "Rego &amp; transfer included"],
+  assure: ["No stolen vehicle", "No outstanding loan", "No write-offs on record", "No major accidental damage"],
 } });
 
 function money(n) { return CTX.market === "au" ? "$" + n.toLocaleString("en-AU") : "AED " + n.toLocaleString("en-US"); }

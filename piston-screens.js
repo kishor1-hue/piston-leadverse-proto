@@ -38,7 +38,7 @@ const STAFF_AV = marketTable({ receptionist: "K", da: "OH", operator: "SI", mana
   { au: { receptionist: "K", da: "JM", operator: "PS", manager: "AP", cc: "CD", rm: "GL" } });
 
 const PILL = {
-  P1: ["grey", "New lead"], P2: ["violet", "Booking initiated"], P3: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
+  P1: ["grey", "New lead"], P2: ["violet", "Booking initiated"], P3: ["violet", "Booking initiated"], P3a: ["violet", "Booking initiated"], P3b: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
   P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
   I1: ["red", "Not checked-in"], I2: ["green", "Checked in"], S1: ["green", "Checked in"], S2: ["violet", "DA assigned"],
   T1: ["violet", "With DA"], T2: ["violet", "With DA"], T3: ["violet", "With DA"], T4: ["violet", "With DA"], T5: ["violet", "With DA"],
@@ -47,7 +47,7 @@ const PILL = {
   N1: ["green", "TD done"], N2: ["amber", "Token pending"], N3: ["green", "Token paid"], N4: ["amber", "Follow-up set"], N5: ["amber", "Follow-up due"],
   N6: ["violet", "New TD booked"], N7: ["red", "Dropped"],
 };
-const PILL_VTD = { P2: ["grey", "Contact, no order"], P3: ["grey", "Contact, no order"], I1: ["red", "Not checked-in"], T2: ["violet", "On video"], T3: ["violet", "On video"], T4: ["violet", "On video"], T5: ["violet", "On video"], O5: ["red", "Video live"], O7: ["green", "Video TD done"] };
+const PILL_VTD = { P2: ["grey", "Contact, no order"], P3: ["grey", "Contact, no order"], P3a: ["grey", "Contact, no order"], P3b: ["grey", "Contact, no order"], I1: ["red", "Not checked-in"], T2: ["violet", "On video"], T3: ["violet", "On video"], T4: ["violet", "On video"], T5: ["violet", "On video"], O5: ["red", "Video live"], O7: ["green", "Video TD done"] };
 
 const AI_AU = {
   booked: {
@@ -211,6 +211,12 @@ function gpt(who, { cards = [], transcribing = null } = {}) {
       : `<div class="v2-trans">${ic("audio-lines")}Start live transcription</div>`}
   </aside>`;
 }
+// CarGPT folded to a strip: its tips open from it, the call keeps transcribing
+function gptMini(cards) {
+  return `<aside class="v2-gpt mini" data-part="gpt"><button class="gm-tab" data-menu title="Open CarGPT">${ic("panel-right")}<span class="gm-lbl">CarGPT</span>${cards.length ? `<span class="gm-n">${cards.length}</span>` : ""}</button>
+    <div class="v2-menu gm-pop" hidden><div class="v2-gh">${ic("sparkles")}CarGPT</div>${cards.map(([k, icon, html]) => `<div class="v2-gcard"><div class="k">${ic(icon)}${k}</div>${html}</div>`).join("")}</div>
+    <span class="gm-rec" title="Live transcription on"><i class="rec"></i></span></aside>`;
+}
 // the recording starts when the DA starts the TD (T1 for a booking, O2 for a walk-in); a video TD is recorded from the start of the call
 const START = { booked: "2:52 PM", walkin: "3:08 PM" };
 const TRANSCRIBING = { booked: "since 2:52 PM", walkin: "since 3:08 PM", vtd: "since 3:01 PM" };
@@ -225,8 +231,8 @@ function prevOf(t, id) {
 // The standard footer: Previous, the step's main exit as Next, and every other exit in a menu under the arrow next
 // to it, so no screen carries a row of buttons. A customer drop-off (to the disposition) is always in that menu.
 // buttons: [label, go, kind, icon, iconAfter, attrs]; the primary one (or the last) is Next.
-function foot(t, id, hint, buttons) {
-  const prev = prevOf(t, id);
+function foot(t, id, hint, buttons, prevId) {
+  const prev = prevId || prevOf(t, id);
   let mi = buttons.map(b => b[2]).lastIndexOf("primary");
   if (mi < 0) mi = buttons.length - 1;
   const main = buttons[mi];
@@ -324,6 +330,39 @@ function slotGrid(onSlot) {
 }
 const kv = (k, v) => `<div class="v2-kv"><small>${k}</small><b>${v}</b></div>`;
 
+// ================================================================== discovery: the website's listing, car page and compare
+// the car opened and the cars ticked on the listing, so the car page and the compare show them (set by piston.js)
+const PICKED = { car: null, cmp: null };
+const kmShort = (km) => km.replace(/^(\d+),\d{3} km$/, "$1k km");
+// the repayment the website shows: per week in Australia, per month (EMI) in the UAE
+const per = (price) => money(Math.round(price / MK.perDiv));
+// search (takes an appointment ID) and filter pills, prefilled from what the customer said
+function lsHead(t, compact) {
+  const n = PEOPLE[t].needs;
+  const applied = [...n.body, n.budget, n.trans];
+  return `<div class="ls-search${compact ? " compact" : ""}" data-part="search">${ic("search")}<input data-search="ls" placeholder="Search by make, model or appointment ID" aria-label="Search cars"><span class="ls-hint">e.g. ${PCARS.c3.appt}</span></div>
+    <div class="ls-filters" data-part="filters"><button class="ls-f main">${ic("sliders-horizontal")}Filters<span class="n">${applied.length}</span></button><button class="ls-f">${ic("arrow-down-up")}Best match${ic("chevron-down")}</button>${MK.filters.map(f => `<button class="ls-f">${f}${ic("chevron-down")}</button>`).join("")}</div>
+    ${compact ? "" : `<div class="ls-applied" data-part="applied"><small>${ic("sparkles")}From the needs</small>${applied.map(a => `<span class="v2-chip on">${a}${ic("x")}</span>`).join("")}</div>`}`;
+}
+// a car card as on the website: photo and badge, title, variant, chips, repayment and price, where it is; with the
+// customer's context (wishlist, views, a price drop) and a Compare tick in the photo's corner. The card opens the car page
+function lsCard(t, cid, { cmp, cats = "", first: isFirst } = {}) {
+  const c = PCARS[cid], x = CARX[cid], me = P360[t], wish = me.wish.includes(cid);
+  const ctx = [wish ? `<span class="ls-ctx">${ic("heart")}In wishlist</span>` : "", me.top[0] === cid ? `<span class="ls-ctx">${ic("eye")}Viewed ${me.top[1]} times</span>` : "", x.drop ? `<span class="ls-ctx drop">${ic("trending-down")}${money(x.drop)} off</span>` : ""].join("");
+  return `<div class="ls-card" data-cmp-card data-go="P3a" data-car="${cid}" data-cat="${cats}" data-search-item="ls" data-search-text="${`${c.title} ${c.body} ${c.appt}`.toLowerCase()}"${isFirst ? ` data-part="card"` : ""}>
+    <div class="ls-img" style="background:${c.color}">${ic("car")}${x.badge ? `<span class="ls-badge">${x.badge}</span>` : ""}
+      <button class="ls-cmp ${cmp ? "on" : ""}" data-cmp="${cid}"${isFirst ? ` data-part="compare-tick"` : ""}><span class="box">${ic("check")}</span>Compare</button></div>
+    <div class="ls-body">
+      <div class="ls-top"><b>${c.title}</b><button class="ls-heart ${wish ? "on" : ""}" data-heart aria-label="Wishlist">${ic("heart")}</button></div>
+      <small class="ls-var">${x.variant}</small>
+      <div class="ls-chips">${[kmShort(c.km), c.fuel, c.trans, ...MK.cardTags].map(z => `<span>${z}</span>`).join("")}</div>
+      <div class="ls-price"><span class="per"><b>${per(c.price)}</b>${MK.per}${MK.perNote ? ` <small>${MK.perNote}</small>` : ""}</span><b class="pr">${money(c.price)}</b></div>
+      <div class="ls-meta">${ic("map-pin")}${x.loc}<span>&middot; Appointment ${c.appt}</span></div>
+      ${ctx ? `<div class="ls-ctxs">${ctx}</div>` : ""}
+    </div>
+  </div>`;
+}
+
 // stepper pills: one filter per pill with its own Next, ending in the matches. steps: [key, label, html]
 function pillSteps(steps) {
   return `<div class="dc-pills" data-part="pills">${steps.map(([k, l], i) => `<button class="dc-pill ${i === 0 ? "on" : ""}" data-step-to="dc:${k}" data-flow-pill="dc:${k}"><i>${i + 1}</i>${l}</button>`).join("")}</div>
@@ -379,23 +418,24 @@ const pill = (tone, text) => `<span class="v2-pill ${tone}">${text}</span>`;
 // ================================================================== the TD booking call (calling team persona task)
 const CALL_TASK = { booked: "TK-6120", vtd: "TK-6127" };
 const CALL_STEPS = ["Interest", "Discovery", "TD type", "Slots", "Book"];
-function callStages(t, idx) {
+function callStages(t, idx, cur) {
   const done = t === "vtd"
     ? { Interest: "4 cars, 4 orders", Discovery: "Not needed", "TD type": "2 hub, 2 video", Slots: "Hub + video", Book: "Booked" }
     : { Interest: `Order ${PEOPLE[t].id}`, Discovery: "Not needed", "TD type": "1 hub", Slots: "Today 2:30 PM", Book: "Booked" };
   return `<div class="v2-stages" data-part="stages">${CALL_STEPS.map((n, i) => {
     const state = i < idx ? "done" : i === idx ? "cur" : "todo";
-    return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${state === "done" ? done[n] : state === "cur" ? "In progress" : "Pending"}</span></div>`;
+    return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${state === "done" ? done[n] : state === "cur" ? (cur || "In progress") : "Pending"}</span></div>`;
   }).join("")}</div>`;
 }
-function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts }) {
+// wide: the cars need the room (discovery), so CarGPT folds to a strip that opens its tips on a click
+function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev }) {
   const p = PEOPLE[t];
   const callbar = `<div class="v2-call" data-part="call"><span class="cb">${ic("phone-call")}</span><div><b>On call with ${first(t)}</b><small>${p.phone} &middot; ${secs}</small></div><span class="v2-recpill"><i></i>Recording</span>
     <div class="v2-call-r"><span>${ic("mic-off")}</span><span>${ic("pause")}</span><span class="end">${ic("phone-off")}</span></div></div>`;
   const content = `<div class="v2-body">
     ${leadPane(t, id, leadOpts || {})}
-    <section class="v2-center">${callbar}${callStages(t, idx)}<div class="v2-content">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, buttons)}</section>
-    ${gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}` })}
+    <section class="v2-center">${callbar}${callStages(t, idx, cur)}<div class="v2-content${wide ? " scrolls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, buttons, prev)}</section>
+    ${wide ? gptMini(cards || []) : gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}` })}
   </div>`;
   return shell({ active: "tasks", who: "cc", crumb: crumbOf("Tasks", "TD booking call", `${p.name} - ${CALL_TASK[t]}`), body: content });
 }
@@ -424,40 +464,156 @@ const SCREENS = {
   },
 
   // the lead view: the customer's orders and cars first; the opening line and the pitch are in CarGPT
+  // the customer's whole picture before the pitch: context tiles on top, detail in tabs (orders, cars, finance)
   P2: (t) => {
-    const p = PEOPLE[t], vtd = t === "vtd", fn = first(t), cc = PSTAFF.cc.name.split(" ")[0];
+    const p = PEOPLE[t], vtd = t === "vtd", fn = first(t), cc = PSTAFF.cc.name.split(" ")[0], me = P360[t], f = me.fin;
     const link = (cid) => `<a class="v2-link" href="${PCARS[cid].url}" target="_blank" rel="noopener" title="Opens the car's page on the consumer website">${ic("external-link")}Car page</a>`;
     const script = vtd
       ? `&ldquo;Hi, this is ${cc} from CARS24. Am I speaking with ${fn}? You asked our chatbot about 4 cars, including the ${PCARS[p.car].title}. Is now a good time for a few minutes?&rdquo;`
       : `&ldquo;Hi, this is ${cc} from CARS24. Am I speaking with ${fn}? You were looking at the ${PCARS[p.car].title} in our app. Is now a good time for a few minutes?&rdquo;`;
-    const cards = [["Say this", "quote", `<p>${script}</p>`], ["Why CARS24, once", "shield-check", `<p>Every car inspected, warranty included, a return window, finance and trade-in. Cover it early, then let the customer talk.</p>`]];
-    const body = vtd
-      ? `<div class="v2-note amber" data-part="intent">${ic("info")}<span><b>No order yet.</b> Only a mobile came from the chatbot, so the cars sit on contact LD-55127 by appointment ID. Ask which ones ${fn} wants to drive. No previous orders.</span></div>
-        <div class="v2-card" data-part="interest"><div class="sc-h" style="border:none; padding-bottom:4px;"><b>Cars of interest &middot; 4</b><span class="v2-ok sm" data-part="order-rule">${ic("circle-check")}Mobile and email in: one order per ticked car</span></div>
-          ${["c2", "c1", "c3", "c4"].map((cid, i) => carRow(cid, { check: true, selected: true, sub: `Appointment ${PCARS[cid].appt} &middot; ${money(PCARS[cid].price)}`, part: i === 0 ? "car-rows" : null, right: link(cid) })).join("")}
-        </div>`
-      : `<div class="v2-note" data-part="intent">${ic("file-check")}<span><b>Clear intent: an order exists.</b> ${fn} gave a mobile and an email in the app, so the order was created. Confirm it and go to the TD type.</span></div>
-        <div class="v2-card" data-part="history"><div class="sc-h" style="border:none; padding-bottom:4px;"><b>Orders and cars, newest first</b><small>Current and previous</small></div>
-          ${carRow(p.car, { check: true, selected: true, oid: p.id, sub: `Appointment ${PCARS[p.car].appt} &middot; from the app, 2 days ago`, badge: pill("violet", "Booking initiated"), part: "car-rows", right: link(p.car) })}
-          <div class="hx-past" data-part="past"><span class="v2-av">${ic("history")}</span><div><b>BK-87410 &middot; 2019 Toyota Corolla Ascent</b><small>Appointment 09981230 &middot; March 2026</small></div>${pill("grey", "TD done, not bought")}</div>
-        </div>
-        <div class="v2-card" data-part="viewed"><div class="sc-h" style="border:none; padding-bottom:6px;"><b>Also viewed in the app</b><small>No order yet</small></div>
-          <div class="v2-chips">${["c3", "c2"].map(cid => `<button class="v2-chip" data-pick="multi">${ic("plus")}${PCARS[cid].title}</button>`).join("")}</div>
-          <p class="v2-small">Adding a car here creates an order for it too.</p></div>`;
-    return callTask(t, 0, "P2", { secs: "00:40", title: vtd ? `Which cars does ${fn} want to drive?` : `${fn}'s order`, desc: "Contact details are edited on the left. The opening line and the pitch are in CarGPT.",
+    const drops = me.wish.filter(cid => CARX[cid].drop);
+    const cards = [["Say this", "quote", `<p>${script}</p>`],
+      ["Use the context", "lightbulb", `<p>${f.status} up to ${f.amount}: say it early, it widens the choice.${drops.length ? ` The ${carShort(drops[0])} in the wishlist just dropped ${money(CARX[drops[0]].drop)}.` : ""}</p>`],
+      ["Why CARS24, once", "shield-check", `<p>Every car inspected, warranty, a return window, finance and trade-in. Cover it early, then let the customer talk.</p>`]];
+    const tile = (tab, icon, k, v, sub) => `<button class="cx-tile" data-step-to="cx:${tab}"><span class="k">${ic(icon)}${k}</span><b>${v}</b><small>${sub}</small></button>`;
+    const tiles = `<div class="cx-tiles" data-part="context">
+      ${tile("orders", "receipt-text", "Orders", vtd ? "None yet" : `1 open &middot; ${me.past ? 1 : 0} past`, vtd ? "4 cars on the contact" : `${p.id}, booking initiated`)}
+      ${tile("finance", "landmark", "Finance", f.status, `Up to ${f.amount}`)}
+      ${tile("cars", "heart", "Wishlist", `${me.wish.length} cars`, drops.length ? `${drops.length} price drop` : "No price drops")}
+      ${tile("cars", "eye", "Viewed", `${me.viewed} this week`, `${carShort(me.top[0])}, ${me.top[1]} times`)}
+    </div>`;
+    const open = vtd ? "cars" : "orders";
+    const tabs = `<div class="cx-tabs" data-part="tabs">${[["orders", "Orders"], ["cars", vtd ? "Cars of interest" : "Wishlist and viewed"], ["finance", "Finance"]].map(([k, l]) => `<button class="${k === open ? "on" : ""}" data-step-to="cx:${k}" data-flow-pill="cx:${k}">${l}</button>`).join("")}</div>`;
+    const panel = (k, html, part) => `<div class="cx-panel" data-flow="cx" data-flow-step="${k}"${k === open ? "" : " hidden"} data-part="${part}">${html}</div>`;
+    const past = me.past ? `<div class="hx-past" data-part="past"><span class="v2-av">${ic("history")}</span><div><b>${me.past[0]} &middot; ${me.past[1]}</b><small>Appointment ${me.past[2]} &middot; ${me.past[3]}</small></div>${pill("grey", me.past[4])}</div>` : `<p class="v2-small" style="margin:0;">No past orders.</p>`;
+    const wishBadge = (cid) => me.wish.includes(cid) ? `<span class="v2-badge wish">${ic("heart")}Wishlist</span>` : "";
+    const dropBadge = (cid) => CARX[cid].drop ? `<span class="v2-badge drop">${ic("trending-down")}${money(CARX[cid].drop)} off</span>` : "";
+    const orders = vtd
+      ? `<div class="cx-empty">${ic("receipt-text")}<div><b>No orders yet</b><span>Only a mobile came from the chatbot. The cars sit on contact LD-55127; picking them under Cars of interest creates one order each, once the email is added on the left.</span></div></div>
+        <div class="cx-h"><b>Past</b></div>${past}`
+      : `<div class="cx-h"><b>Current</b><small>Newest first</small></div>
+        ${carRow(p.car, { check: true, selected: true, oid: p.id, sub: `Appointment ${PCARS[p.car].appt} &middot; from the app, 2 days ago &middot; no TD booked yet`, badge: pill("violet", "Booking initiated"), part: "car-rows", right: link(p.car) })}
+        <div class="cx-h"><b>Past</b></div>${past}`;
+    const cars = vtd
+      ? `<div class="cx-h"><b>Cars of interest &middot; 4</b><span class="v2-ok sm" data-part="order-rule">${ic("circle-check")}Mobile and email in: one order per ticked car</span></div>
+        ${["c2", "c1", "c3", "c4"].map((cid, i) => carRow(cid, { check: true, selected: true, sub: `Appointment ${PCARS[cid].appt} &middot; ${money(PCARS[cid].price)}`, badge: wishBadge(cid) + dropBadge(cid), part: i === 0 ? "car-rows" : null, right: link(cid) })).join("")}`
+      : `<div class="cx-h"><b>Wishlist &middot; ${me.wish.length}</b><small>Hearted in the app</small></div>
+        ${me.wish.map(cid => carRow(cid, { oid: cid === p.car ? p.id : null, sub: `Appointment ${PCARS[cid].appt} &middot; ${money(PCARS[cid].price)}`, badge: cid === p.car ? pill("violet", "On order") : dropBadge(cid),
+          right: cid === p.car ? link(cid) : `<button class="v2-chip" data-pick="multi">${ic("plus")}Add to the call</button>` })).join("")}
+        <p class="v2-small" style="margin:2px 0 0;">${ic("eye")} Viewed ${me.viewed} cars this week; the ${carShort(me.top[0])} ${me.top[1]} times. Adding a car creates an order for it.</p>`;
+    const finance = `<div class="cx-fin-h"><span class="v2-pill green">${ic("badge-check")}${f.status}</span><b>Up to ${f.amount}</b><small>Valid until ${f.until} &middot; ${f.lender}</small></div>
+      <div class="v2-kvs" style="margin-bottom:8px;">${kv("Est. repayment", f.repay)}${kv("Deposit", f.deposit)}${kv("Term", f.term)}${kv(MK.credit, VISIT[t].aecb)}</div>
+      <div class="v2-kvs two" style="margin-bottom:8px;">${kv("Paying by", `${me.pay}<small>Said in the app</small>`)}${kv("Trade-in", me.trade)}</div>
+      <div class="cx-fin-a"><span class="v2-small" style="margin:0;">${ic("history")} From the finance service, checked 3 days ago.</span><button class="v2-btn sm">${ic("message-circle")}Send the pre-approval summary</button></div>`;
+    const body = `${tiles}${tabs}${panel("orders", orders, "orders")}${panel("cars", cars, vtd ? "interest" : "wishlist")}${panel("finance", finance, "finance")}`;
+    return callTask(t, 0, "P2", { secs: "00:40", title: vtd ? `${fn}: which cars to drive?` : `${fn}: orders, finance and cars`,
+      desc: vtd ? "No order yet. Add the email on the left, then pick the cars: one order each." : "Clear intent: an order exists, from the app with a mobile and an email. Confirm it, then the TD type. Contact details are edited on the left.",
       body, cards, leadOpts: vtd ? { emailEdit: true } : {},
       hint: vtd ? "Exit: cars picked, orders created" : "Exit: order confirmed",
       buttons: [["Not sure: discover cars together", "P3", "", "compass"], ["Call back later", "P9", "", "phone-forwarded"], ["Wrong number or not interested", "N7", "", "circle-x"],
         [vtd ? "Create 4 orders: TD type" : "Next: TD type", "P4", "primary", "arrow-right", true]] });
   },
 
-  // discovery: a stepper of filters, ending in the matching cars
+  // discovery 1: the website's listing inside the call. Open a car, or tick 2 or 3 to compare on the same page
   P3: (t) => {
-    const body = pillSteps(needSteps(t, { who: t === "vtd" ? "Just me" : "Family with kids", pay: "Finance" }));
-    return callTask(t, 1, "P3", { secs: "03:10", title: `Find the right car with ${first(t)}`, desc: "Five quick filters, then the cars that match. Open a car's page on the website for more detail.",
-      body, hint: "Exit: one or two cars picked",
-      buttons: [["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Next: TD type", "P4", "primary", "arrow-right", true]],
-      cards: [["Ask", "message-square", `<p>&ldquo;Who usually rides with you, and what do you drive most: city or highway?&rdquo;</p>`]] });
+    const vtd = t === "vtd", fn = first(t), me = P360[t];
+    const list = vtd ? ["c2", "c1", "c4", "c3", "c5", "c6"] : ["c1", "c3", "c5", "c4", "c2", "c6"];
+    const ticked = vtd ? ["c2", "c1"] : ["c1", "c3"];
+    const cats = (cid) => ["best", me.wish.includes(cid) ? "wish" : "", CARX[cid].drop ? "drop" : ""].filter(Boolean).join(" ");
+    const drops = list.filter(cid => CARX[cid].drop).length;
+    const body = `${lsHead(t)}
+      <div class="ls-tabs" data-filter-tabs data-part="tabs">
+        <button class="on" data-filter="best">${ic("sparkles")}<span><b>Best for ${fn}</b><small>From the needs and the wishlist</small></span></button>
+        <button data-filter="wish">${ic("heart")}<span><b>Wishlist</b><small>${me.wish.length} cars</small></span></button>
+        <button data-filter="drop">${ic("trending-down")}<span><b>Price drops</b><small>${drops} cars</small></span></button>
+      </div>
+      <div class="ls-count"><span><b><span data-search-count="ls">${list.length}</span> cars</b> from ${MK.stock} &middot; best match first</span><span class="ls-max" data-cmp-max hidden>${ic("info")}Up to 3 cars in a compare</span></div>
+      <div class="ls-list">${list.map((cid, i) => lsCard(t, cid, { cmp: ticked.includes(cid), cats: cats(cid), first: i === 0 })).join("")}</div>`;
+    return callTask(t, 1, "P3", { secs: "03:10", cur: "Listing", wide: true, title: `Find a car with ${fn}`, desc: "Live stock, as on the website. Search by car or appointment ID. Open a car for its full page, or tick 2 or 3 to compare.",
+      right: `<span class="v2-tag" data-part="stock">${ic("store")}Live stock</span>`,
+      body, hint: "Exit: a car opened, or 2 to 3 compared",
+      buttons: [["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], [`Compare <span data-cmp-n>${ticked.length}</span> cars`, "P3b", "primary", "git-compare", false, "data-cmp-go"]],
+      cards: [["Ask", "message-square", `<p>&ldquo;Who usually rides with you, and what do you drive most: city or highway?&rdquo;</p>`], ["Tip", "lightbulb", `<p>Open the wishlist tab first: ${fn} already hearted ${me.wish.length} cars.</p>`]] });
+  },
+
+  // discovery 2: one car in full, as on the website's car page, with the customer's context for it
+  P3a: (t) => {
+    const vtd = t === "vtd", fn = first(t), me = P360[t], f = me.fin;
+    const cid = PICKED.car || (vtd ? "c2" : "c1"), c = PCARS[cid], x = CARX[cid];
+    const amt = +f.amount.replace(/\D/g, ""), fits = c.price <= amt;
+    const views = me.top[0] === cid ? me.top[1] : me.wish.includes(cid) ? 2 : 1;
+    const make = c.title.split(" ")[1];
+    const kmN = +c.km.replace(/\D/g, "");
+    const sec = (part, h, html) => `<section class="cd-sec" data-part="${part}"><h4>${h}</h4>${html}</section>`;
+    const left = `<div class="cd-gal" data-part="gallery" style="background:${c.color}">${ic("car")}<span class="n">1 / 50</span><button class="cd-sim">${ic("layers")}Similar cars</button></div>
+      <div class="cd-views">${[["image", "Exterior"], ["armchair", "Interior"], ["circle-alert", `Imperfections (${x.imp})`]].map(([i, l], k) => `<button class="${k === 0 ? "on" : ""}" data-pick="gal"><span>${ic(i)}</span>${l}</button>`).join("")}</div>
+      ${sec("why", "Why choose this car?", `<div class="cd-why">${[["history", "Full service history", `${x.svc} services on record`], ["circle-gauge", "High tyre life", "Less to spend soon"], ["shield-check", "Safety assured", MK.safety], ["sparkles", "Premium features", "Reversing camera, CarPlay"]].map(([i, k, v]) => `<div>${ic(i)}<b>${k}</b><small>${v}</small></div>`).join("")}</div>`)}
+      ${sec("overview", "Overview of the car", `<div class="cd-ov">${[["Odometer", c.km], ["Transmission", c.trans], ["Engine", x.engine], ["Fuel use", x.cons], ["Colour", x.colour], ["Drive type", c.drive], ["Body", c.body], ["Seats", c.seats]].map(([k, v]) => kv(k, v)).join("")}</div>
+        <div class="cd-acc">${["Summary", "Performance and economy", "Safety and security", "Comfort and convenience"].map(l => `<button>${l}${ic("chevron-down")}</button>`).join("")}</div>`)}
+      ${sec("condition", "Car condition", `<div class="cd-cond"><span>${ic("badge-check")}Top-notch condition</span><small>Cleared our ${MK.inspect}</small></div>
+        <ul class="qp-list">${[["Small scratch, rear bumper", "Cosmetic"], ["Stone chip, bonnet", "Cosmetic"]].slice(0, Math.min(2, x.imp)).map(([k, v]) => `<li class="note">${ic("info")}<span>${k}<small>${v}</small></span></li>`).join("")}</ul>
+        <a class="v2-link" style="margin-top:8px;">${ic("file-text")}${x.imp > 2 ? `All ${x.imp} imperfections and the full report` : "View the full inspection report"}</a>`)}
+      ${sec("service", "Service history", `<div class="cd-svc">${[["28 Nov 2025", kmN], ["22 Nov 2024", Math.round(kmN * .78)], ["10 Nov 2023", Math.round(kmN * .55)]].map(([d, k]) => `<div><b>${d}</b><span>${make}</span><span>${k.toLocaleString("en-US")} km</span></div>`).join("")}</div>${x.svc > 3 ? `<a class="v2-link">See ${x.svc - 3} more</a>` : ""}`)}
+      ${sec("finance", "Finance", `<div class="cd-ov">${kv("Price", money(c.price))}${kv("Term", "5 years")}${kv("Deposit", f.deposit)}${kv("Repayment", `${per(c.price)}${MK.per}`)}</div>
+        <div class="v2-note ${fits ? "" : "amber"}" style="margin:8px 0 0;">${ic(fits ? "circle-check" : "info")}<span>${fn} is ${f.status.toLowerCase()} up to ${f.amount}: ${fits ? "this car fits." : "this car is over it."}</span></div>`)}
+      ${sec("edge", "The CARS24 edge", `<ul class="cd-ticks">${MK.edge.map(e => `<li>${ic("circle-check")}${e}</li>`).join("")}</ul><div class="cd-assure">${MK.assure.map(e => `<span>${ic("shield-check")}${e}</span>`).join("")}</div>`)}
+      ${sec("similar", "Similar cars", `<div class="cd-similar">${["c3", "c5", "c4", "c1", "c2"].filter(z => z !== cid).slice(0, 3).map(z => `<button class="cd-mini" data-go="P3a" data-car="${z}"><span class="ph" style="background:${PCARS[z].color}">${ic("car")}</span><b>${PCARS[z].title}</b><small>${money(PCARS[z].price)} &middot; ${per(PCARS[z].price)}${MK.per}</small></button>`).join("")}</div>`)}`;
+    const ctx = [me.wish.includes(cid) ? "In the wishlist" : "Not in the wishlist", `viewed ${views} time${views > 1 ? "s" : ""}`, x.drop ? `${money(x.drop)} price drop` : "", `${f.status.toLowerCase()}: ${fits ? "fits" : "over it"}`].filter(Boolean).join(" &middot; ");
+    const warranty = Math.round(c.price * 1.14 / 10) * 10;
+    const side = `<aside class="cd-side">
+      <div class="cd-ctx" data-part="customer">${ic("user-round")}<div><b>For ${fn}</b><span>${ctx}</span></div></div>
+      <div class="cd-price" data-part="price">
+        <b class="tt">${c.title}</b><small class="vr">${x.variant}</small>
+        <div class="ls-chips">${[kmShort(c.km), c.body, c.trans, ...MK.cardTags].map(z => `<span>${z}</span>`).join("")}</div>
+        <div class="cd-sold">${ic("shield-check")}${x.badge === "Cars24 Select" ? "Cars24 Select &middot; " : ""}Sold by CARS24</div>
+        <button class="cd-opt on" data-pick="opt"><i class="dot"></i><span><b>${money(c.price)}</b><small>${MK.priceNote}</small></span><em>${per(c.price)}${MK.per}</em></button>
+        <button class="cd-opt" data-pick="opt"><i class="dot"></i><span><b>${money(warranty)}</b><small>With extended warranty</small></span><em>${per(warranty)}${MK.per}</em></button>
+        <a class="v2-link">${MK.dap}</a>
+        <div class="cd-loc">${ic("map-pin")}<span>CARS24, ${x.loc}${vtd ? `<small>${fn} is in ${VISIT[t].area.split(",")[0]}: offer a video TD</small>` : ""}</span></div>
+        <div class="cd-appt">Appointment ${c.appt}<span class="v2-copy">${ic("copy")}</span></div>
+      </div>
+      <div class="cd-acts"><button class="v2-btn sm" data-go="P3b" data-part="add-compare">${ic("git-compare")}Compare</button><button class="v2-btn sm" data-part="share">${ic("message-circle")}Send on WhatsApp</button></div>
+    </aside>`;
+    return callTask(t, 1, "P3a", { secs: "04:05", cur: "Car details", wide: true, prev: "P3", title: "Car details", desc: `The car's page from the website, with ${fn}'s context for this car on the right.`,
+      right: `<button class="v2-btn sm" data-go="P3" data-part="back">${ic("arrow-left")}Back to results</button>`,
+      body: `<div class="cd-grid"><div class="cd-main">${left}</div>${side}</div>`, hint: "Exit: drive it, compare it, or back",
+      buttons: [["Compare with others", "P3b", "", "git-compare"], ["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Book a TD for this car", "P4", "primary", "calendar-plus"]],
+      cards: [["Say this", "message-square", `<p>&ldquo;This one has ${x.svc} services on record and cleared our ${MK.inspect}.&rdquo;</p>`]] });
+  },
+
+  // discovery 3: the ticked cars side by side, on the same page as the listing, 2 or 3 columns
+  P3b: (t) => {
+    const vtd = t === "vtd", fn = first(t), me = P360[t];
+    const ids = (PICKED.cmp && PICKED.cmp.length >= 2 ? PICKED.cmp : vtd ? ["c2", "c1", "c3"] : ["c1", "c3", "c5"]).slice(0, 3);
+    const amt = +me.fin.amount.replace(/\D/g, "");
+    const num = (v) => +String(v).replace(/[^\d.]/g, "");
+    // rows: [label, value of the car, best rule: min or max of a number]
+    const sections = [
+      ["Price and finance", [["Price", (c) => money(c.price), "min", (c) => c.price], ["Repayment", (c) => `${per(c.price)}${MK.per}`, "min", (c) => c.price],
+        ["Pre-approval", (c) => c.price <= amt ? `${ic("circle-check")}Fits` : `${ic("info")}Over it`], ["Price drop", (c, x) => x.drop ? money(x.drop) : "&mdash;"]]],
+      ["Overview", [["Odometer", (c) => c.km, "min", (c) => num(c.km)], ["Body and seats", (c) => `${c.body}, ${c.seats} seats`, "max", (c) => c.seats], ["Fuel use", (c, x) => x.cons, "min", (c, x) => num(x.cons)],
+        ["Engine", (c, x) => x.engine], ["Transmission", (c) => c.trans], ["Drive", (c) => c.drive], ["Colour", (c, x) => x.colour]]],
+      ["Condition", [["Inspection", () => `Cleared, ${MK.inspect}`], ["Imperfections", (c, x) => x.imp, "min", (c, x) => x.imp], ["Services on record", (c, x) => x.svc, "max", (c, x) => x.svc]]],
+      [`For ${fn}`, [["Wishlist", (c) => me.wish.includes(c.id) ? `${ic("heart")}Yes` : "No"], ["Where", (c, x) => x.loc]]],
+    ];
+    const cell = (cid, fn2) => fn2(PCARS[cid], CARX[cid]);
+    const rows = sections.map(([h, list], si) => `<div class="cmp-sec"${si === 0 ? ` data-part="rows"` : ""}>${h}</div>` + list.map(([l, val, rule, metric]) => {
+      let best = null;
+      if (rule) { const vals = ids.map(cid => cell(cid, metric)); const b = rule === "min" ? Math.min(...vals) : Math.max(...vals); if (vals.filter(v => v === b).length < ids.length) best = b; }
+      const same = new Set(ids.map(cid => cell(cid, val))).size === 1;
+      return `<div class="cmp-row${same ? " same" : ""}"><div class="cmp-lbl">${l}</div>${ids.map(cid => `<div class="cmp-v">${cell(cid, val)}${best != null && cell(cid, metric) === best ? `<span class="cmp-best">Best</span>` : ""}</div>`).join("")}</div>`;
+    }).join("")).join("");
+    const head = `<div class="cmp-row head" data-part="cars"><div class="cmp-lbl"><b>${ids.length} cars</b><small>Side by side</small></div>${ids.map((cid, i) => { const c = PCARS[cid]; return `<div class="cmp-car">
+        <span class="ph" style="background:${c.color}">${ic("car")}</span><b>${c.title}</b><small>${CARX[cid].variant}</small>
+        <div class="pr"><b>${money(c.price)}</b><span>${per(c.price)}${MK.per}</span></div>
+        <div class="acts"><button class="v2-link" data-go="P3a" data-car="${cid}">Car details</button><button class="v2-chip ${i < 2 ? "on" : ""}" data-pick="multi"${i === 0 ? ` data-part="pick"` : ""}>${ic("check")}Pick for TD</button></div></div>`; }).join("")}</div>`;
+    const body = `${lsHead(t, true)}
+      <div class="cmp-bar" data-part="compare-bar"><span>${ic("git-compare")}<b>Comparing ${ids.length} cars</b> on the same page</span><button class="v2-sw" data-sw data-cmp-diff aria-label="Only differences"></button><small>Only differences</small><button class="v2-btn sm" data-go="P3">${ic("arrow-left")}Back to results</button></div>
+      <div class="cmp" style="--n:${ids.length}" data-part="grid">${head}${rows}</div>`;
+    return callTask(t, 1, "P3b", { secs: "05:30", cur: "Comparing", wide: true, prev: "P3", title: `Compare with ${fn}`, desc: "The ticked cars in columns, the same sections as the car page. The best value in each row is marked; the grid scrolls as one.",
+      body, hint: "Exit: cars picked to drive",
+      buttons: [["Back to the results", "P3", "", "arrow-left"], ["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Book TD for the picked cars", "P4", "primary", "arrow-right", true]],
+      cards: [["Say this", "message-square", `<p>&ldquo;The ${carShort(ids[0])} costs less a ${MK.per === "/week" ? "week" : "month"}; the ${carShort(ids[1])} has more room. Which matters more to you?&rdquo;</p>`]] });
   },
 
   // TD type per car: the mix decides the slot steps

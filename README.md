@@ -7,9 +7,9 @@ Every step has its **source**, its **screen**, its **entry conditions** and its 
 ## The TD booking call
 
 - **P1 queue** with tabs: All, Queue, Callbacks, Closed today, Today missed TD.
-- **P2 lead view** opens on the customer's orders and cars (appointment IDs). With a mobile and an email, an order exists: confirm it and move on. Without both, the cars of interest sit on the contact; picking them (after adding the email in the left pane) creates one order per car.
+- **P2 lead view** is the customer's whole picture: context tiles (orders, finance, wishlist, viewed), then tabs for orders, cars and finance (pre-approval, amount, repayment). With a mobile and an email, an order exists: confirm it and move on. Without both, the cars of interest sit on the contact; picking them (after adding the email in the left pane) creates one order per car.
 - The opening line and the CARS24 pitch are in CarGPT, not steps. Contact details are edited in the left pane.
-- **P3 Discovery** (only when unsure): stepper pills of filters, then matching cars with a link to each car's page.
+- **Discovery** (only when unsure) works like the website: **P3 Car listing** (search by appointment ID, filter pills, car cards with a Compare tick), **P3a Car details** (the website's car page, with the customer's context for the car) and **P3b Compare** (2 or 3 cars in columns, on the same page as the listing).
 - **P4 TD type per car**, then **P5 hub slot** and/or **P6 video slot** depending on the mix, then **P7 book**.
 
 Every screen uses the standard footer: Previous and Next, with the other exits (including a customer dropping off) under the arrow next to Next.
@@ -48,12 +48,12 @@ python3 -m http.server 8000
 - **Fields**: every field on every screen in one data dictionary.
 - **What changed**: the review notes applied, what they do to the Test Drive Console, and the decisions still open.
 
-Deep links: `#booked-I1`, `#walkin-T2`, `#vtd-O5`, `#blueprint`, `#fields`, `#changes`. Prefix `au-` for Australia (`#au-booked-I1`), and add `-staff` or `-qr` when the check-in way differs from the market default (`#booked-I1-qr`).
+Deep links: `#booked-I1`, `#booked-P3a`, `#walkin-T2`, `#vtd-O5`, `#blueprint`, `#fields`, `#changes`. Prefix `au-` for Australia (`#au-booked-I1`), and add `-staff` or `-qr` when the check-in way differs from the market default (`#booked-I1-qr`).
 
 ## Files
 
 - `index.html`: the page.
-- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 33 steps, plus mock people and cars per market and the copy layer for Australia.
+- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 35 steps, plus mock people and cars per market and the copy layer for Australia.
 - `piston-anatomy.js`: parts, fields, actions and states for every screen.
 - `piston-screens.js`: one Leadverse screen per step, the ground TV board, and the phone screens: the seat QR check-in, the customer's token page and the Yardie's task list.
 - `piston.js`: the viewer.

@@ -51,7 +51,7 @@ function readHash() {
   VS.mode = way ? way[2] : MARKETS[VS.market].checkin;
   if (way) h = way[1];
   if (["blueprint", "fields", "changes"].includes(h)) { VS.view = h; return; }
-  const m = h.match(/^(booked|walkin|vtd)-([A-Z]\d)$/);
+  const m = h.match(/^(booked|walkin|vtd)-([A-Z]\d[a-z]?)$/);
   if (m && stepById(m[2]) && stepById(m[2]).tracks.includes(m[1])) { VS.view = "walk"; VS.track = m[1]; VS.step = m[2]; }
 }
 function writeHash() {
@@ -295,6 +295,8 @@ function mountScreen(root) {
     const picked = el.dataset.modeFrom && root.querySelector(`[data-pick="${el.dataset.modeFrom}"].on`);
     if (picked && picked.dataset.modeVal) VS.mode = picked.dataset.modeVal;
     else if (el.dataset.mode) VS.mode = el.dataset.mode;
+    if (el.dataset.car) PICKED.car = el.dataset.car;
+    if (el.hasAttribute("data-cmp-go")) PICKED.cmp = [...root.querySelectorAll("[data-cmp].on")].map(x => x.dataset.cmp);
     go(el.dataset.go);
   }));
   root.querySelectorAll("[data-mode-set]").forEach(el => el.addEventListener("click", (e) => { e.stopPropagation(); setMode(el.dataset.modeSet); }));
@@ -340,11 +342,36 @@ function mountScreen(root) {
   // the arrow next to Next opens the other exits; any other click closes it
   root.querySelectorAll("[data-menu]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); const m = b.nextElementSibling; m.hidden = !m.hidden; }));
   root.addEventListener("click", (e) => { if (!e.target.closest("[data-menu]")) root.querySelectorAll(".v2-menu").forEach(m => { m.hidden = true; }); });
-  // filter tabs over a table: rows carry data-cat
+  // filter tabs over a table or a list: rows carry data-cat, one or more categories
   root.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => {
     b.parentElement.querySelectorAll("[data-filter]").forEach(x => x.classList.toggle("on", x === b));
-    root.querySelectorAll("tr[data-cat]").forEach(r => { r.hidden = b.dataset.filter !== "all" && r.dataset.cat !== b.dataset.filter; });
+    root.querySelectorAll("[data-cat]").forEach(r => { r.hidden = b.dataset.filter !== "all" && !r.dataset.cat.split(" ").includes(b.dataset.filter); });
   }));
+  // search a list as you type: make, model or appointment ID
+  root.querySelectorAll("[data-search]").forEach(inp => inp.addEventListener("input", () => {
+    const q = inp.value.trim().toLowerCase();
+    let n = 0;
+    root.querySelectorAll(`[data-search-item="${inp.dataset.search}"]`).forEach(it => { const hit = !q || it.dataset.searchText.includes(q); it.classList.toggle("sx", !hit); if (hit && !it.hidden) n++; });
+    root.querySelectorAll(`[data-search-count="${inp.dataset.search}"]`).forEach(c => { c.textContent = n; });
+  }));
+  // compare ticks: 2 or 3 cars; the compare button shows the count and stays off below 2
+  const cmpSync = () => {
+    const on = root.querySelectorAll("[data-cmp].on").length;
+    root.querySelectorAll("[data-cmp-n]").forEach(x => { x.textContent = on; });
+    root.querySelectorAll("[data-cmp-go]").forEach(b => { b.disabled = on < 2; });
+    root.querySelectorAll("[data-cmp]").forEach(x => { x.closest("[data-cmp-card]")?.classList.toggle("cmp-on", x.classList.contains("on")); });
+  };
+  root.querySelectorAll("[data-cmp]").forEach(el => el.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!el.classList.contains("on") && root.querySelectorAll("[data-cmp].on").length >= 3) { root.querySelectorAll("[data-cmp-max]").forEach(m => { m.hidden = false; }); return; }
+    el.classList.toggle("on");
+    root.querySelectorAll("[data-cmp-max]").forEach(m => { m.hidden = true; });
+    cmpSync();
+  }));
+  if (root.querySelector("[data-cmp]")) cmpSync();
+  // compare: only the rows where the cars differ
+  root.querySelectorAll("[data-cmp-diff]").forEach(sw => sw.addEventListener("click", () => { const g = root.querySelector(".cmp"); if (g) g.classList.toggle("diff-only"); }));
+  root.querySelectorAll("[data-heart]").forEach(el => el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); el.classList.toggle("on"); }));
   // pins follow the visible parts after any in-screen change
   root.addEventListener("click", () => setTimeout(drawPins, 0));
   mountSignature(root);
@@ -488,7 +515,7 @@ function anatomyHtml(a) {
   if (!a.parts.length && !a.fields.length) {
     return `<p class="an-intro">No screen on this step, so there is nothing to take apart.</p>${a.states.length ? `<div class="sp-sec"><h4>${icon("layers")}States</h4><ul class="an-list">${a.states.map(([s, w]) => `<li><b>${s}</b><span>${w}</span></li>`).join("")}</ul></div>` : ""}`;
   }
-  const toLink = (txt) => txt.replace(/\b([PISTONM]\d)\b/g, (m) => stepById(m) ? `<button class="linklike" data-step="${m}">${m}</button>` : m);
+  const toLink = (txt) => txt.replace(/\b([PISTONM]\d[a-z]?)\b/g, (m) => stepById(m) ? `<button class="linklike" data-step="${m}">${m}</button>` : m);
   return `<p class="an-intro">One level below the screen. Numbers match the orange pins on the screen; a grey number is a part that shows only after an action, like the OTP step.</p>
     <div class="sp-sec"><h4>${icon("map-pin")}Parts</h4><div class="an-parts">${a.parts.map((p, i) => `<div class="an-part" data-n="${i + 1}"><span class="an-num">${i + 1}</span><div><b>${p.label}</b>${p.widget ? `<code>${p.widget}</code>` : ""}${p.note ? `<p>${p.note}</p>` : ""}</div></div>`).join("")}</div></div>
     ${a.fields.length ? `<div class="sp-sec"><h4>${icon("text-cursor-input")}Fields</h4><table class="an-tbl"><thead><tr><th>Field</th><th>Type</th><th>Source and rule</th></tr></thead><tbody>
@@ -593,6 +620,13 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;Orders and cars of interest should show finance (pre-approved or not), the wishlist, past and future orders: context and detail. Break discovery down: the car listing with filters and appointment ID search, compare 2 or 3 in a grid on the same page, and a car page like cars24.com.au&rdquo;</div><h4>The call sees the whole customer, and discovery works like the website</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">P2 Orders and cars of interest &rarr; P3 Discovery (stepper pills)</span><span class="k">After</span><span class="seq"><em>P2 Orders, finance and cars</em> (context tiles, detail tabs) &rarr; <em>P3 Car listing</em> &rarr; <em>P3a Car details</em> or <em>P3b Compare</em> on the same page</span></div>
+        <p><b>Context, then detail.</b> Four tiles on top: orders, finance (pre-approved and up to how much), wishlist (with price drops) and what was viewed this week. Below them, tabs: current and past orders with their cars, the wishlist and viewed cars (or the cars of interest when there is no order), and finance: pre-approval, amount, validity, repayment, deposit, credit score and trade-in. CarGPT turns it into a line: pre-approved, say it early; a wishlist car dropped, mention it.</p>
+        <p><b>The listing, as on the website.</b> A search that takes an appointment ID, the market's own filter pills (the UAE: make and model, budget, monthly EMI; Australia: seller type, make and model, video tour, price, finance), and the website's car cards with the repayment per month or week. The filters start from what the customer said. Tabs for the agent: best for the customer, their wishlist, price drops. Each card carries the customer's context and a Compare tick in the photo's corner.</p>
+        <p><b>One car: its full page.</b> The sections of the cars24.com.au car page: gallery with exterior, interior and imperfections, why this car, overview and every spec, condition, service history, finance, the CARS24 edge and the certified checks, similar cars. A sticky price card with the warranty option, and above it what only the agent sees: wishlist, views, price drop, and whether the car fits the pre-approval.</p>
+        <p><b>2 or 3 cars: compare on the same page.</b> The results swap for a grid with a column per car and the car page's sections row by row. The best value in each row is marked, Only differences hides the rest, and Pick for TD sends the cars on to the TD type and the slot. CarGPT folds to a strip on these screens to give the cars room.</p>
+        ${links(stepLink("P2", "Orders, finance and cars", { track: "booked" }), stepLink("P2", "No order yet", { track: "vtd" }), stepLink("P3", "Car listing"), stepLink("P3a", "Car details"), stepLink("P3b", "Compare"), stepLink("P3", "Listing in Australia", { market: "au" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;Booked: the TD agent's handshake is the TD start, then the consent in the middle grid, the DL and the walkaround. Walk-in: Needs as pills like Discovery, the quality promise in the 3-column layout, then book the current slot, create the order and request prep&rdquo;</div><h4>A booking starts at the handshake; a walk-in books the slot it is in</h4>
         <div class="ba"><span class="k">Booked, before</span><span class="seq">T1 Handshake &rarr; T2 Needs &rarr; T3 Cars &rarr; T4 Promise &rarr; T5 Confirm &rarr; O2 Start TD &rarr; O3 Consent</span><span class="k">Booked, after</span><span class="seq"><em>T1 Handshake and Start TD</em> &rarr; O3 Consent &rarr; O4 DL &rarr; O5 Walkaround</span></div>
         <div class="ba"><span class="k">Walk-in, before</span><span class="seq">T2 Needs (a form) &rarr; T3 Recommend and compare &rarr; T4 Promise (customer screen) &rarr; T5 Create order</span><span class="k">Walk-in, after</span><span class="seq"><em>T2 Needs and cars (stepper pills)</em> &rarr; <em>T4 Quality promise (middle column)</em> &rarr; <em>T5 Book now: slot, order, prep</em></span></div>
@@ -698,6 +732,8 @@ function renderChanges() {
 
     <h3 class="doc-h3">Decisions needed</h3>
     <div class="decide">
+      <div><b>Where the listing comes from</b>The call's listing, car page and compare should show exactly what the website shows. Call the consumer listing and car page services from Leadverse, or build the screens from the shared DLS components with their own BFF?</div>
+      <div><b>One discovery at the hub too</b>The walk-in's car finding (T2) still uses the stepper pills. Use the same listing, car page and compare on the DA's tablet?</div>
       <div><b>A booked customer who wants another car</b>A booking has no car finding: the handshake starts the drive. If they change their mind on the day, is that a new order (N6), or can the DA add a car at the handshake?</div>
       <div><b>A walk-in into the current slot</b>The walk-in is booked into the slot they are in. When it is full, book the next one today, or let the hub go over its cap?</div>
       <div><b>Orders without an email</b>An order needs a mobile and an email, so a mobile-only enquiry stays a contact with appointment IDs until the call adds the email. Confirm OMS keeps that rule, and whether a missing email should block the TD booking.</div>
