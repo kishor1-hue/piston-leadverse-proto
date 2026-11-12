@@ -39,7 +39,7 @@ const STAFF_AV = marketTable({ receptionist: "K", da: "OH", operator: "SI", mana
 
 const PILL = {
   P1: ["grey", "New lead"], P2: ["violet", "Booking initiated"], P3: ["violet", "Booking initiated"], P3a: ["violet", "Booking initiated"], P3b: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
-  P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
+  P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P7d: ["amber", "Deposit pending"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
   I1: ["red", "Not checked-in"], I2: ["green", "Checked in"], S1: ["green", "Checked in"], S2: ["violet", "DA assigned"],
   T1: ["violet", "With DA"], T2: ["violet", "With DA"], T3: ["violet", "With DA"], T4: ["violet", "With DA"], T5: ["violet", "With DA"],
   O1: ["violet", "Car on its way"], O2: ["red", "TD live"], O3: ["red", "TD live"], O4: ["red", "TD live"],
@@ -244,7 +244,7 @@ function foot(t, id, hint, buttons, prevId) {
     <button class="v2-btn" ${prev ? `data-go="${prev}"` : "disabled"}>${ic("arrow-left")}Previous</button>
     <span class="v2-hint">${hint}</span>
     <div class="v2-split">${main ? btn(main) : ""}${items.length ? `<button class="v2-btn ${main && main[2] === "primary" ? "primary" : ""} caret" data-menu aria-label="More actions" title="More actions">${ic("chevron-down")}</button>
-      <div class="v2-menu" hidden>${items.map(([label, go, , icon]) => `<button ${go ? `data-go="${go}"` : ""}>${icon ? ic(icon) : ""}${label}</button>`).join("")}</div>` : ""}</div>
+      <div class="v2-menu" hidden>${items.map(([label, go, , icon, , attrs]) => `<button ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon ? ic(icon) : ""}${label}</button>`).join("")}</div>` : ""}</div>
   </div>`;
 }
 function head2(title, desc, right) {
@@ -418,23 +418,25 @@ const pill = (tone, text) => `<span class="v2-pill ${tone}">${text}</span>`;
 // ================================================================== the TD booking call (calling team persona task)
 const CALL_TASK = { booked: "TK-6120", vtd: "TK-6127" };
 const CALL_STEPS = ["Interest", "Discovery", "TD type", "Slots", "Book"];
-function callStages(t, idx, cur) {
+// a customer convinced on the call pays a deposit instead: the stages switch
+const DEPOSIT_STEPS = ["Interest", "Discovery", "Deposit", "Reserved"];
+function callStages(t, idx, cur, list = CALL_STEPS) {
   const done = t === "vtd"
-    ? { Interest: "4 cars, 4 orders", Discovery: "Not needed", "TD type": "2 hub, 2 video", Slots: "Hub + video", Book: "Booked" }
-    : { Interest: `Order ${PEOPLE[t].id}`, Discovery: "Not needed", "TD type": "1 hub", Slots: "Today 2:30 PM", Book: "Booked" };
-  return `<div class="v2-stages" data-part="stages">${CALL_STEPS.map((n, i) => {
+    ? { Interest: "4 cars, 4 orders", Discovery: "Not needed", "TD type": "2 hub, 2 video", Slots: "Hub + video", Book: "Booked", Deposit: "Paid", Reserved: "Car reserved" }
+    : { Interest: `Order ${PEOPLE[t].id}`, Discovery: "Not needed", "TD type": "1 hub", Slots: "Today 2:30 PM", Book: "Booked", Deposit: "Paid", Reserved: "Car reserved" };
+  return `<div class="v2-stages" data-part="stages">${list.map((n, i) => {
     const state = i < idx ? "done" : i === idx ? "cur" : "todo";
     return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${state === "done" ? done[n] : state === "cur" ? (cur || "In progress") : "Pending"}</span></div>`;
   }).join("")}</div>`;
 }
 // wide: the cars need the room (discovery), so CarGPT folds to a strip that opens its tips on a click
-function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev }) {
+function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev, steps }) {
   const p = PEOPLE[t];
   const callbar = `<div class="v2-call" data-part="call"><span class="cb">${ic("phone-call")}</span><div><b>On call with ${first(t)}</b><small>${p.phone} &middot; ${secs}</small></div><span class="v2-recpill"><i></i>Recording</span>
     <div class="v2-call-r"><span>${ic("mic-off")}</span><span>${ic("pause")}</span><span class="end">${ic("phone-off")}</span></div></div>`;
   const content = `<div class="v2-body">
     ${leadPane(t, id, leadOpts || {})}
-    <section class="v2-center">${callbar}${callStages(t, idx, cur)}<div class="v2-content${wide ? " scrolls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, buttons, prev)}</section>
+    <section class="v2-center">${callbar}${callStages(t, idx, cur, steps)}<div class="v2-content${wide ? " scrolls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, buttons, prev)}</section>
     ${wide ? gptMini(cards || []) : gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}` })}
   </div>`;
   return shell({ active: "tasks", who: "cc", crumb: crumbOf("Tasks", "TD booking call", `${p.name} - ${CALL_TASK[t]}`), body: content });
@@ -510,7 +512,7 @@ const SCREENS = {
       desc: vtd ? "No order yet. Add the email on the left, then pick the cars: one order each." : "Clear intent: an order exists, from the app with a mobile and an email. Confirm it, then the TD type. Contact details are edited on the left.",
       body, cards, leadOpts: vtd ? { emailEdit: true } : {},
       hint: vtd ? "Exit: cars picked, orders created" : "Exit: order confirmed",
-      buttons: [["Not sure: discover cars together", "P3", "", "compass"], ["Call back later", "P9", "", "phone-forwarded"], ["Wrong number or not interested", "N7", "", "circle-x"],
+      buttons: [["Not sure: discover cars together", "P3", "", "compass"], ["Customer wants to pay a deposit", "P7d", "", "wallet", false, `data-car="${p.car}" data-needs=".v2-car.sel" title="Pick a car first"`], ["Call back later", "P9", "", "phone-forwarded"], ["Wrong number or not interested", "N7", "", "circle-x"],
         [vtd ? "Create 4 orders: TD type" : "Next: TD type", "P4", "primary", "arrow-right", true]] });
   },
 
@@ -577,7 +579,7 @@ const SCREENS = {
     return callTask(t, 1, "P3a", { secs: "04:05", cur: "Car details", wide: true, prev: "P3", title: "Car details", desc: `The car's page from the website, with ${fn}'s context for this car on the right.`,
       right: `<button class="v2-btn sm" data-go="P3" data-part="back">${ic("arrow-left")}Back to results</button>`,
       body: `<div class="cd-grid"><div class="cd-main">${left}</div>${side}</div>`, hint: "Exit: drive it, compare it, or back",
-      buttons: [["Compare with others", "P3b", "", "git-compare"], ["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Book a TD for this car", "P4", "primary", "calendar-plus"]],
+      buttons: [["Compare with others", "P3b", "", "git-compare"], ["Customer wants to pay a deposit", "P7d", "", "wallet", false, `data-car="${cid}"`], ["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Book a TD for this car", "P4", "primary", "calendar-plus"]],
       cards: [["Say this", "message-square", `<p>&ldquo;This one has ${x.svc} services on record and cleared our ${MK.inspect}.&rdquo;</p>`]] });
   },
 
@@ -612,7 +614,7 @@ const SCREENS = {
       <div class="cmp" style="--n:${ids.length}" data-part="grid">${head}${rows}</div>`;
     return callTask(t, 1, "P3b", { secs: "05:30", cur: "Comparing", wide: true, prev: "P3", title: `Compare with ${fn}`, desc: "The ticked cars in columns, the same sections as the car page. The best value in each row is marked; the grid scrolls as one.",
       body, hint: "Exit: cars picked to drive",
-      buttons: [["Back to the results", "P3", "", "arrow-left"], ["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Book TD for the picked cars", "P4", "primary", "arrow-right", true]],
+      buttons: [["Back to the results", "P3", "", "arrow-left"], ["Customer wants to pay a deposit", "P7d", "", "wallet", false, `data-car="${ids[0]}" data-needs=".cmp-car .v2-chip.on" title="Pick a car first"`], ["Nothing fits: alert on new arrivals, call back", "P9", "", "bell"], ["Book TD for the picked cars", "P4", "primary", "arrow-right", true]],
       cards: [["Say this", "message-square", `<p>&ldquo;The ${carShort(ids[0])} costs less a ${MK.per === "/week" ? "week" : "month"}; the ${carShort(ids[1])} has more room. Which matters more to you?&rdquo;</p>`]] });
   },
 
@@ -674,6 +676,28 @@ const SCREENS = {
       body: `<div data-part="bookings">${cards}</div>`,
       hint: "Exit: booked, task closed",
       buttons: [["Change a slot", vtd ? "P6" : "P5", "", "calendar"], [vtd ? "Book both and close the task" : "Book and close the task", "P8", "primary", "calendar-check"]] });
+  },
+
+  // deposit instead of a TD: send the bank details, upload the payment confirmation the customer emails, reserve the car
+  P7d: (t) => {
+    const p = PEOPLE[t], fn = first(t), cid = PICKED.car || p.car, c = PCARS[cid];
+    const order = cid === p.car ? p.id : "BK-88219";
+    const agent = PSTAFF.cc.name.split(" ")[0].toLowerCase();
+    const block = (n, icon, title, sub, html, part) => `<div class="bk-card dp-card" data-part="${part}"><span class="ic">${ic(icon)}</span><div class="mid"><b>${n} &middot; ${title}</b><small>${sub}</small>${html}</div></div>`;
+    const body = `${block(1, "send", "Send the bank details", "From the CRM, with the amount and the order as the reference",
+        `<div class="dp-bank">${[["Deposit", money(MK.token)], ["Reference", order], ["Account name", "CARS24 UAE"], ["IBAN", "AE07 0331 0000 0123 4567 890"]].map(([k, v]) => `<span><small>${k}</small><b>${v}</b></span>`).join("")}</div>
+        <div class="dp-send">${[["message-circle", "WhatsApp"], ["mail", "Email"], ["message-square", "SMS"]].map(([i, l], k) => `<button class="v2-chip ${k === 0 ? "on" : ""}" data-pick="multi">${ic(i)}${l}<span class="ok">${ic("check")}Sent</span></button>`).join("")}</div>`, "send")}
+      ${block(2, "upload", "Upload the deposit confirmation", `${fn} emails the payment screenshot to ${agent}@${MK.site}. Download it and upload it here.`,
+        `<label class="dp-drop" data-upload data-part="upload"><input type="file" accept="image/*,.pdf" hidden>${ic("image-up")}<span><b>Deposit confirmation</b><small>JPG, PNG or PDF &middot; click to browse</small></span><button class="v2-link" data-upload-sample>Use a sample</button></label>
+        <div class="dp-file" data-upload-file hidden>${ic("file-check")}<span><b></b><small></small></span><span class="v2-pill green">${ic("check")}Saved to Documents</span><button class="v2-link" data-upload-replace>Replace</button></div>`, "confirmation")}
+      ${block(3, "tag", "Car status", "Reserved takes the car off the website and holds it for the customer",
+        `<div class="dp-status"><label for="dp-status">Status</label><select id="dp-status" class="v2-input sm" data-status><option>Available</option><option>Reserved</option></select><span class="v2-pill green" data-status-pill data-part="car">Available</span><small>${c.title} &middot; appointment ${c.appt}</small></div>`, "status")}`;
+    return callTask(t, 2, "P7d", { secs: "07:45", steps: DEPOSIT_STEPS, cur: "Awaiting payment", prev: "P2", title: `Take a deposit for the ${carShort(cid)}`,
+      desc: `${fn} wants the ${c.title} now, without a test drive (order ${order}). Send the bank details, upload the confirmation they email you, then reserve the car.`,
+      right: `<span class="v2-tag warn" data-part="amount">${ic("wallet")}${money(MK.token)} deposit</span>`,
+      body, hint: `<span data-dep-hint>Upload the deposit confirmation</span>`,
+      buttons: [["Book a TD instead", "P4", "", "calendar"], ["Not paid yet: call back", "P9", "", "phone-forwarded"], ["Complete: car reserved", "N3", "primary", "check", false, "data-dep-done disabled"]],
+      cards: [["Say this", "message-square", `<p>&ldquo;I've sent our bank details on WhatsApp. Once it's paid, email the screenshot to me and I'll reserve the ${carShort(cid)} for you straight away.&rdquo;</p>`], ["Check", "list-checks", `<p>The amount and the reference ${order} on the screenshot must match before you reserve the car.</p>`]] });
   },
 
   P8: (t) => {

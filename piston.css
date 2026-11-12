@@ -1367,3 +1367,33 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .cmp-best{font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px; background:var(--v-green-soft); color:var(--v-green-ink);}
 .cmp.diff-only .cmp-row.same{display:none;}
 .cx-panel .v2-car{margin-bottom:6px; padding:6px 10px;}
+
+/* P7d deposit: send the bank details, upload the confirmation, reserve the car */
+.dp-card{margin-bottom:8px; padding:10px 12px;}
+.dp-kvs{grid-template-columns:repeat(4,minmax(0,1fr)); margin:8px 0;}
+.dp-send{display:flex; gap:6px; flex-wrap:wrap;}
+.dp-send .v2-chip .ok{display:none; align-items:center; gap:3px; color:var(--v-green-ink); font-weight:600;}
+.dp-send .v2-chip .ok .icon{width:11px; height:11px;}
+.dp-send .v2-chip.on .ok{display:inline-flex;}
+.dp-drop{display:flex; align-items:center; gap:10px; margin-top:8px; padding:10px 12px; border:1.5px dashed var(--v-line-2); border-radius:10px; background:var(--v-panel-2); cursor:pointer;}
+.dp-drop > .icon{width:20px; height:20px; color:var(--v-primary); flex:none;}
+.dp-drop > span{flex:1; min-width:0;}
+.dp-drop b{display:block; font-size:12.5px !important; color:var(--v-ink);}
+.dp-drop small{display:block; font-size:11px; color:var(--v-muted);}
+.dp-drop .v2-link{border:none; background:none; font-family:inherit; cursor:pointer; padding:0;}
+.dp-drop.done{border-style:solid; border-color:var(--v-green-line); background:var(--v-green-soft);}
+.dp-file{display:flex; align-items:center; gap:8px; margin-top:6px; padding:7px 10px; border:1px solid var(--v-line); border-radius:10px; background:var(--v-panel);}
+.dp-file > .icon{width:17px; height:17px; color:var(--v-green-ink); flex:none;}
+.dp-file > span:not(.v2-pill){flex:1; min-width:0;}
+.dp-file b{display:block; font-size:12px !important; color:var(--v-ink);}
+.dp-file small{display:block; font-size:10.5px; color:var(--v-muted);}
+.dp-status{display:flex; align-items:center; gap:10px; margin-top:8px;}
+.dp-status label{font-size:12px; color:var(--v-muted);}
+.dp-status select{width:180px; height:32px; font-family:inherit; font-size:12.5px; color:var(--v-ink); background:var(--v-panel); border:1px solid var(--v-line-2); border-radius:8px; padding:0 8px;}
+.v2-menu button:disabled{opacity:.45; cursor:not-allowed;}
+.dp-bank{display:grid; grid-template-columns:1fr 1.4fr; gap:4px 12px; margin:8px 0; padding:8px 10px; border-radius:8px; background:var(--v-panel-2); border:1px solid var(--v-line);}
+.dp-bank span{display:flex; align-items:baseline; gap:2px 6px; min-width:0; flex-wrap:wrap;}
+.dp-bank small{font-size:11px; color:var(--v-muted); white-space:nowrap;}
+.dp-bank b{font-size:12px !important; color:var(--v-ink);}
+.dp-status small{font-size:11px; color:var(--v-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+.dp-file .v2-link{border:none; background:none; font-family:inherit; cursor:pointer; padding:0;}

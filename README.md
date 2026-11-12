@@ -11,6 +11,7 @@ Every step has its **source**, its **screen**, its **entry conditions** and its 
 - The opening line and the CARS24 pitch are in CarGPT, not steps. Contact details are edited in the left pane.
 - **Discovery** (only when unsure) works like the website: **P3 Car listing** (search by appointment ID, filter pills, car cards with a Compare tick), **P3a Car details** (the website's car page, with the customer's context for the car) and **P3b Compare** (2 or 3 cars in columns, on the same page as the listing).
 - **P4 TD type per car**, then **P5 hub slot** and/or **P6 video slot** depending on the mix, then **P7 book**.
+- **Or a deposit (P7d).** Once a car is picked, the arrow next to Next offers Customer wants to pay a deposit. The agent sends the bank details from the CRM (WhatsApp, email, SMS), uploads the payment screenshot the customer emails, sets the car to Reserved and completes; the order goes to delivery.
 
 Every screen uses the standard footer: Previous and Next, with the other exits (including a customer dropping off) under the arrow next to Next.
 
@@ -53,7 +54,7 @@ Deep links: `#booked-I1`, `#booked-P3a`, `#walkin-T2`, `#vtd-O5`, `#blueprint`, 
 ## Files
 
 - `index.html`: the page.
-- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 35 steps, plus mock people and cars per market and the copy layer for Australia.
+- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 36 steps, plus mock people and cars per market and the copy layer for Australia.
 - `piston-anatomy.js`: parts, fields, actions and states for every screen.
 - `piston-screens.js`: one Leadverse screen per step, the ground TV board, and the phone screens: the seat QR check-in, the customer's token page and the Yardie's task list.
 - `piston.js`: the viewer.

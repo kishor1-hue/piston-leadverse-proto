@@ -57,6 +57,7 @@ const FLOWS = {
     entry: ["A lead with a mobile number, booked on the TD booking call", "On the day: customer arrives at the booked hub"],
     exit: [
       ["good", "TOKEN PAID", "handed to the delivery journey"],
+      ["good", "CAR RESERVED", "a deposit taken on the call, no TD needed"],
       ["warn", "FOLLOW-UP SCHEDULED", "date agreed, shortlist shared"],
       ["warn", "NEW TD BOOKED", "another car, restarts at Plan"],
       ["bad", "DROPPED", "reason recorded"],
@@ -78,6 +79,7 @@ const FLOWS = {
     entry: ["A lead with a mobile number, booked on a video TD", "On the day: customer joins the video link within 15 min of the slot"],
     exit: [
       ["good", "TOKEN PAID", "by payment link"],
+      ["good", "CAR RESERVED", "a deposit taken on the call"],
       ["warn", "NEW TD BOOKED", "a hub TD after the video"],
       ["warn", "FOLLOW-UP SCHEDULED", "date agreed"],
       ["bad", "DROPPED", "reason recorded"],
@@ -88,7 +90,7 @@ const FLOWS = {
 // ---------------------------------------------------------------- phase level
 const PHASES = [
   { id: "P", name: "Plan", when: "Before arrival", owner: "Calling team, then the system",
-    entry: "An enquiry with a mobile number: an order, or a contact with cars of interest. Self-serve app bookings skip the call and start at P8", exit: "Every TD from the call booked and the calling task closed, then ready for the visit" },
+    entry: "An enquiry with a mobile number: an order, or a contact with cars of interest. Self-serve app bookings skip the call and start at P8", exit: "Every TD from the call booked and the calling task closed, then ready for the visit. Or a deposit taken and the car reserved" },
   { id: "I", name: "Introduce", when: "First 3 minutes: welcome and check-in in one gesture",
     owner: { hub: { staff: "Receptionist or DA, with the customer", qr: "Customer, from the QR on their seat" }, vtd: "VTD operator" },
     entry: { hub: "Customer walks in and sits down", vtd: "Customer opens the video link" },
@@ -136,12 +138,14 @@ const STEPS = [
     exits: {
       booked: [
         { when: "An order exists: continue with it", to: "P4" },
+        { when: "The customer is convinced and wants to pay a deposit now (a car is picked)", to: "P7d" },
         { when: "The customer is unsure: discover cars together", to: "P3" },
         { when: "Call back later, or no answer", to: "P9" },
         { when: "Wrong number or not interested: disposition", to: "N7", state: "DROPPED" },
       ],
       vtd: [
         { when: "The customer picks cars from their interest; with mobile and email, one order is created per car", to: "P4", state: "BOOKING INITIATED" },
+        { when: "The customer is convinced and wants to pay a deposit now (a car is picked)", to: "P7d" },
         { when: "The customer is unsure: discover cars together", to: "P3" },
         { when: "Call back later, or no answer", to: "P9" },
         { when: "Wrong number or not interested: disposition", to: "N7", state: "DROPPED" },
@@ -180,6 +184,7 @@ const STEPS = [
     exits: [
       { when: "Customer wants to drive it: an order is created if none exists", to: "P4", state: "BOOKING INITIATED" },
       { when: "Compare it with others", to: "P3b" },
+      { when: "The customer is convinced and wants to pay a deposit now (a car is picked)", to: "P7d" },
       { when: "Back to the results", to: "P3" },
       { when: "Nothing fits: alert on new arrivals, call back", to: "P9" },
     ],
@@ -197,6 +202,7 @@ const STEPS = [
     exits: [
       { when: "Cars picked to drive: orders created if none exist", to: "P4", state: "BOOKING INITIATED" },
       { when: "Open one car in full", to: "P3a" },
+      { when: "The customer is convinced and wants to pay a deposit now (a car is picked)", to: "P7d" },
       { when: "Back to the results", to: "P3" },
     ],
     state: null,
@@ -257,6 +263,25 @@ const STEPS = [
     screen: { name: "TD booking call &rsaquo; Book", build: "new",
       pattern: "Summary card per booking: TD type, slot, cars and order IDs", route: { booked: "/tasks/TK-6120?step=book", vtd: "/tasks/TK-6127?step=book" } },
     changed: "Books every TD from the call at once, then closes the calling task.",
+  },
+  // A convinced customer can skip the TD: the agent takes a deposit on the call and reserves the car
+  { id: "P7d", phase: "P", name: "Deposit and reserve", tracks: ["booked", "vtd"], branch: true,
+    owner: "Calling agent", device: "desktop",
+    purpose: "When the pitch lands and the customer wants the car now, the agent takes a deposit instead of booking a TD. Send the bank details from the CRM (WhatsApp, email or SMS). The customer pays and emails a screenshot of the payment to the agent. The agent downloads it, uploads it here as the deposit confirmation, sets the car to Reserved, and completes the step.",
+    source: { trigger: "Pay a deposit, from the Next menu, once at least one car is picked (P2, P3a or P3b)",
+      data: ["OMS: the order for the picked car, created if none exists", "Bank details for deposits, per market, with the order as the reference", "CRM templates: WhatsApp, email and SMS", "The agent's mailbox: the customer's payment screenshot", "Docs: the deposit confirmation, stored on the order", "Listing: the car's status (Available, Reserved)"] },
+    entry: ["A car picked", "The customer wants to pay a deposit"],
+    exits: [
+      { when: "Confirmation uploaded and the car set to Reserved: complete. The order goes to the delivery journey", to: "N3", state: "CAR RESERVED" },
+      { when: "Not paid yet: call back to check", to: "P9" },
+      { when: "Changes their mind: book a TD instead", to: "P4" },
+    ],
+    state: "CAR RESERVED",
+    screen: { name: "TD booking call &rsaquo; Deposit", build: "new",
+      pattern: "The call task with its stages switched to Interest, Discovery, Deposit, Reserved. Three blocks: send the bank details (WhatsApp, email, SMS), upload the deposit confirmation, set the car status. Complete stays off until the upload and Reserved are both done",
+      route: { booked: "/tasks/TK-6120/deposit", vtd: "/tasks/TK-6127/deposit" } },
+    dap: "No deposit on the call today. The token is collected at the hub after the TD (N2).",
+    changed: "New: a customer convinced on the call can pay a deposit and reserve the car without a TD.",
   },
   { id: "P8", phase: "P", name: "Pre-arrival readiness", tracks: ["booked", "vtd"],
     owner: "System; receptionist watches the list", device: "desktop",
@@ -660,8 +685,8 @@ const STEPS = [
   { id: "N3", phase: "N", name: "Handoff to delivery", tracks: ["booked", "walkin", "vtd"],
     owner: "System, then RM", device: { hub: "tablet", vtd: "video" },
     purpose: "Start the delivery journey with nothing lost.",
-    source: { trigger: "TOKEN PAID", data: ["Delivery service: documents, finance, VAS, agreement, registration, delivery", "Leadverse Order personas"] },
-    entry: ["TOKEN PAID"],
+    source: { trigger: "TOKEN PAID, or CAR RESERVED with a deposit taken on the call (P7d)", data: ["Delivery service: documents, finance, VAS, agreement, registration, delivery", "Leadverse Order personas", "Docs: the deposit confirmation, when the deposit was taken on the call"] },
+    entry: ["TOKEN PAID, or a deposit confirmed and the car reserved"],
     exits: [{ when: "Delivery tasks created, RM assigned. The TD journey closes", to: null, state: "CONVERTED" }],
     state: null,
     screen: { name: "Next step &rsaquo; Handoff", build: "reuse",

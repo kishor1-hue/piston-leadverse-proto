@@ -340,7 +340,13 @@ function mountScreen(root) {
   root.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.open); if (o) { o.hidden = false; dims().forEach(d => { d.hidden = false; }); } }));
   root.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => { const o = root.querySelector("#" + b.dataset.close); if (o) o.hidden = true; dims().forEach(d => { d.hidden = true; }); }));
   // the arrow next to Next opens the other exits; any other click closes it
-  root.querySelectorAll("[data-menu]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); const m = b.nextElementSibling; m.hidden = !m.hidden; }));
+  // a menu item with data-needs is offered only when that selector matches, e.g. Pay a deposit once a car is picked
+  root.querySelectorAll("[data-menu]").forEach(b => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const m = b.nextElementSibling;
+    m.querySelectorAll("[data-needs]").forEach(x => { x.disabled = !root.querySelector(x.dataset.needs); });
+    m.hidden = !m.hidden;
+  }));
   root.addEventListener("click", (e) => { if (!e.target.closest("[data-menu]")) root.querySelectorAll(".v2-menu").forEach(m => { m.hidden = true; }); });
   // filter tabs over a table or a list: rows carry data-cat, one or more categories
   root.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => {
@@ -375,7 +381,34 @@ function mountScreen(root) {
   // pins follow the visible parts after any in-screen change
   root.addEventListener("click", () => setTimeout(drawPins, 0));
   mountSignature(root);
+  mountDeposit(root);
   drawIcons();
+}
+
+// the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved
+function mountDeposit(root) {
+  const done = root.querySelector("[data-dep-done]");
+  if (!done) return;
+  const up = root.querySelector("[data-upload]"), file = root.querySelector("[data-upload-file]"), status = root.querySelector("[data-status]"), hint = root.querySelector("[data-dep-hint]");
+  const sync = () => {
+    const uploaded = up.classList.contains("done"), reserved = status.value === "Reserved";
+    done.disabled = !(uploaded && reserved);
+    root.querySelectorAll("[data-status-pill]").forEach(x => { x.textContent = status.value; x.className = `v2-pill ${reserved ? "violet" : "green"}`; });
+    if (hint) hint.textContent = uploaded && reserved ? "Deposit recorded, car reserved" : !uploaded ? "Upload the deposit confirmation" : "Set the car to Reserved";
+  };
+  const setFile = (name, size) => {
+    up.classList.add("done");
+    file.querySelector("b").textContent = name;
+    file.querySelector("small").textContent = `${size} \u00b7 uploaded just now`;
+    file.hidden = false;
+    up.hidden = true;
+    sync();
+  };
+  file.querySelector("[data-upload-replace]").addEventListener("click", (e) => { e.preventDefault(); up.hidden = false; up.querySelector("input").click(); });
+  up.querySelector("input").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) setFile(f.name, `${Math.max(1, Math.round(f.size / 1024))} KB`); });
+  up.querySelector("[data-upload-sample]").addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setFile("deposit-confirmation.png", "240 KB"); });
+  status.addEventListener("change", sync);
+  sync();
 }
 
 // Two devices on one stage talk through state events. A phone tap (data-sync="key" sends an answer, data-sync-event
@@ -620,6 +653,11 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;If the pitch convinces the customer, take a deposit instead of booking a TD: Pay deposit in the Next dropdown once a car is picked, a Deposit stage, send bank details through the CRM, upload the confirmation screenshot, set the car to Reserved, complete&rdquo;</div><h4>A call can end in a deposit</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">Every call ends in a TD booking: TD type &rarr; Slots &rarr; Book</span><span class="k">After</span><span class="seq">A car picked (P2, P3a or P3b) &rarr; Next menu: <em>Customer wants to pay a deposit</em> &rarr; <em>P7d Deposit and reserve</em> &rarr; delivery (N3)</span></div>
+        <p><b>Offered once a car is picked.</b> The arrow next to Next holds Customer wants to pay a deposit on the lead view, the car page and the compare. It stays off until a car is picked. The call's stages switch to Interest, Discovery, Deposit, Reserved.</p>
+        <p><b>Three blocks, one gate.</b> Send the bank details from the CRM by WhatsApp, email or SMS, with the order as the reference. The customer pays and emails a screenshot to the agent, who downloads it and uploads it as the deposit confirmation. Then the car status goes to Reserved. Complete stays off until the upload and Reserved are both done; then the order goes to the delivery journey.</p>
+        ${links(stepLink("P7d", "Deposit and reserve", { track: "booked" }), stepLink("P3a", "Deposit from the car page"), stepLink("P2", "Deposit from the lead view", { track: "vtd" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;Orders and cars of interest should show finance (pre-approved or not), the wishlist, past and future orders: context and detail. Break discovery down: the car listing with filters and appointment ID search, compare 2 or 3 in a grid on the same page, and a car page like cars24.com.au&rdquo;</div><h4>The call sees the whole customer, and discovery works like the website</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">P2 Orders and cars of interest &rarr; P3 Discovery (stepper pills)</span><span class="k">After</span><span class="seq"><em>P2 Orders, finance and cars</em> (context tiles, detail tabs) &rarr; <em>P3 Car listing</em> &rarr; <em>P3a Car details</em> or <em>P3b Compare</em> on the same page</span></div>
         <p><b>Context, then detail.</b> Four tiles on top: orders, finance (pre-approved and up to how much), wishlist (with price drops) and what was viewed this week. Below them, tabs: current and past orders with their cars, the wishlist and viewed cars (or the cars of interest when there is no order), and finance: pre-approval, amount, validity, repayment, deposit, credit score and trade-in. CarGPT turns it into a line: pre-approved, say it early; a wishlist car dropped, mention it.</p>
@@ -732,6 +770,7 @@ function renderChanges() {
 
     <h3 class="doc-h3">Decisions needed</h3>
     <div class="decide">
+      <div><b>Checking a deposit by hand</b>The agent checks the customer's screenshot and reserves the car; the at-hub token (N2) waits for the payment gateway instead. Keep the screenshot as the proof, or have finance confirm the bank credit (or a payment link) before the car is reserved? And who releases the car if the money never arrives?</div>
       <div><b>Where the listing comes from</b>The call's listing, car page and compare should show exactly what the website shows. Call the consumer listing and car page services from Leadverse, or build the screens from the shared DLS components with their own BFF?</div>
       <div><b>One discovery at the hub too</b>The walk-in's car finding (T2) still uses the stepper pills. Use the same listing, car page and compare on the DA's tablet?</div>
       <div><b>A booked customer who wants another car</b>A booking has no car finding: the handshake starts the drive. If they change their mind on the day, is that a new order (N6), or can the DA add a car at the handshake?</div>
