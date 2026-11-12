@@ -89,7 +89,7 @@ const FLOWS = {
 
 // ---------------------------------------------------------------- phase level
 const PHASES = [
-  { id: "P", name: "Plan", when: "Before arrival", owner: "Calling team, then the system",
+  { id: "P", name: "Plan", when: "Before arrival. The pitch decides what comes next: a TD booking or a deposit", owner: "Calling team, then the system",
     entry: "An enquiry with a mobile number: an order, or a contact with cars of interest. Self-serve app bookings skip the call and start at P8", exit: "Every TD from the call booked and the calling task closed, then ready for the visit. Or a deposit taken and the car reserved" },
   { id: "I", name: "Introduce", when: "First 3 minutes: welcome and check-in in one gesture",
     owner: { hub: { staff: "Receptionist or DA, with the customer", qr: "Customer, from the QR on their seat" }, vtd: "VTD operator" },
@@ -267,7 +267,7 @@ const STEPS = [
   // A convinced customer can skip the TD: the agent takes a deposit on the call and reserves the car
   { id: "P7d", phase: "P", name: "Deposit and reserve", tracks: ["booked", "vtd"], branch: true,
     owner: "Calling agent", device: "desktop",
-    purpose: "When the pitch lands and the customer wants the car now, the agent takes a deposit instead of booking a TD. Send the bank details from the CRM (WhatsApp, email or SMS). The customer pays and emails a screenshot of the payment to the agent. The agent downloads it, uploads it here as the deposit confirmation, sets the car to Reserved, and completes the step.",
+    purpose: "A lead does not always need a TD: when the pitch lands and the customer wants the car now, the agent takes a deposit instead. The journey is not fixed: the agent's choice is sent with Next, and the next-step API answers with this step and the deposit stages. Send the bank details from the CRM (WhatsApp, email or SMS). The customer pays and emails a screenshot of the payment to the agent. The agent downloads it, uploads it here as the deposit confirmation, sets the car to Reserved, and completes the step.",
     source: { trigger: "Pay a deposit, from the Next menu, once at least one car is picked (P2, P3a or P3b)",
       data: ["OMS: the order for the picked car, created if none exists", "Bank details for deposits, per market, with the order as the reference", "CRM templates: WhatsApp, email and SMS", "The agent's mailbox: the customer's payment screenshot", "Docs: the deposit confirmation, stored on the order", "Listing: the car's status (Available, Reserved)"] },
     entry: ["A car picked", "The customer wants to pay a deposit"],
