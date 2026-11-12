@@ -39,7 +39,7 @@ const STAFF_AV = marketTable({ receptionist: "K", da: "OH", operator: "SI", mana
 
 const PILL = {
   P1: ["grey", "New lead"], P2: ["violet", "Booking initiated"], P3: ["violet", "Booking initiated"], P3a: ["violet", "Booking initiated"], P3b: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
-  P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P7d: ["amber", "Deposit pending"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
+  P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P7d: ["amber", "Deposit pending"], P7f: ["violet", "Booking initiated"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
   I1: ["red", "Not checked-in"], I2: ["green", "Checked in"], S1: ["green", "Checked in"], S2: ["violet", "DA assigned"],
   T1: ["violet", "With DA"], T2: ["violet", "With DA"], T3: ["violet", "With DA"], T4: ["violet", "With DA"], T5: ["violet", "With DA"],
   O1: ["violet", "Car on its way"], O2: ["red", "TD live"], O3: ["red", "TD live"], O4: ["red", "TD live"],
@@ -151,11 +151,20 @@ function leadPane(t, stepId, opts = {}) {
         <div class="v2-f"><div><small>${isLead ? "Lead owner" : "DA"}</small><b>${isLead ? v.owner : t === "vtd" ? PSTAFF.operator.name : ["I1", "I2"].includes(stepId) ? "Not assigned yet" : stepId === "S1" ? `${PSTAFF.da.name} (auto)` : PSTAFF.da.name}</b></div></div>
       </div>
       <div class="v2-sec">Finance</div>
-      <div class="v2-group"><div class="v2-f"><div><small>${MK.credit}</small><b>${v.aecb}</b></div></div><div class="v2-f"><div><small>Pre-approval</small><b>${v.pre}</b></div></div></div>
+      ${isLead ? leadFin(t) : `<div class="v2-group"><div class="v2-f"><div><small>${MK.credit}</small><b>${v.aecb}</b></div></div><div class="v2-f"><div><small>Pre-approval</small><b>${v.pre}</b></div></div></div>`}
       <div class="v2-sec">Documents</div>
       <div class="v2-group"><div class="v2-f"><div><small>Driving licence</small><b${opts.dlAttrs ? " " + opts.dlAttrs : ""}>${opts.dl || (PRE_DL.includes(stepId) && t !== "vtd" ? "To verify" : v.dl)}</b></div></div><div class="v2-f"><div><small>${MK.idDoc}</small><b>${v.eid}</b></div></div></div>
     </div>
   </aside>`;
+}
+
+// on the call: how the customer pays (Finance by CARS24 or Own loan offers the pre-approval), the score and the pre-approval
+function leadFin(t) {
+  const f = finOf(t), m = payMode(t), r = PREQ.run[t], ran = f.amount || f.rate;
+  return `<div class="v2-group" data-part="paymode">
+    <div class="v2-f"><div><small>Payment mode</small><select class="v2-input sm${m === "cash" ? "" : " fin"}" data-paymode aria-label="Payment mode">${PAY_MODES.map(([k, l]) => `<option value="${k}"${k === m ? " selected" : ""}>${l}</option>`).join("")}</select></div></div>
+    <div class="v2-f"><div><small>${MK.credit}</small><b data-lead-fin="score">${ran ? `${r.score} &middot; ${r.band}` : "Not fetched"}</b></div></div>
+    <div class="v2-f"><div><small>Pre-approval</small><b data-lead-fin="pre">${f.amount ? `Up to ${f.amount}` : f.status}</b></div></div></div>`;
 }
 
 // ================================================================== stage bar
@@ -332,7 +341,30 @@ const kv = (k, v) => `<div class="v2-kv"><small>${k}</small><b>${v}</b></div>`;
 
 // ================================================================== discovery: the website's listing, car page and compare
 // the car opened and the cars ticked on the listing, so the car page and the compare show them (set by piston.js)
-const PICKED = { car: null, cmp: null };
+const PICKED = { car: null, cmp: null, from: null };
+// how the customer pays (set in the lead pane) and a pre-approval run on this call (P7f), per market and track
+const PAY = {}, FIN_RUN = {};
+const ctxKey = (t) => `${CTX.market}-${t}`;
+const payMode = (t) => PAY[ctxKey(t)] || P360[t].pay;
+const payLabel = (m) => PAY_MODES.find(([k]) => k === m)[1];
+function setPayMode(t, m) { PAY[ctxKey(t)] = m; }
+// the pre-approval the screens show: from the finance service, updated by a run on this call. A partial run gives a
+// rate range; a full run gives the amount
+function finOf(t) {
+  const f = { ...P360[t].fin }, run = FIN_RUN[ctxKey(t)], r = PREQ.run[t];
+  if (run && run.full) Object.assign(f, { status: "Pre-approved", amount: r.amount, until: PREQ.expires, lender: "CARS24 Finance", repay: r.repay, deposit: f.deposit || money(0), term: f.term || "5 years", when: "just now, on this call" });
+  else if (run && !f.amount) Object.assign(f, { status: "Rate range", rate: PREQ.rate, until: PREQ.expires, when: "just now, on this call" });
+  f.amt = f.amount ? +f.amount.replace(/\D/g, "") : 0;
+  return f;
+}
+const preOut = (f) => f.amount ? `Up to <b>${f.amount}</b> &middot; ${PREQ.rateFull} &middot; about ${f.repay} over ${f.term}` : `Rate range <b>${f.rate}</b> &middot; no amount yet: the full set gives it`;
+// a run from P7f: kept for the lead so every call screen shows it; returns what the form and the lead pane show
+function preRun(t, full) {
+  FIN_RUN[ctxKey(t)] = { full };
+  const f = finOf(t), r = PREQ.run[t];
+  return { status: f.amount ? "Pre-approved" : "Rate range", cohort: PREQ.cohort, score: r.score, expires: f.until, out: preOut(f), pre: f.amount ? `Up to ${f.amount}` : "Rate range", lead: `${r.score} \u00b7 ${r.band}` };
+}
+const preScore = (t) => ({ score: PREQ.run[t].score, cohort: PREQ.cohort });
 const kmShort = (km) => km.replace(/^(\d+),\d{3} km$/, "$1k km");
 // the repayment the website shows: per week in Australia, per month (EMI) in the UAE
 const per = (price) => money(Math.round(price / MK.perDiv));
@@ -376,7 +408,7 @@ function needSteps(t, { who, pay, pickN = 2, compare } = {}) {
     ["who", "Who it's for", `<b class="v2-q">Who is the car for?</b>${chips("who", ["Just me", "Couple", "Family with kids", "Business", "First car"], [who])}
       <b class="v2-q" style="margin-top:14px;">Mostly for</b>${chips("multi", MK.usage, n.usage)}`],
     ["budget", "Budget", `<b class="v2-q">What's the budget?</b>${chips("budget", MK.budgets, [n.budget])}
-      <b class="v2-q" style="margin-top:14px;">Paying by</b>${chips("pay", ["Cash", "Finance", "Not sure yet"], [pay])}`],
+      <b class="v2-q" style="margin-top:14px;">Paying by</b>${chips("pay", [...PAY_MODES.map(([, l]) => l), "Not sure yet"], [pay])}`],
     ["body", "Body type", `<b class="v2-q">Which body type?</b>${chips("multi", ["Sedan", "SUV", "Hatchback", "Ute", "7 seats"], n.body)}`],
     ["fuel", "Fuel and gearbox", `<b class="v2-q">Fuel</b>${chips("fuel", ["Petrol", "Hybrid", "Diesel", "Electric"], [n.fuel])}
       <b class="v2-q" style="margin-top:14px;">Gearbox</b>${chips("trans", ["Automatic", "Manual"], [n.trans])}`],
@@ -429,6 +461,8 @@ function callStages(t, idx, cur, list = CALL_STEPS) {
     return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${state === "done" ? done[n] : state === "cur" ? (cur || "In progress") : "Pending"}</span></div>`;
   }).join("")}</div>`;
 }
+// the pre-approval, under the arrow on every call step; off unless the payment mode is finance or an own loan
+const PRE_ITEM = (id) => ["Run a finance pre-approval", "P7f", "", "landmark", false, `data-from="${id}" data-needs="[data-paymode].fin" title="For Finance by CARS24 or Own loan"`];
 // wide: the cars need the room (discovery), so CarGPT folds to a strip that opens its tips on a click
 function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev, steps }) {
   const p = PEOPLE[t];
@@ -436,10 +470,38 @@ function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, c
     <div class="v2-call-r"><span>${ic("mic-off")}</span><span>${ic("pause")}</span><span class="end">${ic("phone-off")}</span></div></div>`;
   const content = `<div class="v2-body">
     ${leadPane(t, id, leadOpts || {})}
-    <section class="v2-center">${callbar}${callStages(t, idx, cur, steps)}<div class="v2-content${wide ? " scrolls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, buttons, prev)}</section>
+    <section class="v2-center">${callbar}${callStages(t, idx, cur, steps)}<div class="v2-content${wide ? " scrolls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, id === "P7f" ? buttons : [PRE_ITEM(id), ...buttons], prev)}</section>
     ${wide ? gptMini(cards || []) : gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}` })}
   </div>`;
   return shell({ active: "tasks", who: "cc", crumb: crumbOf("Tasks", "TD booking call", `${p.name} - ${CALL_TASK[t]}`), body: content });
+}
+
+// the pre-approval (P7f) opens from any of these and goes back: the stage it keeps, how to name it, its stage list
+const PRE_STAGE = { P2: [0, "the lead view"], P3: [1, "the listing"], P3a: [1, "the car page"], P3b: [1, "the compare"], P4: [2, "the TD type"],
+  P5: [3, "the hub slot"], P6: [3, "the video slot"], P7: [4, "the read-back"], P7d: [2, "the deposit", DEPOSIT_STEPS] };
+// one item of the market's question set (PREQ): a question (q) shows its hint above the control, a label below it
+let paN = 0;
+function paItem(it, tok) {
+  const id = `pa${++paN}`;
+  const lab = it.q ? `<label class="pa-q" for="${id}">${it.q}</label>` : it.label ? `<label for="${id}">${it.label}</label>` : "";
+  const hint = it.hint ? `<small class="pa-hint">${it.hint}</small>` : "";
+  const [top, bot] = it.q ? [lab + hint, ""] : [lab, hint];
+  const opts = (list, on) => list.map(o => `<option${o === on ? " selected" : ""}>${o}</option>`).join("");
+  switch (it.k) {
+    case "sec": return `<h5 class="pa-h">${it.label}</h5>`;
+    case "hint": return `<small class="pa-hint up">${it.text}</small>`;
+    case "pair": return `<div class="pa-pair">${it.items.map(x => paItem(x, tok)).join("")}</div>`;
+    case "in": return `<div class="v2-field${it.half ? " pa-half" : ""}">${top}<input class="v2-input" id="${id}"${it.num ? ` inputmode="numeric"` : ""} value="${tok(it.val)}" placeholder="${it.ph || ""}">${bot}</div>`;
+    case "date": case "month": return `<div class="v2-field">${top}<input class="v2-input" type="${it.k}" id="${id}">${bot}</div>`;
+    case "sel": return `<div class="v2-field">${top}<select class="v2-input" id="${id}">${opts(it.opts, it.on)}</select>${bot}</div>`;
+    case "freq": return `<div class="v2-field">${top}<div class="pa-freq"><input class="v2-input" id="${id}" inputmode="numeric" placeholder="${it.ph || ""}"${it.id ? ` data-pa-id="${it.id}"` : ""}><select class="v2-input" aria-label="How often">${opts(it.opts, it.on)}</select></div>${bot}</div>`;
+    case "pills": return `<div class="v2-field"><span class="pa-q">${it.q}</span>${hint}<div class="v2-chips">${it.opts.map((o, i) => `<button class="v2-chip${i === it.on ? " on" : ""}" data-pick="${id}">${o}</button>`).join("")}</div></div>`;
+    case "slider": return `<div class="v2-field pa-slider"><label for="${id}">${it.label}<b data-pa-val>${it.val}%</b></label><input type="range" id="${id}" min="${it.min}" max="${it.max}" value="${it.val}" data-pa-range>${hint}</div>`;
+    case "check": return `<label class="pa-check"><input type="checkbox"${it.off ? ` data-pa-off="${it.off}"` : ""}>${it.text}</label>`;
+    case "reveal": return `<label class="pa-check"><input type="checkbox" data-pa-reveal>${it.text}</label><div data-pa-revealed hidden>${paItem(it.field, tok)}</div>`;
+    case "consent": return `<label class="pa-check pa-consent"><input type="checkbox" data-pa-consent>${it.text}</label>`;
+  }
+  return "";
 }
 
 // ================================================================== screens
@@ -468,19 +530,19 @@ const SCREENS = {
   // the lead view: the customer's orders and cars first; the opening line and the pitch are in CarGPT
   // the customer's whole picture before the pitch: context tiles on top, detail in tabs (orders, cars, finance)
   P2: (t) => {
-    const p = PEOPLE[t], vtd = t === "vtd", fn = first(t), cc = PSTAFF.cc.name.split(" ")[0], me = P360[t], f = me.fin;
+    const p = PEOPLE[t], vtd = t === "vtd", fn = first(t), cc = PSTAFF.cc.name.split(" ")[0], me = P360[t], f = finOf(t);
     const link = (cid) => `<a class="v2-link" href="${PCARS[cid].url}" target="_blank" rel="noopener" title="Opens the car's page on the consumer website">${ic("external-link")}Car page</a>`;
     const script = vtd
       ? `&ldquo;Hi, this is ${cc} from CARS24. Am I speaking with ${fn}? You asked our chatbot about 4 cars, including the ${PCARS[p.car].title}. Is now a good time for a few minutes?&rdquo;`
       : `&ldquo;Hi, this is ${cc} from CARS24. Am I speaking with ${fn}? You were looking at the ${PCARS[p.car].title} in our app. Is now a good time for a few minutes?&rdquo;`;
     const drops = me.wish.filter(cid => CARX[cid].drop);
     const cards = [["Say this", "quote", `<p>${script}</p>`],
-      ["Use the context", "lightbulb", `<p>${f.status} up to ${f.amount}: say it early, it widens the choice.${drops.length ? ` The ${carShort(drops[0])} in the wishlist just dropped ${money(CARX[drops[0]].drop)}.` : ""}</p>`],
+      ["Use the context", "lightbulb", `<p>${f.amount ? `${f.status} up to ${f.amount}: say it early, it widens the choice.` : `No pre-approval yet, and ${fn} wants finance: offer the 2-minute check, under the arrow next to Next.`}${drops.length ? ` The ${carShort(drops[0])} in the wishlist just dropped ${money(CARX[drops[0]].drop)}.` : ""}</p>`],
       ["Why CARS24, once", "shield-check", `<p>Every car inspected, warranty, a return window, finance and trade-in. Cover it early, then let the customer talk.</p>`]];
     const tile = (tab, icon, k, v, sub) => `<button class="cx-tile" data-step-to="cx:${tab}"><span class="k">${ic(icon)}${k}</span><b>${v}</b><small>${sub}</small></button>`;
     const tiles = `<div class="cx-tiles" data-part="context">
       ${tile("orders", "receipt-text", "Orders", vtd ? "None yet" : `1 open &middot; ${me.past ? 1 : 0} past`, vtd ? "4 cars on the contact" : `${p.id}, booking initiated`)}
-      ${tile("finance", "landmark", "Finance", f.status, `Up to ${f.amount}`)}
+      ${tile("finance", "landmark", "Finance", f.status, f.amount ? `Up to ${f.amount}` : f.rate || "Run it on this call")}
       ${tile("cars", "heart", "Wishlist", `${me.wish.length} cars`, drops.length ? `${drops.length} price drop` : "No price drops")}
       ${tile("cars", "eye", "Viewed", `${me.viewed} this week`, `${carShort(me.top[0])}, ${me.top[1]} times`)}
     </div>`;
@@ -503,10 +565,15 @@ const SCREENS = {
         ${me.wish.map(cid => carRow(cid, { oid: cid === p.car ? p.id : null, sub: `Appointment ${PCARS[cid].appt} &middot; ${money(PCARS[cid].price)}`, badge: cid === p.car ? pill("violet", "On order") : dropBadge(cid),
           right: cid === p.car ? link(cid) : `<button class="v2-chip" data-pick="multi">${ic("plus")}Add to the call</button>` })).join("")}
         <p class="v2-small" style="margin:2px 0 0;">${ic("eye")} Viewed ${me.viewed} cars this week; the ${carShort(me.top[0])} ${me.top[1]} times. Adding a car creates an order for it.</p>`;
-    const finance = `<div class="cx-fin-h"><span class="v2-pill green">${ic("badge-check")}${f.status}</span><b>Up to ${f.amount}</b><small>Valid until ${f.until} &middot; ${f.lender}</small></div>
-      <div class="v2-kvs" style="margin-bottom:8px;">${kv("Est. repayment", f.repay)}${kv("Deposit", f.deposit)}${kv("Term", f.term)}${kv(MK.credit, VISIT[t].aecb)}</div>
-      <div class="v2-kvs two" style="margin-bottom:8px;">${kv("Paying by", `${me.pay}<small>Said in the app</small>`)}${kv("Trade-in", me.trade)}</div>
-      <div class="cx-fin-a"><span class="v2-small" style="margin:0;">${ic("history")} From the finance service, checked 3 days ago.</span><button class="v2-btn sm">${ic("message-circle")}Send the pre-approval summary</button></div>`;
+    const paying = kv("Paying by", `<span data-paylabel>${payLabel(payMode(t))}</span><small>Set in the lead pane</small>`);
+    const finance = f.amount
+      ? `<div class="cx-fin-h"><span class="v2-pill green">${ic("badge-check")}${f.status}</span><b>Up to ${f.amount}</b><small>Valid until ${f.until} &middot; ${f.lender}</small></div>
+      <div class="v2-kvs" style="margin-bottom:8px;">${kv("Est. repayment", f.repay)}${kv("Deposit", f.deposit)}${kv("Term", f.term)}${kv(MK.credit, `${PREQ.run[t].score} &middot; ${PREQ.run[t].band}`)}</div>
+      <div class="v2-kvs two" style="margin-bottom:8px;">${paying}${kv("Trade-in", me.trade)}</div>
+      <div class="cx-fin-a"><span class="v2-small" style="margin:0;">${ic("history")} Pre-approved ${f.when}.</span><button class="v2-btn sm">${ic("message-circle")}Send the pre-approval summary</button></div>`
+      : `<div class="cx-fin-h"><span class="v2-pill ${f.rate ? "violet" : "grey"}">${ic(f.rate ? "percent" : "circle-dashed")}${f.status}</span><b>${f.rate ? f.rate : "No pre-approval yet"}</b><small>${f.rate ? "No amount yet: the full set gives it" : `${fn} wants finance; nothing from the finance service`}</small></div>
+      <div class="v2-kvs two" style="margin-bottom:8px;">${paying}${kv("Trade-in", me.trade)}</div>
+      <div class="cx-fin-a" data-part="run-pre"><span class="v2-small" style="margin:0;">${ic("info")} A soft check and a few questions, on this call. Skippable.</span><button class="v2-btn sm primary" data-go="P7f" data-from="P2" data-needs="[data-paymode].fin" title="For Finance by CARS24 or Own loan">${ic("landmark")}Run the pre-approval</button></div>`;
     const body = `${tiles}${tabs}${panel("orders", orders, "orders")}${panel("cars", cars, vtd ? "interest" : "wishlist")}${panel("finance", finance, "finance")}`;
     return callTask(t, 0, "P2", { secs: "00:40", title: vtd ? `${fn}: which cars to drive?` : `${fn}: orders, finance and cars`,
       desc: vtd ? "No order yet. Add the email on the left, then pick the cars: one order each." : "Clear intent: an order exists, from the app with a mobile and an email. Confirm it, then the TD type. Contact details are edited on the left.",
@@ -540,9 +607,9 @@ const SCREENS = {
 
   // discovery 2: one car in full, as on the website's car page, with the customer's context for it
   P3a: (t) => {
-    const vtd = t === "vtd", fn = first(t), me = P360[t], f = me.fin;
+    const vtd = t === "vtd", fn = first(t), me = P360[t], f = finOf(t);
     const cid = PICKED.car || (vtd ? "c2" : "c1"), c = PCARS[cid], x = CARX[cid];
-    const amt = +f.amount.replace(/\D/g, ""), fits = c.price <= amt;
+    const fits = !!f.amount && c.price <= f.amt;
     const views = me.top[0] === cid ? me.top[1] : me.wish.includes(cid) ? 2 : 1;
     const make = c.title.split(" ")[1];
     const kmN = +c.km.replace(/\D/g, "");
@@ -556,11 +623,11 @@ const SCREENS = {
         <ul class="qp-list">${[["Small scratch, rear bumper", "Cosmetic"], ["Stone chip, bonnet", "Cosmetic"]].slice(0, Math.min(2, x.imp)).map(([k, v]) => `<li class="note">${ic("info")}<span>${k}<small>${v}</small></span></li>`).join("")}</ul>
         <a class="v2-link" style="margin-top:8px;">${ic("file-text")}${x.imp > 2 ? `All ${x.imp} imperfections and the full report` : "View the full inspection report"}</a>`)}
       ${sec("service", "Service history", `<div class="cd-svc">${[["28 Nov 2025", kmN], ["22 Nov 2024", Math.round(kmN * .78)], ["10 Nov 2023", Math.round(kmN * .55)]].map(([d, k]) => `<div><b>${d}</b><span>${make}</span><span>${k.toLocaleString("en-US")} km</span></div>`).join("")}</div>${x.svc > 3 ? `<a class="v2-link">See ${x.svc - 3} more</a>` : ""}`)}
-      ${sec("finance", "Finance", `<div class="cd-ov">${kv("Price", money(c.price))}${kv("Term", "5 years")}${kv("Deposit", f.deposit)}${kv("Repayment", `${per(c.price)}${MK.per}`)}</div>
-        <div class="v2-note ${fits ? "" : "amber"}" style="margin:8px 0 0;">${ic(fits ? "circle-check" : "info")}<span>${fn} is ${f.status.toLowerCase()} up to ${f.amount}: ${fits ? "this car fits." : "this car is over it."}</span></div>`)}
+      ${sec("finance", "Finance", `<div class="cd-ov">${kv("Price", money(c.price))}${kv("Term", "5 years")}${kv("Deposit", f.deposit || money(0))}${kv("Repayment", `${per(c.price)}${MK.per}`)}</div>
+        <div class="v2-note ${fits ? "" : "amber"}" style="margin:8px 0 0;">${ic(fits ? "circle-check" : "info")}<span>${f.amount ? `${fn} is ${f.status.toLowerCase()} up to ${f.amount}: ${fits ? "this car fits." : "this car is over it."}` : `${fn} has ${f.rate ? `a rate range (${f.rate}), no amount yet` : "no pre-approval yet"}: run it from the arrow next to Next.`}</span></div>`)}
       ${sec("edge", "The CARS24 edge", `<ul class="cd-ticks">${MK.edge.map(e => `<li>${ic("circle-check")}${e}</li>`).join("")}</ul><div class="cd-assure">${MK.assure.map(e => `<span>${ic("shield-check")}${e}</span>`).join("")}</div>`)}
       ${sec("similar", "Similar cars", `<div class="cd-similar">${["c3", "c5", "c4", "c1", "c2"].filter(z => z !== cid).slice(0, 3).map(z => `<button class="cd-mini" data-go="P3a" data-car="${z}"><span class="ph" style="background:${PCARS[z].color}">${ic("car")}</span><b>${PCARS[z].title}</b><small>${money(PCARS[z].price)} &middot; ${per(PCARS[z].price)}${MK.per}</small></button>`).join("")}</div>`)}`;
-    const ctx = [me.wish.includes(cid) ? "In the wishlist" : "Not in the wishlist", `viewed ${views} time${views > 1 ? "s" : ""}`, x.drop ? `${money(x.drop)} price drop` : "", `${f.status.toLowerCase()}: ${fits ? "fits" : "over it"}`].filter(Boolean).join(" &middot; ");
+    const ctx = [me.wish.includes(cid) ? "In the wishlist" : "Not in the wishlist", `viewed ${views} time${views > 1 ? "s" : ""}`, x.drop ? `${money(x.drop)} price drop` : "", f.amount ? `${f.status.toLowerCase()}: ${fits ? "fits" : "over it"}` : "no pre-approval yet"].filter(Boolean).join(" &middot; ");
     const warranty = Math.round(c.price * 1.14 / 10) * 10;
     const side = `<aside class="cd-side">
       <div class="cd-ctx" data-part="customer">${ic("user-round")}<div><b>For ${fn}</b><span>${ctx}</span></div></div>
@@ -587,12 +654,12 @@ const SCREENS = {
   P3b: (t) => {
     const vtd = t === "vtd", fn = first(t), me = P360[t];
     const ids = (PICKED.cmp && PICKED.cmp.length >= 2 ? PICKED.cmp : vtd ? ["c2", "c1", "c3"] : ["c1", "c3", "c5"]).slice(0, 3);
-    const amt = +me.fin.amount.replace(/\D/g, "");
+    const f = finOf(t), amt = f.amt;
     const num = (v) => +String(v).replace(/[^\d.]/g, "");
     // rows: [label, value of the car, best rule: min or max of a number]
     const sections = [
       ["Price and finance", [["Price", (c) => money(c.price), "min", (c) => c.price], ["Repayment", (c) => `${per(c.price)}${MK.per}`, "min", (c) => c.price],
-        ["Pre-approval", (c) => c.price <= amt ? `${ic("circle-check")}Fits` : `${ic("info")}Over it`], ["Price drop", (c, x) => x.drop ? money(x.drop) : "&mdash;"]]],
+        ["Pre-approval", (c) => !f.amount ? "Not run yet" : c.price <= amt ? `${ic("circle-check")}Fits` : `${ic("info")}Over it`], ["Price drop", (c, x) => x.drop ? money(x.drop) : "&mdash;"]]],
       ["Overview", [["Odometer", (c) => c.km, "min", (c) => num(c.km)], ["Body and seats", (c) => `${c.body}, ${c.seats} seats`, "max", (c) => c.seats], ["Fuel use", (c, x) => x.cons, "min", (c, x) => num(x.cons)],
         ["Engine", (c, x) => x.engine], ["Transmission", (c) => c.trans], ["Drive", (c) => c.drive], ["Colour", (c, x) => x.colour]]],
       ["Condition", [["Inspection", () => `Cleared, ${MK.inspect}`], ["Imperfections", (c, x) => x.imp, "min", (c, x) => x.imp], ["Services on record", (c, x) => x.svc, "max", (c, x) => x.svc]]],
@@ -693,11 +760,46 @@ const SCREENS = {
       ${block(3, "tag", "Car status", "Reserved takes the car off the website and holds it for the customer",
         `<div class="dp-status"><label for="dp-status">Status</label><select id="dp-status" class="v2-input sm" data-status><option>Available</option><option>Reserved</option></select><span class="v2-pill green" data-status-pill data-part="car">Available</span><small>${c.title} &middot; appointment ${c.appt}</small></div>`, "status")}`;
     return callTask(t, 2, "P7d", { secs: "07:45", steps: DEPOSIT_STEPS, cur: "Awaiting payment", prev: "P2", title: `Take a deposit for the ${carShort(cid)}`,
-      desc: `${fn} wants the ${c.title} now, without a test drive (order ${order}). Send the bank details, upload the confirmation they email you, then reserve the car.`,
+      desc: `${fn} wants the ${c.title} now, no test drive (order ${order}). Send the bank details, upload the confirmation they email, reserve the car.`,
       right: `<span class="v2-tag warn" data-part="amount">${ic("wallet")}${money(MK.token)} deposit</span>`,
       body, hint: `<span data-dep-hint>Upload the deposit confirmation</span>`,
       buttons: [["Book a TD instead", "P4", "", "calendar"], ["Not paid yet: call back", "P9", "", "phone-forwarded"], ["Complete: car reserved", "N3", "primary", "check", false, "data-dep-done disabled"]],
       cards: [["Say this", "message-square", `<p>&ldquo;I've sent our bank details on WhatsApp. Once it's paid, email the screenshot to me and I'll reserve the ${carShort(cid)} for you straight away.&rdquo;</p>`], ["Check", "list-checks", `<p>The amount and the reference ${order} on the screenshot must match before you reserve the car.</p>`]] });
+  },
+
+  // finance pre-approval: from any call step while the payment mode is finance or an own loan. Skippable; Skip or Done
+  // goes back to the step it came from, which keeps its stage. Result, the credit score, then the questions
+  P7f: (t) => {
+    const p = PEOPLE[t], fn = first(t), f = finOf(t), r = PREQ.run[t], mode = payMode(t);
+    const from = PRE_STAGE[PICKED.from] ? PICKED.from : "P2", [idx, back, steps] = PRE_STAGE[from];
+    const ran = !!(f.amount || f.rate);
+    const [fName, ...rest] = p.name.split(" ");
+    const amount = t === "vtd" && from === "P2" ? 0 : PCARS[PICKED.car || p.car].price;
+    const tok = (v) => String(v ?? "").replace("{name}", p.name).replace("{first}", fName).replace("{last}", rest.join(" ")).replace("{email}", p.email).replace("{amount}", amount);
+    const tile = (k, label, v, part) => `<div class="pa-tile"${part ? ` data-part="${part}"` : ""}><small>${label}</small><b data-pa="${k}">${v}</b></div>`;
+    const sec = (part, title, sub, html) => `<details class="pa-sec" open data-part="${part}"><summary>${ic("chevron-down")}<span><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</span></summary>${html}</details>`;
+    const result = sec("result", "Result", "", `<div class="pa-tiles">${tile("status", "Status", ran ? f.status : "Not completed")}${tile("cohort", "Cohort", ran ? PREQ.cohort : "&mdash;")}${tile("score", MK.credit, ran ? r.score : "&mdash;")}${tile("expires", "Expires", ran ? f.until : "&mdash;")}</div>
+      <div class="pa-out" data-pa-out${ran ? "" : " hidden"}>${ic("badge-check")}<span>${ran ? preOut(f) : ""}</span></div>`);
+    const credit = sec("credit", "Credit score", "The bureau matches on identity, not on the application. Fetch it again when a detail was taken down wrong, or the score has aged.",
+      `<div class="pa-tiles">${tile("score", MK.credit, ran ? r.score : "&mdash;")}${tile("cohort", "Cohort", ran ? PREQ.cohort : "&mdash;")}${tile("fetched", "Last fetched", ran ? f.when.split(",")[0].replace(/^j/, "J") : "Never")}${tile("bureau", "Bureau", PREQ.bureau)}</div>
+      <div class="pa-form">${PREQ.idFields.map(it => paItem(it, tok)).join("")}</div>
+      <div class="pa-act" data-part="fetch"><button class="v2-btn${ran ? "" : " primary"}" data-pa-fetch>${ic("gauge")}<span>${ran ? "Fetch it again" : "Fetch the credit score"}</span></button><small>${PREQ.fetchNote}</small></div>`);
+    const questions = sec("questions", "Pre-approval questions", "The questions as the customer is asked them.",
+      `<div class="pa-modes" data-part="mode"><div class="v2-seg2"><button class="on" data-pa-mode="partial">${ic("zap")}Partial &middot; on the fly</button><button data-pa-mode="full">${ic("list-checks")}Full</button></div></div>
+      <p class="pa-mnote" data-pa-show="partial">A partial returns an <b>interest rate range</b> and no amount, the same as the car listing page. A few more answers give the amount they can borrow.</p>
+      <p class="pa-mnote" data-pa-show="full" hidden>The full set returns the <b>amount they can borrow</b> as well as the rate range.</p>
+      <div class="pa-form" data-pa-show="partial" data-part="partial">${PREQ.partial.map(it => paItem(it, tok)).join("")}<small class="pa-hint">The answers an agent can take on a call, the same ones the car listing page asks. Enough for a cohort and a rate range; the amount needs the full set.</small></div>
+      <div class="pa-form" data-pa-show="full" hidden data-part="full">${PREQ.full.map(it => paItem(it, tok)).join("")}</div>
+      <div class="pa-act" data-part="run"><button class="v2-btn primary" data-pa-run>${ic("play")}<span>${ran ? "Run it again" : "Run pre-approval"}</span></button><small data-pa-gate></small></div>`);
+    const own = mode === "own";
+    return callTask(t, idx, "P7f", { secs: "06:10", steps, cur: "Pre-approval open", wide: true, prev: from, title: "Finance pre-approval",
+      desc: `${own ? `${fn} has their own loan lined up: the same answers let CARS24 offer a rate to beat it.` : ran ? `${fn} was pre-approved ${f.when}. Run it again only if something changed.` : `${fn} pays by ${payLabel(mode)}. Fetch the credit score, then the questions.`} Skippable: it goes back to ${back} after.`,
+      right: `<span class="v2-pill ${ran ? "green" : "grey"}" data-pa-status data-part="status">${ran ? f.status : "Not run yet"}</span>`,
+      body: result + credit + questions,
+      hint: `<span data-pa-hint>${ran ? `${f.status} ${f.when}` : "Skippable: Skip goes back without one"}</span>`,
+      buttons: [["Send the pre-approval link instead", from, "", "send"], [`<span><span data-pa-next>${ran ? "Done" : "Skip"}</span>: back to ${back}</span>`, from, "primary", "arrow-right", true]],
+      cards: [["Say this", "message-square", `<p>${own ? `&ldquo;Let's see if we can beat your lender. It's a soft check, so your credit score isn't affected.&rdquo;` : `&ldquo;It takes two minutes and it's a soft check, so your credit score isn't affected. Can I ask a few questions?&rdquo;`}</p>`],
+        ["Tip", "lightbulb", `<p>Partial first: a rate range on the fly. Go Full when ${fn} wants to know how much they can borrow.</p>`]] });
   },
 
   P8: (t) => {
@@ -896,7 +998,7 @@ const SCREENS = {
         ${row("Drive", chips("drive", ["2WD", "4WD"], [n.drive]))}
         ${row("Mostly for", chips("multi", MK.usage, n.usage))}
         ${row("Must-haves", chips("multi", ["Apple CarPlay", "Rear camera", "7 airbags", "Adaptive cruise", "Sunroof", "7 seats"], n.must))}
-        ${row("Paying by", chips("pay", ["Cash", "Finance", "Not sure yet"], ["Finance"]))}
+        ${row("Paying by", chips("pay", [...PAY_MODES.map(([, l]) => l), "Not sure yet"], ["Finance by CARS24"]))}
       </div>`;
     return daStep(t, { id: "T2", title: "What are you looking for?", desc: "Prefilled from the booking and app browsing. Confirm or change; the booked car stays pinned next.",
       right: `<div data-part="prefill"><span class="v2-tag ai">${ic("sparkles")}Prefilled</span></div>`,

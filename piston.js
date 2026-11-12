@@ -296,6 +296,7 @@ function mountScreen(root) {
     if (picked && picked.dataset.modeVal) VS.mode = picked.dataset.modeVal;
     else if (el.dataset.mode) VS.mode = el.dataset.mode;
     if (el.dataset.car) PICKED.car = el.dataset.car;
+    if (el.dataset.from) PICKED.from = el.dataset.from;
     if (el.hasAttribute("data-cmp-go")) PICKED.cmp = [...root.querySelectorAll("[data-cmp].on")].map(x => x.dataset.cmp);
     go(el.dataset.go);
   }));
@@ -348,6 +349,16 @@ function mountScreen(root) {
     m.hidden = !m.hidden;
   }));
   root.addEventListener("click", (e) => { if (!e.target.closest("[data-menu]")) root.querySelectorAll(".v2-menu").forEach(m => { m.hidden = true; }); });
+  // data-needs outside a menu follows its selector as it changes, e.g. Run the pre-approval on the payment mode
+  const syncNeeds = () => root.querySelectorAll("[data-needs]").forEach(x => { if (!x.closest(".v2-menu")) x.disabled = !root.querySelector(x.dataset.needs); });
+  // the payment mode in the lead pane: Finance by CARS24 or Own loan offers the pre-approval
+  root.querySelectorAll("[data-paymode]").forEach(sel => sel.addEventListener("change", () => {
+    setPayMode(VS.track, sel.value);
+    sel.classList.toggle("fin", sel.value !== "cash");
+    root.querySelectorAll("[data-paylabel]").forEach(x => { x.textContent = sel.selectedOptions[0].textContent; });
+    syncNeeds();
+  }));
+  syncNeeds();
   // filter tabs over a table or a list: rows carry data-cat, one or more categories
   root.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => {
     b.parentElement.querySelectorAll("[data-filter]").forEach(x => x.classList.toggle("on", x === b));
@@ -382,7 +393,55 @@ function mountScreen(root) {
   root.addEventListener("click", () => setTimeout(drawPins, 0));
   mountSignature(root);
   mountDeposit(root);
+  mountPreapproval(root);
   drawIcons();
+}
+
+// the pre-approval: fetch the score, pick Partial or Full, run it. The full set needs the consent. A run is kept for
+// the lead (preRun), fills the tiles and the lead pane, and Next turns from Skip to Done
+function mountPreapproval(root) {
+  const run = root.querySelector("[data-pa-run]");
+  if (!run) return;
+  const t = VS.track, all = (sel) => root.querySelectorAll(sel);
+  const set = (k, v) => all(`[data-pa="${k}"]`).forEach(x => { x.textContent = v; });
+  const busy = (b, label, done) => { const sp = b.querySelector("span"), was = sp.textContent; b.disabled = true; sp.textContent = label; setTimeout(() => { b.disabled = false; sp.textContent = was; done(); }, 500); };
+  let mode = "partial";
+  const gate = () => {
+    const consent = root.querySelector("[data-pa-show='full'] [data-pa-consent]");
+    const blocked = mode === "full" && consent && !consent.checked;
+    run.disabled = blocked;
+    root.querySelector("[data-pa-gate]").textContent = blocked ? "Tick the consent to run the full set" : mode === "full" ? "Returns the amount and the rate range" : "Returns a cohort and a rate range";
+  };
+  all("[data-pa-mode]").forEach(b => b.addEventListener("click", () => {
+    mode = b.dataset.paMode;
+    all("[data-pa-mode]").forEach(x => x.classList.toggle("on", x === b));
+    all("[data-pa-show]").forEach(x => { x.hidden = x.dataset.paShow !== mode; });
+    gate();
+  }));
+  all("[data-pa-consent]").forEach(c => c.addEventListener("change", gate));
+  all("[data-pa-range]").forEach(r => r.addEventListener("input", () => { r.closest(".pa-slider").querySelector("[data-pa-val]").textContent = r.value + "%"; }));
+  all("[data-pa-reveal]").forEach(c => c.addEventListener("change", () => { c.closest("label").nextElementSibling.hidden = !c.checked; }));
+  all("[data-pa-off]").forEach(c => c.addEventListener("change", () => { const inp = root.querySelector(`[data-pa-id="${c.dataset.paOff}"]`); if (inp) { inp.disabled = c.checked; if (c.checked) inp.value = ""; } }));
+  const fetchBtn = root.querySelector("[data-pa-fetch]");
+  const fetched = () => {
+    const sc = preScore(t);
+    set("score", sc.score); set("cohort", sc.cohort); set("fetched", "Just now");
+    fetchBtn.querySelector("span").textContent = "Fetch it again"; fetchBtn.classList.remove("primary");
+  };
+  fetchBtn.addEventListener("click", () => busy(fetchBtn, "Fetching\u2026", fetched));
+  run.addEventListener("click", () => busy(run, "Running\u2026", () => {
+    const res = preRun(t, mode === "full");
+    fetched();
+    set("status", res.status); set("expires", res.expires);
+    all("[data-pa-out]").forEach(x => { x.querySelector("span").innerHTML = res.out; x.hidden = false; });
+    all("[data-pa-status]").forEach(x => { x.textContent = res.status; x.className = "v2-pill green"; });
+    all("[data-pa-next]").forEach(x => { x.textContent = "Done"; });
+    all("[data-pa-hint]").forEach(x => { x.textContent = `${res.status}: saved to the lead`; });
+    all('[data-lead-fin="pre"]').forEach(x => { x.textContent = res.pre; });
+    all('[data-lead-fin="score"]').forEach(x => { x.textContent = res.lead; });
+    run.querySelector("span").textContent = "Run it again";
+  }));
+  gate();
 }
 
 // the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved
@@ -653,6 +712,13 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;A pre-approval form whenever the payment mode is Finance by CARS24 or Own loan: skippable, opened at any point from the Next dropdown. Two forms with different inputs, partial and full, one goal: the pre-approval&rdquo;</div><h4>A finance pre-approval inside the call, from any step</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">Pre-approval only as a link: the customer does it on the website, or from the QR on the token page at the hub</span><span class="k">After</span><span class="seq">Payment mode in the lead pane &rarr; any call step &rarr; Next menu: <em>Run a finance pre-approval</em> &rarr; <em>P7f</em> &rarr; back to the same step</span></div>
+        <p><b>The payment mode decides.</b> Cash, Finance by CARS24 or Own loan, in the lead pane on every call step, defaulting to what the customer said in the app or to the chatbot. With either finance mode, the arrow next to Next offers the pre-approval on every step of the call; with Cash it stays off. For an own loan the pitch is to beat their lender's rate.</p>
+        <p><b>A side trip, not a stage.</b> The stage bar stays on the stage it was opened from, marked Pre-approval open. Next reads Skip until it runs, then Done; both go back to that step, so the agent picks up where they were.</p>
+        <p><b>Score, then questions, two forms.</b> Result tiles on top (status, cohort, credit score, expiry). The credit score is a soft check on identity (name, date of birth, and the Emirates ID number or the address). Then the questions as the customer is asked them: Partial, on the fly, the same as the car listing page, gives a cohort and an interest rate range; Full adds loan, employment and personal details and the consent, and gives the amount they can borrow. Run stays off for Full until the consent is ticked.</p>
+        <p><b>Per market, from config.</b> Australia asks the cars24.com.au questions (business use and ABN, balloon, net or gross income and how often, rent or mortgage, living situation, relationship, residency, 3 years of address). The UAE asks for the Emirates ID, the monthly salary, a salary transfer, monthly loan and card payments, residency and the down payment, with the AECB check. A run updates the lead pane, the Finance tile on the lead view, and whether each car fits on the car page and in the compare.</p>
+        ${links(stepLink("P7f", "Pre-approval, not run yet", { track: "vtd", market: "au" }), stepLink("P7f", "Already pre-approved", { track: "booked" }), stepLink("P2", "Finance tab: Run the pre-approval", { track: "vtd" }), stepLink("P7f", "UAE questions", { track: "vtd", market: "ae" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;If the pitch convinces the customer, take a deposit instead of booking a TD: Pay deposit in the Next dropdown once a car is picked, a Deposit stage, send bank details through the CRM, upload the confirmation screenshot, set the car to Reserved, complete&rdquo;</div><h4>A call can end in a deposit</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Every call ends in a TD booking: TD type &rarr; Slots &rarr; Book</span><span class="k">After</span><span class="seq">A car picked (P2, P3a or P3b) &rarr; Next menu: <em>Customer wants to pay a deposit</em> &rarr; <em>P7d Deposit and reserve</em> &rarr; delivery (N3)</span></div>
         <p><b>The pitch decides, not a fixed path.</b> A lead does not always need a TD. Each Next sends the step's input (the cars picked, TD or deposit) to the journey's next-step API, which answers with the next step and the stages to show: TD type, Slots, Book for a test drive; Deposit, Reserved for a deposit. The screens follow the answer, so a new outcome is a new answer from the API, not a new build.</p>
@@ -762,6 +828,7 @@ function renderChanges() {
     <div class="decide">
       <div><b>A visit before an order</b>A walk-in checks in with no car, so the journey keys on a visit (VS-2041) until T5 creates the order (BK-89004).</div>
       <div><b>One visit, several drives</b>Each car gets its own TD record, consent and recording, from Start TD to End TD. The licence is checked once per visit. A second car is a second order, booked the same way.</div>
+      <div><b>A pre-approval on the lead</b>The payment mode (Cash, Finance by CARS24, Own loan) and the latest pre-approval (partial: cohort and rate range; full: the amount, repayment and expiry) live on the lead, so the call, the hub and delivery read the same one. The question sets are market config from the finance service.</div>
       <div><b>A journey driven by the next-step API</b>Each Next posts the step's answers; the response names the next step (a journey page by slug, as Leadverse's journey engine already renders) and the stage list. The booking call branches to a TD or a deposit this way.</div>
       <div><b>A queue token</b>One per check-in: hub, day, B or W, and a number. Its status on the TV and the phone is derived from state events, never typed. Not to be confused with the payment token (TOKEN PAID).</div>
       <div><b>A yard task</b>Bring, or prep and bring: the car, from a yard spot, to a bay, with picked-up and at-hub times. It moves the TV's car column and pushes the DA.</div>
@@ -779,6 +846,7 @@ function renderChanges() {
       <div><b>A walk-in into the current slot</b>The walk-in is booked into the slot they are in. When it is full, book the next one today, or let the hub go over its cap?</div>
       <div><b>Orders without an email</b>An order needs a mobile and an email, so a mobile-only enquiry stays a contact with appointment IDs until the call adds the email. Confirm OMS keeps that rule, and whether a missing email should block the TD booking.</div>
       <div><b>One call, two bookings</b>A mixed call books a hub TD and a video TD at once, with one order per car. Confirm the slot planner holds both from one task, and who owns the video one.</div>
+      <div><b>Who answers the pre-approval questions</b>On the call the agent reads the questions and types the answers. Confirm the consent read out on a recorded call is enough for the credit check, or send the consent as a link to tick. The UAE question set is a first draft to confirm with the finance team.</div>
       <div><b>Finance links after check-in</b>The pre-approval and listing pages, and the pre-approval status, come from consumer web. Confirm the URLs, and whether "own loan" customers should also see pre-approval when they are already pre-approved.</div>
       <div><b>Token order</b>B for bookings, served at their slot time, and W for walk-ins, in arrival order, on one board. Or one queue for everyone?</div>
       <div><b>Names on the TV</b>The board shows the token with a first name and initial. The TV is in a public room: is the token alone enough?</div>

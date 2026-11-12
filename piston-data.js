@@ -89,7 +89,7 @@ const FLOWS = {
 
 // ---------------------------------------------------------------- phase level
 const PHASES = [
-  { id: "P", name: "Plan", when: "Before arrival. The pitch decides what comes next: a TD booking or a deposit", owner: "Calling team, then the system",
+  { id: "P", name: "Plan", when: "Before arrival. The pitch decides what comes next: a TD booking or a deposit, with a finance pre-approval at any point", owner: "Calling team, then the system",
     entry: "An enquiry with a mobile number: an order, or a contact with cars of interest. Self-serve app bookings skip the call and start at P8", exit: "Every TD from the call booked and the calling task closed, then ready for the visit. Or a deposit taken and the car reserved" },
   { id: "I", name: "Introduce", when: "First 3 minutes: welcome and check-in in one gesture",
     owner: { hub: { staff: "Receptionist or DA, with the customer", qr: "Customer, from the QR on their seat" }, vtd: "VTD operator" },
@@ -282,6 +282,22 @@ const STEPS = [
       route: { booked: "/tasks/TK-6120/deposit", vtd: "/tasks/TK-6127/deposit" } },
     dap: "No deposit on the call today. The token is collected at the hub after the TD (N2).",
     changed: "New: a customer convinced on the call can pay a deposit and reserve the car without a TD.",
+  },
+  // Paying by finance or an own loan: a pre-approval from any step of the call, skippable, back to the same step
+  { id: "P7f", phase: "P", name: "Finance pre-approval", tracks: ["booked", "vtd"], branch: true,
+    owner: "Calling agent", device: "desktop",
+    purpose: "When the payment mode is Finance by CARS24 or Own loan, the agent can run a pre-approval at any point of the call, from the Next menu, and comes back to the same step. It is skippable. First the credit score: a soft check that matches on identity. Then the questions, as the customer is asked them, in one of two forms with the same goal: Partial, on the fly, gives a cohort and an interest rate range, as on the car listing page; Full also gives the amount they can borrow. The questions come from the market.",
+    source: { trigger: "Run a finance pre-approval, from the Next menu of any call step, when the payment mode is Finance by CARS24 or Own loan",
+      data: ["Lead: the payment mode, set in the lead pane", "Credit bureau: a soft check on name, date of birth and the market's ID or address", "Finance service: the pre-approval (status, cohort, rate range, amount, expiry)", "OMS: the amount to finance, from the order's car", "Market config: the partial and full question sets"] },
+    entry: ["Payment mode is Finance by CARS24 or Own loan", "Opened from any step of the call"],
+    exits: [
+      { when: "Pre-approved, or skipped: back to the step it was opened from (the lead view here)", to: "P2" },
+    ],
+    state: null,
+    screen: { name: "TD booking call &rsaquo; Pre-approval", build: "new",
+      pattern: "The call task, still on the stage it was opened from. Three folding sections: Result, Credit score, Pre-approval questions (Partial on the fly, or Full). Next reads Skip until it runs, then Done; both go back",
+      route: { booked: "/tasks/TK-6120/pre-approval", vtd: "/tasks/TK-6127/pre-approval" } },
+    changed: "New: a finance pre-approval inside the call, from any step, when the customer pays by finance or an own loan.",
   },
   { id: "P8", phase: "P", name: "Pre-arrival readiness", tracks: ["booked", "vtd"],
     owner: "System; receptionist watches the list", device: "desktop",
@@ -754,6 +770,13 @@ const STEPS = [
   },
 ];
 
+// the pre-approval opens from any step of the call (when the payment mode is finance or an own loan) and returns to it
+const PRE_FROM = ["P2", "P3", "P3a", "P3b", "P4", "P5", "P6", "P7", "P7d"];
+STEPS.filter(s => PRE_FROM.includes(s.id)).forEach(s => {
+  const x = { when: "Paying by finance or an own loan: a pre-approval, then back here", to: "P7f" };
+  if (Array.isArray(s.exits)) s.exits.push(x); else Object.values(s.exits).forEach(l => l.push(x));
+});
+
 function stepById(id) { return STEPS.find(s => s.id === id); }
 function stepsForTrack(track) { return STEPS.filter(s => s.tracks.includes(track)); }
 function phaseById(id) { return PHASES.find(p => p.id === id); }
@@ -815,14 +838,103 @@ const CARX = marketTable({
 // wishlist (hearted cars), cars viewed this week, the most viewed car, finance (pre-approval), and past orders
 const P360 = marketTable({
   booked: { wish: ["c1", "c3", "c5"], viewed: 6, top: ["c1", 3], past: ["BK-87410", "2019 Toyota Corolla Ascent", "09981230", "March 2026", "TD done, not bought"],
-    fin: { status: "Pre-approved", amount: "AED 70,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "AED 1,060/mo", deposit: "AED 0", term: "5 years" }, pay: "Finance", trade: "None recorded" },
+    fin: { status: "Pre-approved", amount: "AED 70,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "AED 1,060/mo", deposit: "AED 0", term: "5 years", when: "3 days ago, in the app" }, pay: "fin", trade: "None recorded" },
   vtd: { wish: ["c2", "c4"], viewed: 9, top: ["c2", 4], past: null,
-    fin: { status: "Pre-approved", amount: "AED 80,000", until: "30 Nov 2026", lender: "CARS24 Finance", repay: "AED 1,180/mo", deposit: "AED 5,000", term: "5 years" }, pay: "Finance", trade: "2016 Honda Accord, asked the chatbot" },
+    fin: { status: "Not run yet", amount: null }, pay: "fin", trade: "2016 Honda Accord, asked the chatbot" },
 }, { au: {
   booked: { wish: ["c1", "c3", "c5"], viewed: 6, top: ["c1", 3], past: ["BK-87410", "2019 Toyota Corolla Ascent", "09981230", "March 2026", "TD done, not bought"],
-    fin: { status: "Pre-approved", amount: "$35,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "$139/week", deposit: "$0", term: "5 years" }, pay: "Finance", trade: "None recorded" },
+    fin: { status: "Pre-approved", amount: "$35,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "$139/week", deposit: "$0", term: "5 years", when: "3 days ago, in the app" }, pay: "fin", trade: "None recorded" },
   vtd: { wish: ["c2", "c4"], viewed: 9, top: ["c2", 4], past: null,
-    fin: { status: "Pre-approved", amount: "$40,000", until: "30 Nov 2026", lender: "CARS24 Finance", repay: "$181/week", deposit: "$2,000", term: "5 years" }, pay: "Finance", trade: "2016 Honda Accord, asked the chatbot" },
+    fin: { status: "Not run yet", amount: null }, pay: "fin", trade: "2016 Honda Accord, asked the chatbot" },
+} });
+
+// ---------------------------------------------------------------- finance pre-approval (P7f)
+// How the customer pays, set in the lead pane on the call. Finance by CARS24 and Own loan offer the pre-approval.
+const PAY_MODES = [["cash", "Cash"], ["fin", "Finance by CARS24"], ["own", "Own loan"]];
+// One form in every market; the questions come from the market (in the build, tenant config from the finance
+// service). Items: sec (heading), pills, in (input), sel (select), date, month, freq (an amount and how often),
+// check, reveal (a check that shows a field), slider, pair (two side by side), hint, consent.
+// Tokens in values: {name} {first} {last} {email} {amount}. run: what a pre-approval returns, per track.
+const PREQ = marketTable({
+  bureau: "AECB", cohort: "Prime", expires: "6 Nov 2026", rate: "2.99% to 4.49% flat p.a.", rateFull: "2.99% to 3.75% flat p.a.",
+  run: { booked: { score: "742", band: "Good", amount: "AED 70,000", repay: "AED 1,060/mo" }, vtd: { score: "768", band: "Very good", amount: "AED 80,000", repay: "AED 1,180/mo" } },
+  idFields: [
+    { k: "pair", items: [{ k: "in", label: "Full name", val: "{name}" }, { k: "date", label: "Date of birth" }] },
+    { k: "in", label: "Emirates ID number", ph: "784-XXXX-XXXXXXX-X" },
+  ],
+  fetchNote: "A soft check against these details. The full AECB report is pulled at Stage 2.",
+  partial: [
+    { k: "pair", items: [{ k: "in", label: "Amount to finance (AED)", val: "0", num: true }, { k: "sel", label: "Preferred term (years)", opts: ["1", "2", "3", "4", "5"], on: "5" }] },
+    { k: "pair", items: [{ k: "sel", label: "Employment type", opts: ["Salaried", "Self employed", "Business owner", "Unemployed", "Retired"], on: "Salaried" }, { k: "in", label: "Months with the employer", ph: "18", num: true }] },
+    { k: "pair", items: [{ k: "in", label: "Monthly salary (AED)", ph: "18000", num: true }, { k: "in", label: "Monthly loan and card payments (AED)", ph: "2500", num: true }] },
+    { k: "pair", items: [{ k: "date", label: "Date of birth" }, { k: "in", label: "Dependents", val: "0", num: true }] },
+    { k: "sel", label: "Residency", opts: ["UAE National", "Resident visa", "GCC national"], on: "UAE National" },
+  ],
+  full: [
+    { k: "sec", label: "Loan details" },
+    { k: "pills", q: "Is the loan in your own name?", hint: "A loan in a company's name needs a trade licence and the company's documents", opts: ["Yes", "No, my company's"], on: 0 },
+    { k: "pills", q: "What is your preferred loan term (years)?", hint: "Up to 5 years for a car loan in the UAE", opts: ["1", "2", "3", "4", "5"], on: 4 },
+    { k: "slider", label: "Down payment", min: 20, max: 50, val: 20, hint: "At least 20% of the car's price for a car loan. A bigger down payment, a smaller monthly instalment." },
+    { k: "in", label: "Amount to finance (AED)", val: "{amount}", num: true, hint: "From the order where there is one." },
+    { k: "sec", label: "Employment details" },
+    { k: "pills", q: "What is your employment type?", hint: "Salaried means a fixed monthly salary from an employer", opts: ["Salaried", "Self employed", "Business owner", "Unemployed", "Retired"], on: 0 },
+    { k: "pair", items: [{ k: "in", label: "Employer", ph: "Company name" }, { k: "month", label: "When did you join?" }] },
+    { k: "in", q: "What is your monthly salary?", hint: "Fixed salary and allowances, as on the salary certificate", ph: "Enter amount", num: true },
+    { k: "pills", q: "Is your salary transferred to a UAE bank?", hint: "Most lenders ask for a salary transfer; without one the rate is higher", opts: ["Yes", "No"], on: 0 },
+    { k: "in", q: "How much do you pay each month on loans and cards?", hint: "Existing EMIs, plus 5% of each credit card limit", ph: "Enter amount", num: true },
+    { k: "sec", label: "Personal details" },
+    { k: "pair", items: [{ k: "in", label: "First name", val: "{first}" }, { k: "in", label: "Last name", val: "{last}" }] },
+    { k: "pair", items: [{ k: "date", label: "Date of birth" }, { k: "in", label: "Email", val: "{email}" }] },
+    { k: "hint", text: "As on the Emirates ID" },
+    { k: "pills", q: "What is your residency status?", hint: "A residence visa must be valid for the loan term", opts: ["UAE National", "Resident visa", "GCC national"], on: 0 },
+    { k: "pills", q: "What is your current living situation?", hint: "Helps map lenders", opts: ["Own home", "Renting", "Company accommodation", "Living with family"], on: 1 },
+    { k: "in", label: "Number of dependents", val: "0", num: true, half: true, hint: "Non-earning spouse, children and other family members" },
+    { k: "in", label: "Current address", ph: "Building, area and emirate", hint: "As on the tenancy contract (Ejari) or a utility bill." },
+    { k: "reveal", text: "They have lived in the UAE less than 2 years", field: { k: "in", label: "Previous country of residence", hint: "Some lenders need 2 years in the UAE" } },
+    { k: "sec", label: "Consent" },
+    { k: "consent", text: "Customer accepted the privacy notice and the <b>key facts statement</b>, and consented to the AECB credit check" },
+  ],
+}, { au: {
+  bureau: "Equifax", cohort: "Prime", expires: "6 Nov 2026", rate: "8.95% to 12.4% p.a.", rateFull: "8.95% to 10.9% p.a.",
+  run: { booked: { score: "742", band: "Very good", amount: "$35,000", repay: "$139/week" }, vtd: { score: "768", band: "Very good", amount: "$40,000", repay: "$181/week" } },
+  idFields: [
+    { k: "pair", items: [{ k: "in", label: "Full name", val: "{name}" }, { k: "date", label: "Date of birth" }] },
+    { k: "in", label: "Address", ph: "As it appears on their ID" },
+  ],
+  fetchNote: "A soft check against these details. The full file is pulled at Stage 2.",
+  partial: [
+    { k: "pair", items: [{ k: "in", label: "Amount to finance", val: "0", num: true }, { k: "sel", label: "Preferred term", opts: ["3", "4", "5", "7"], on: "5" }] },
+    { k: "pair", items: [{ k: "sel", label: "Employment status", opts: ["Full Time", "Part Time", "Self Employed", "Casual", "Contractor", "Unemployed", "Pension"], on: "Full Time" }, { k: "in", label: "Months in the role", ph: "18", num: true }] },
+    { k: "freq", label: "Net income", ph: "2284", opts: ["Weekly", "Fortnightly", "Monthly", "Annually"], on: "Fortnightly" },
+    { k: "freq", label: "Rent or mortgage", ph: "480", opts: ["Weekly", "Fortnightly", "Monthly", "Annually"], on: "Weekly" },
+    { k: "pair", items: [{ k: "date", label: "Date of birth" }, { k: "in", label: "Dependents", val: "0", num: true }] },
+    { k: "sel", label: "Residency", opts: ["Australian Citizen", "Permanent Resident", "New Zealand Citizen", "Temporary Visa", "Bridging Visa"], on: "Australian Citizen" },
+  ],
+  full: [
+    { k: "sec", label: "Loan details" },
+    { k: "pills", q: "Will you use the car for business purposes?", hint: "Select yes if you have an ABN and will use the car for business for more than 50% of the time. Driving to work is not business use.", opts: ["Yes", "No"], on: 1 },
+    { k: "pills", q: "What is your preferred loan term (years)?", hint: "You can change it later if you wish", opts: ["3", "4", "5", "7"], on: 2 },
+    { k: "slider", label: "Balloon amount", min: 0, max: 50, val: 0, hint: "0 to 50% of the loan. A lump sum at the end of the term: lower repayments, more interest overall." },
+    { k: "in", label: "Amount to finance", val: "{amount}", num: true, hint: "From the order where there is one." },
+    { k: "sec", label: "Employment details" },
+    { k: "pills", q: "What is your current employment status?", hint: "Select full-time or part-time for permanent employment only", opts: ["Full Time", "Part Time", "Self Employed", "Casual", "Contractor", "Unemployed", "Pension"], on: 0 },
+    { k: "month", label: "When did you start your current job?" },
+    { k: "freq", q: "What is your gross income?", hint: "Salary and bonuses, excluding super, before tax", ph: "Enter amount", opts: ["Weekly", "Fortnightly", "Monthly", "Annually"], on: "Annually" },
+    { k: "freq", q: "How much do you spend on house mortgage or rent?", hint: "Your share only, if you split payments with someone", ph: "Enter amount", opts: ["Weekly", "Fortnightly", "Monthly", "Annually"], on: "Annually", id: "rent" },
+    { k: "check", text: "I have my own house with no mortgage", off: "rent" },
+    { k: "sec", label: "Personal details" },
+    { k: "pair", items: [{ k: "in", label: "First name", val: "{first}" }, { k: "in", label: "Last name", val: "{last}" }] },
+    { k: "pair", items: [{ k: "date", label: "Date of birth" }, { k: "in", label: "Email", val: "{email}" }] },
+    { k: "hint", text: "As it appears on their ID" },
+    { k: "pills", q: "What is your current living situation?", hint: "Helps map lenders based on whether they own a home", opts: ["Owner without Mortgage", "Owner with Mortgage", "Renting", "Living with parents", "Boarding"], on: 2 },
+    { k: "in", label: "Number of dependents", val: "0", num: true, half: true, hint: "Non-earning spouse, children and other family members" },
+    { k: "pills", q: "What is your relationship status?", opts: ["Single", "Married", "De-facto", "Divorced / Widowed"], on: 0 },
+    { k: "pills", q: "What is your residency status?", hint: "Lender and loan policies differ by residency category", opts: ["Australian Citizen", "Permanent Resident", "New Zealand Citizen", "Temporary Visa", "Bridging Visa"], on: 0 },
+    { k: "in", label: "Current address", ph: "Start typing the address", hint: "As it appears on their ID. Used for verification, so it must match the primary ID; delivery can go elsewhere." },
+    { k: "reveal", text: "They have lived here less than 2 years", field: { k: "in", label: "Previous address", hint: "Lenders require 3 years of address history" } },
+    { k: "sec", label: "Consent" },
+    { k: "consent", text: "Customer accepted the privacy policy, the fee disclosure guide and the <b>credit code</b>, and consented to the credit check" },
+  ],
 } });
 
 const PEOPLE = marketTable({
@@ -916,7 +1028,7 @@ const COPY = {
     ["Al Quoz hub, Dubai", "Melbourne hub, VIC"], ["at Al Quoz hub", "at the Melbourne hub"], ["Al Quoz &middot; today", "Melbourne hub &middot; today"], ["Al Quoz", "the Melbourne hub"],
     ["Dubai RTA (example)", "VicRoads (example)"], ["UAE traffic laws", "Victorian road rules"], ["traffic fines during this drive", "traffic fines and tolls during this drive"],
     ["CARS24 UAE", "CARS24 Australia"], ["Payment service: Noon, DAPI, CBD UAE", "Payment service: the Australian payment gateway"],
-    ["IBAN", "BSB and account"], ["AE07 0331 0000 0123 4567 890", "000-000 &middot; 1234 5678 (example)"],
+    ["IBAN", "BSB and account"], ["AE07 0331 0000 0123 4567 890", "000-000 &middot; 1234 5678"],
     // documents and formats
     ["Name matches the Emirates ID", "Name matches the booking"], ["checks Emirates ID by hand", "checks photo ID by hand"], ["checks Emirates ID", "checks photo ID"],
     ["Emirates ID name for the match", "Booking name for the match"], ["OCR against the Emirates ID", "OCR against the booking"], ["an Emirates ID check", "a photo ID check"], ["Emirates ID", "Photo ID"],
