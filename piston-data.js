@@ -343,12 +343,12 @@ const STEPS = [
       trigger: { hub: { staff: "A receptionist or DA starts the check-in with the customer", qr: "Customer scans the QR on their seat" }, vtd: "Customer opens the video link" },
       data: {
         booked: {
-          staff: ["Today's bookings (OMS + slot planner): found by name or mobile", "User auth: OTP to the booked mobile", "The check-in form: the same one the seat QR opens"],
-          qr: ["Seat QR: one link per hub, the same for everyone", "User auth: mobile and OTP, then today's booking is found", "The check-in form, prefilled from the booking", "Optional: an I'm here link in the day-of reminder opens the same form, already signed in"],
+          staff: ["The check-in form: the same one the seat QR opens. Mobile and purpose of visit first", "User auth: OTP to that mobile", "Existing order? Yes: today's order (OMS + slot planner) is found by the mobile and checked in at once"],
+          qr: ["Seat QR: one link per hub, the same for everyone", "Mobile and purpose of visit, then User auth: OTP", "Existing order? Yes: today's order is found by the mobile and checked in at once; then the recording question", "Optional: an I'm here link in the day-of reminder opens the same form, already signed in"],
         },
         walkin: {
-          staff: ["The form starts with first name, last name, mobile and email: this is Add lead", "User auth: OTP", "Purpose of visit, accompanied by, paying by, area"],
-          qr: ["Seat QR: the same hub link", "User auth: mobile and OTP; no booking found, so the form asks for name and email", "Purpose of visit, accompanied by, paying by, area"],
+          staff: ["Mobile and purpose of visit first, then User auth: OTP", "Existing order? No: the basic details form (email, first and last name, post code or area, financing after the TD, where they heard about us). This is Add lead", "Recording consent"],
+          qr: ["Seat QR: the same hub link", "Mobile and purpose of visit, then User auth: OTP", "Existing order? No: the basic details form, the same as the staff one. This is Add lead", "Licence (optional) and recording consent"],
         },
         vtd: ["Video provider: join event", "OMS order, prefilled", "OTP read out on the call"],
       },
@@ -357,21 +357,21 @@ const STEPS = [
     exits: {
       booked: {
         staff: [
-          { when: "OTP verified, form complete: a token is issued, a DA is assigned and the Yardie is told to bring the booked car", to: "I2", state: "CHECKED IN" },
+          { when: "OTP verified, Yes to an existing order: today's order is found and checked in at once. A token is issued, a DA is assigned and the Yardie is told to bring the booked car", to: "I2", state: "CHECKED IN" },
           { when: "OTP fails 3 times: the receptionist checks Emirates ID, then finishes the check-in", to: "I2", state: "CHECKED IN" },
         ],
         qr: [
-          { when: "Customer submits: mobile verified, today's booking found, token issued", to: "I2", state: "CHECKED IN" },
+          { when: "Mobile verified, Yes to an existing order: today's order found and checked in at once, token issued. The recording question follows", to: "I2", state: "CHECKED IN" },
           { when: "Customer is stuck or has no phone: a receptionist or DA finishes it for them, and what was filled carries over", to: "I1", mode: "staff" },
         ],
       },
       walkin: {
         staff: [
-          { when: "OTP verified, purpose is buy or test drive: lead and visit created, token issued", to: "I2", state: "CHECKED IN" },
+          { when: "OTP verified, purpose buy or test drive, No to an existing order: the details form creates the lead and the visit, token issued", to: "I2", state: "CHECKED IN" },
           { when: "Purpose is drop-off, pickup, service or selling: routed to that desk", to: null },
         ],
         qr: [
-          { when: "Customer submits with purpose buy or test drive: lead and visit created, token issued", to: "I2", state: "CHECKED IN" },
+          { when: "Customer submits the details form (no existing order) with purpose buy or test drive: lead and visit created, token issued", to: "I2", state: "CHECKED IN" },
           { when: "Purpose is drop-off, pickup, service or selling: the page points them to that desk", to: null },
           { when: "Customer is stuck or has no phone: a receptionist or DA finishes it for them", to: "I1", mode: "staff" },
         ],
@@ -384,8 +384,8 @@ const STEPS = [
       build: { hub: { staff: "extend", qr: "new" }, vtd: "extend" },
       pattern: {
         hub: {
-          staff: "The Today list, where Check in is the row action (there is no separate Mark arrived). One form for booked and walk-in: details, OTP, then the token.",
-          qr: "A public, form-only page opened from the seat QR: no Leadverse, no login. It renders the same form schema as the staff form. The Today list shows the check-in live, with the answers in a side panel.",
+          staff: "The Today list, where Check in is the row action (there is no separate Mark arrived). One form for booked and walk-in. Step 1: mobile, purpose of visit, Send OTP and verify. Step 2: Existing order? Yes shows today's order, already checked in; No opens the basic details form, then Check in. Then the token.",
+          qr: "A public, form-only page opened from the seat QR: no Leadverse, no login. The same steps as the staff form: mobile, purpose and OTP; Existing order? Yes: today's order, checked in at once, then the recording question; No: the details form, then licence and consent. The Today list shows the check-in live, with the answers in a side panel.",
         },
         vtd: "Video panel + OTP widget + recording consent",
       },
@@ -397,7 +397,7 @@ const STEPS = [
       au: { hub: { qr: "Customers already check themselves in with a form today. Here that form opens from the seat QR, and its answers land on the visit.", staff: null }, vtd: null },
     },
     changed: {
-      hub: "Arrival, welcome and check-in are now one step: checking in is the arrival, so there is no Mark arrived. The same form serves booked and walk-in customers, from the seat QR or filled by a receptionist or DA. It issues a token for the ground TV. No handshake here.",
+      hub: "Arrival, welcome and check-in are now one step: checking in is the arrival, so there is no Mark arrived. The same form serves booked and walk-in customers, from the seat QR or filled by a receptionist or DA: mobile, purpose and OTP first, then Existing order? Yes checks today's order in at once; No opens the basic details form. It issues a token for the ground TV. No handshake here.",
       vtd: "Join, welcome and check-in are now one step on the call.",
     },
   },
@@ -992,6 +992,8 @@ const PDAS = marketTable([
 // market strings the screens read directly
 const MK = marketTable({
   hub: "Al Quoz hub", hubFull: "Al Quoz hub, Dubai", hubCode: "AQZ", site: "cars24.ae", credit: "AECB score", idDoc: "Emirates ID", area: "Area",
+  // the check-in details form (no existing order)
+  dial: "+971", postcode: "Emirate and area", heard: ["Radio", "Billboards", "YouTube", "Social media", "Google", "News", "Friends or family"],
   langs: ["Arabic", "English", "Hindi", "Urdu", "Other"],
   budgets: ["Under AED 55k", "AED 55k&ndash;65k", "AED 55k&ndash;70k", "AED 65k&ndash;75k", "AED 75k+"],
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to Dubai", "Off-road"],
@@ -1004,6 +1006,7 @@ const MK = marketTable({
   assure: ["GCC specification", "Flood free", "No major accidental damage"],
 }, { au: {
   hub: "Melbourne hub", hubFull: "Melbourne hub, VIC", hubCode: "MEL", site: "cars24.com.au", credit: "Credit score", idDoc: "Licence state", area: "Suburb",
+  dial: "+61", postcode: "Post code", heard: ["Radio", "Billboards", "YouTube", "Social media", "Bus/Tram wraps", "News", "Google"],
   langs: ["English", "Mandarin", "Vietnamese", "Hindi", "Other"],
   budgets: ["Under $25k", "$25k&ndash;35k", "$27k&ndash;33k", "$32k&ndash;38k", "$40k+"],
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to the city", "Off-road"],

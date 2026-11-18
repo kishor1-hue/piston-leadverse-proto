@@ -444,7 +444,7 @@ function table(cols, rows, part) {
     <tbody>${rows.map(r => `<tr class="${r.hl ? "hl" : ""}"${r.cat ? ` data-cat="${r.cat}"${r.hide ? " hidden" : ""}` : ""}><td class="cb"><span class="v2-cb"></span></td>${r.cells.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
     <div class="v2-tfoot">0 of ${rows.length + 9} row(s) selected.</div></div>`;
 }
-const cust = (nm, sub2) => `<div class="v2-cust"><span class="v2-av">${inits(nm)}</span><div><b>${nm}</b>${sub2 ? `<small>${sub2}</small>` : ""}</div></div>`;
+const cust = (nm, sub2) => `<div class="v2-cust"><span class="v2-av">${inits(localize(nm))}</span><div><b>${nm}</b>${sub2 ? `<small>${sub2}</small>` : ""}</div></div>`;
 const pill = (tone, text) => `<span class="v2-pill ${tone}">${text}</span>`;
 
 // ================================================================== the TD booking call (calling team persona task)
@@ -858,37 +858,68 @@ const SCREENS = {
       ? ["walkin", qr ? `<span data-on-you="${p.name}">New walk-in</span>` : "New walk-in", qr ? `<span data-on-verified="${p.phone}">Scanned the seat QR</span>` : "At the desk", "Now", "Chosen with the DA", "Not assigned", tokenCell, qr ? status : pill("violet", "Checking in"), qr ? "" : `<button class="v2-btn primary sm" data-open-flow="ci" data-part="check-in">${ic("log-in")}Check in</button>`]
       : ["booked", "Fatima Al Suwaidi", "050 123 4567", "2:30 PM", "Nissan Altima SV", "Omar Hassan", tokenCell, status, qr ? "" : checkBtn(true)]);
     const purposes = ["Buy or test drive", "Drop off a car", "Pick up a car", "Service", "Sell my car", "Something else"];
-    // by staff: the same form the seat QR opens, filled with the customer
+    const [fName, ...lName] = p.name.split(" ");
+    const tel = p.phone.replace(/^0/, ""), post = (VISIT[t].area.match(/\d{4}/) || [VISIT[t].area])[0];
+    const req = (l) => `${l} <i class="v2-req">*</i>`;
+    const field = (label, val, id, part) => `<div class="v2-field"${part ? ` data-part="${part}"` : ""}><label for="${id}">${req(label)}</label><input class="v2-input" id="${id}" value="${val}" placeholder="${label}"></div>`;
+    const recText = `${first(t)} agrees to record the test drive, from Start TD to the end, for AI notes and service quality. Saying no doesn't change the visit.`;
+    // by staff: the same form the seat QR opens, filled with the customer. First the mobile, the purpose and the OTP;
+    // then Existing order? Yes finds today's order and checks it in at once; No opens the basic details form
     const modal = `<div class="v2-dim" data-flow-dim></div>
       <div class="v2-modal" data-flow="ci" data-flow-step="details" data-part="details">
-        <div class="v2-mh"><div><h4>${walk ? "Check in a walk-in" : `Check in ${first(t)}`}</h4><p>${walk ? "The same form the seat QR opens. For a walk-in it also creates the lead." : "Found by mobile in today's bookings. The same form the seat QR opens."}</p></div><span class="v2-ib box x" data-close-flow>${ic("x")}</span></div>
+        <div class="v2-mh"><div><h4>${walk ? "Check in a walk-in" : "Check in"}</h4><p>Step 1 of 2 &middot; the mobile, why they're here, and the OTP. The same form the seat QR opens.</p></div><span class="v2-ib box x" data-close-flow>${ic("x")}</span></div>
         <div class="v2-mb">
-          ${walk ? `<div class="v2-grid2">${inp("First name", p.name.split(" ")[0], "w-fn")}${inp("Last name", p.name.split(" ").slice(1).join(" "), "w-ln")}${inp("Mobile", p.phone, "w-mb")}${inp("Email", p.email, "w-em")}</div>
-              <div class="v2-field" data-part="purpose"><label>Purpose of visit</label>${chips("purpose", purposes, ["Buy or test drive"])}</div>`
-            : `<div class="v2-found" data-part="booking">${ic("calendar-check")}<div><b>Test drive &middot; 2:30 PM &middot; ${p.id}</b><small>${PCARS[p.car].title} &middot; licence uploaded before the visit</small></div><span class="v2-tag">From the booking</span></div>`}
-          <div class="v2-grid2">${sel("Accompanied by", walk ? "Alone" : "Spouse")}${sel(MK.area, VISIT[t].area)}</div>
-          <div data-part="finance">${sel("Do you need financing after the test drive?", FIN[0][1])}</div>
-          ${toggle(true, "Recording consent", `${first(t)} agrees to record the test drive, from Start TD to the end, for AI notes and service quality. Saying no doesn't change the visit.`, "consent")}
+          <div class="v2-field"><label for="ci-mb">${req("Mobile number")}</label><div class="v2-tel"><span>${MK.dial}</span><input class="v2-input" id="ci-mb" value="${tel}"></div></div>
+          <div class="v2-field" data-part="purpose"><label>Purpose of visit</label>${chips("purpose", purposes, ["Buy or test drive"])}<small class="v2-small" style="display:block; margin-top:6px;">Only buy or test drive goes on to a DA; the rest go to that desk.</small></div>
+          <div class="ci-otp" data-ci-otp data-part="otp" hidden><label>OTP sent to ${MK.dial} ${tel}</label><div class="v2-otp">${"481902".split("").map(d => `<span>${d}</span>`).join("")}</div><p class="v2-small">Didn't get it? <b>Resend OTP</b></p></div>
         </div>
-        <div class="v2-mf"><span class="v2-small" style="margin:0; align-self:center;">OTP goes to ${p.phone}</span><button class="v2-btn primary wide" data-step-to="ci:otp">Send OTP</button></div>
+        <div class="v2-mf"><span class="v2-small" style="margin:0; align-self:center;">The OTP proves who is checking in</span><button class="v2-btn primary" data-reveal="[data-ci-otp], [data-ci-verify]" data-reveal-hide>${ic("send")}Send OTP</button><button class="v2-btn primary" data-ci-verify hidden data-step-to="ci:order">${ic("shield-check")}Verify OTP</button></div>
       </div>
-      <div class="v2-modal sm" data-flow="ci" data-flow-step="otp" data-part="otp" hidden>
-        <div class="v2-mh"><div><h4>Enter OTP and finish check-in</h4><p>We sent a 6-digit code to the mobile ${walk ? "just added" : "on the booking"}.</p></div><span class="v2-ib box x" data-close-flow>${ic("x")}</span></div>
-        <div class="v2-mb center"><div class="v2-otp">${"481902".split("").map(d => `<span>${d}</span>`).join("")}</div><p class="v2-small">Sent to ${p.phone} &middot; <b>Resend OTP</b></p></div>
-        <div class="v2-mf"><button class="v2-btn" data-step-to="ci:details">${ic("arrow-left")}Go back</button><button class="v2-btn primary wide" data-step-to="ci:token">Verify OTP</button></div>
+      <div class="v2-modal sm" data-flow="ci" data-flow-step="order" data-part="order" hidden>
+        <div class="v2-mh"><div><h4>Do they have an existing order?</h4><p>Step 2 of 2 &middot; a test drive booked for today, or a car they've ordered.</p></div><span class="v2-ib box x" data-close-flow>${ic("x")}</span></div>
+        <div class="v2-mb"><div class="ci-yn">
+          <button class="ci-opt" data-step-to="ci:${walk ? "none" : "found"}">${ic("file-check")}<b>Yes</b><small>Find today's order and check them in</small></button>
+          <button class="ci-opt" data-step-to="ci:you">${ic("user-plus")}<b>No</b><small>Take their basic details</small></button></div></div>
+        <div class="v2-mf"><button class="v2-btn" data-step-to="ci:details">${ic("arrow-left")}Go back</button><span class="v2-ok sm" style="align-self:center;">${ic("circle-check")}Verified &middot; ${MK.dial} ${tel}</span></div>
       </div>
-      <div class="v2-modal sm" data-flow="ci" data-flow-step="token" data-part="token" hidden>
-        <div class="v2-mb center"><div class="v2-success"><span class="big">${ic("check")}</span><h4>${first(t)} is checked in</h4><p>Please take ${tk.seat.toLowerCase()}. ${walk ? "A DA is being assigned now." : `${PSTAFF.da.name.split(" ")[0]}, your DA, is being told now.`}</p></div>
+      ${walk ? `<div class="v2-modal sm" data-flow="ci" data-flow-step="none" hidden>
+        <div class="v2-mh"><div><h4>No order on this mobile today</h4><p>Nothing is booked on ${MK.dial} ${tel} for today. Take their basic details instead.</p></div><span class="v2-ib box x" data-close-flow>${ic("x")}</span></div>
+        <div class="v2-mf"><button class="v2-btn" data-step-to="ci:order">${ic("arrow-left")}Go back</button><button class="v2-btn primary wide" data-step-to="ci:you">Add their details</button></div>
+      </div>`
+      : `<div class="v2-modal sm" data-flow="ci" data-flow-step="found" hidden>
+        <div class="v2-mb center"><div class="v2-success"><span class="big">${ic("check")}</span><h4>${first(t)} is checked in</h4><p>Today's order found on ${MK.dial} ${tel}. Please take ${tk.seat.toLowerCase()}; ${PSTAFF.da.name.split(" ")[0]}, the DA, is being told now.</p></div>
+          <div class="v2-found" data-part="booking" style="margin-top:14px; text-align:left;">${ic("calendar-check")}<div><b>Test drive &middot; 2:30 PM &middot; ${p.id}</b><small>${PCARS[p.car].title} &middot; licence uploaded before the visit</small></div><span class="v2-pill green">${ic("check")}Checked in</span></div>
           <div class="v2-tokcard" data-part="token-card"><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span></div>
+          <div style="text-align:left; margin-top:12px;">${toggle(true, "Recording consent", recText, "consent")}</div>
           ${finCard(t, "need", "fin-card")}</div>
+        <div class="v2-mf"><button class="v2-btn primary wide" data-go="I2">Done: show the token on the TV</button></div>
+      </div>`}
+      <div class="v2-modal" data-flow="ci" data-flow-step="you" ${walk ? `data-part="you"` : ""} hidden>
+        <div class="v2-mh"><div><h4>Their details</h4><p>No existing order, so this creates the lead.</p></div><span class="v2-ib box x" data-close-flow>${ic("x")}</span></div>
+        <div class="v2-mb">
+          <div class="v2-field"><label for="ci-ph">${req("Phone number")}</label><div class="v2-tel"><span>${MK.dial}</span><input class="v2-input" id="ci-ph" value="${tel}" readonly><em>${ic("circle-check")}Verified</em></div></div>
+          ${field("Email", p.email, "ci-em")}
+          <div class="v2-grid2">${field("First name", fName, "ci-fn")}${field("Last name", lName.join(" "), "ci-ln")}</div>
+          ${field(MK.postcode, post, "ci-pc")}
+          <div class="v2-field" ${walk ? `data-part="finance"` : ""}><label>Do you need financing after the test drive?</label>${radios("fin", FIN.map(([, l]) => l), FIN[0][1])}</div>
+          <div class="v2-field" ${walk ? `data-part="heard"` : ""}><label for="ci-hd">Where did you hear about us?</label><select class="v2-input" id="ci-hd"><option value="" disabled>Select where did you hear about us</option>${MK.heard.map((h, i) => `<option${i === 3 ? " selected" : ""}>${h}</option>`).join("")}</select></div>
+          ${toggle(true, "Recording consent", recText, walk ? "consent" : "")}
+        </div>
+        <div class="v2-mf"><button class="v2-btn" data-step-to="ci:order">${ic("arrow-left")}Go back</button><button class="v2-btn primary wide" data-step-to="ci:token">${ic("log-in")}Check in</button></div>
+      </div>
+      <div class="v2-modal sm" data-flow="ci" data-flow-step="token" ${walk ? `data-part="token"` : ""} hidden>
+        <div class="v2-mb center"><div class="v2-success"><span class="big">${ic("check")}</span><h4>${first(t)} is checked in</h4><p>Please take ${tk.seat.toLowerCase()}. ${walk ? "A DA is being assigned now." : `${PSTAFF.da.name.split(" ")[0]}, your DA, is being told now.`}</p></div>
+          <div class="v2-tokcard" ${walk ? `data-part="token-card"` : ""}><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span></div>
+          ${finCard(t, "need", walk ? "fin-card" : "")}</div>
         <div class="v2-mf"><button class="v2-btn primary wide" data-go="I2">Done: show the token on the TV</button></div>
       </div>`;
     // by QR: the receptionist only watches; the answers arrive in the side panel as the customer gives them
     const answers = walk
-      ? [["name", "Name and email", "", `data-on-you="${p.name} &middot; ${p.email}"`], ["purpose", "Purpose", "", `data-def-you="Not answered"`], ["acc", "Accompanied by", "", `data-def-today="Not answered"`], ["pay", "Finance", "", `data-def-today="Not answered"`], ["area", MK.area, "", `data-on-today="${VISIT[t].area}"`], ["licence", "Licence", "", `data-def-submitted="Not added: scan it at the car"`], ["rec", "Recording consent", "", ""]]
-      : [["booking", "Booking", "", `data-on-verified="${p.id} &middot; 2:30 PM"`], ["acc", "Accompanied by", "", `data-def-today="Not answered"`], ["pay", "Finance", "", `data-def-today="Not answered"`], ["area", MK.area, "", `data-on-today="${VISIT[t].area}"`], ["licence", "Licence", "On file &middot; uploaded 2 days ago", ""], ["rec", "Recording consent", "", ""]];
+      ? [["purpose", "Purpose", "", ""], ["order", "Existing order", "", ""], ["name", "Name and email", "", `data-on-you="${p.name} &middot; ${p.email}"`], ["post", MK.postcode, "", `data-on-you="${post}"`],
+        ["pay", "Finance", "", `data-def-you="Not answered"`], ["heard", "Heard about us", "", `data-def-you="Not answered"`], ["licence", "Licence", "", `data-def-submitted="Not added: scan it at the car"`], ["rec", "Recording consent", "", ""]]
+      : [["purpose", "Purpose", "", ""], ["order", "Existing order", "", ""], ["booking", "Today's order", "", `data-on-submitted="${p.id} &middot; 2:30 PM &middot; checked in"`], ["licence", "Licence", "On file &middot; uploaded 2 days ago", ""], ["rec", "Recording consent", "", ""]];
     const tl = [["Scanned", walk ? "2:41 PM" : "2:24 PM", walk ? "done" : "", walk ? "" : `data-cls-scanned="done"`],
-      ["Mobile verified", "", "", `data-cls-verified="done"`], ["Details", "", "", `data-cls-today="done"`], ["Submitted", "", "", `data-cls-submitted="done"`]];
+      ["Mobile verified", "", "", `data-cls-verified="done"`], [walk ? "Details" : "Order found", "", "", walk ? `data-cls-you="done"` : `data-cls-submitted="done"`], ["Checked in", "", "", `data-cls-submitted="done"`]];
     const side = `<aside class="v2-drawer side" data-part="live-checkin">
         <div class="v2-dh"><div class="sc-top"><span class="sc-dot ${walk ? "live" : ""}" ${walk ? "" : `data-cls-scanned="live"`} data-cls-submitted="live>done"></span><div class="sc-tt"><b ${walk ? `data-on-you="${p.name} is checking in"` : `data-on-scanned="${first(t)} is checking in"`} data-on-submitted="${first(t)} checked in &middot; token ${tk.no}">${walk ? "A walk-in is checking in" : `Waiting for ${first(t)}`}</b><small>From the QR on ${tk.seat.toLowerCase()}</small></div></div>
           <div class="sc-tl">${tl.map(([k, v, cls, a]) => `<div class="${cls}"${a ? " " + a : ""}><i>${ic("check")}</i><b>${k}</b><small>${v || "&nbsp;"}</small></div>`).join("")}</div></div>
@@ -1403,17 +1434,26 @@ function yardPhone(t, kind) {
 }
 const PHONE_LABEL = { I1: "Customer's phone &middot; the form only", I2: "Customer's phone &middot; their token", S2: "Yardie's phone &middot; Leadverse mobile", O1: "Yardie's phone &middot; Leadverse mobile" };
 const PHONES = {
-  // I1 by seat QR: scan, mobile and OTP, (about you), about today, consent, then the token
+  // I1 by seat QR: scan; mobile, purpose and OTP; Existing order? Yes: today's order, checked in at once, then the
+  // recording question. No: the basic details form, then licence and consent. Then the token
   I1: (t) => {
     const p = PEOPLE[t], walk = t === "walkin", fn = first(t), c = PCARS[p.car], tk = TOKEN[t];
     const url = pick(stepById("I1").screen.phone, t);
     const times = walk ? ["2:41", "2:42", "2:43", "2:44"] : ["2:24", "2:25", "2:26", "2:27"];
     const top = (i) => `${phStatus(times[i])}<div class="ph-url">${ic("lock")}<span>${url}</span></div>`;
-    const total = walk ? 4 : 3;
-    const prog = (n, label) => `<div class="ph-prog"><div>${Array.from({ length: total }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</div><small>Step ${n} of ${total} &middot; ${label}</small></div>`;
-    const choose = (key, opts) => `<div class="ph-chips">${opts.map(o => `<button class="ph-chip" data-pick="${key}" data-sync="${key}">${o}</button>`).join("")}</div>`;
+    const prog = (n, label) => `<div class="ph-prog"><div>${[0, 1, 2].map(i => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</div><small>Step ${n} of 3 &middot; ${label}</small></div>`;
     const purposes = [["car-front", "Buy or test drive"], ["package", "Drop off a car"], ["key-round", "Pick up a car"], ["wrench", "A booked service"], ["banknote", "Sell my car"], ["message-circle", "Something else"]];
     const [fName, ...lName] = p.name.split(" ");
+    const tel = p.phone.replace(/^0/, ""), post = (VISIT[t].area.match(/\d{4}/) || [VISIT[t].area])[0];
+    const req = (l) => `${l} <i class="ph-req">*</i>`;
+    const field = (label, val) => `<b class="ph-q">${req(label)}</b><div class="ph-input">${val}</div>`;
+    const rec = (submit) => `<b class="ph-q">Can we record your test drive?</b>
+          <p class="ph-sub">From the moment your DA starts it. It helps your DA keep notes. Your visit is the same either way.</p>
+          <div class="ph-radios">
+            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="Yes, recording on" data-enables="${submit}"><i></i>Yes, that's fine</button>
+            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="No: AI notes off for this visit" data-enables="${submit}"><i></i>No, please don't</button>
+          </div>
+          <p class="ph-legal">By checking in you agree to the CARS24 <u>${MK.privacy}</u>.</p>`;
     return `<div class="ph">
       <div class="ph-scr ph-cam" data-flow="ph" data-flow-step="scan" data-part="ph-scan">
         ${phStatus(times[0])}
@@ -1426,51 +1466,76 @@ const PHONES = {
         <div class="ph-page">${phBrand()}
           <h3>Welcome to the ${MK.hub}</h3>
           <p class="ph-sub">Check in here and we'll find you a DA. About 2 minutes.</p>
-          ${prog(1, "Your mobile")}
-          <b class="ph-q">Your mobile number</b><div class="ph-input">${p.phone}</div>
-          <b class="ph-q">The code we just sent</b><div class="ph-otp">${"481902".split("").map(d => `<span>${d}</span>`).join("")}</div>
-          <p class="ph-legal">Filled in from your messages.</p>
+          ${prog(1, "Mobile and visit")}
+          <b class="ph-q">${req("Your mobile number")}</b><div class="ph-input ph-tel"><span>${MK.dial}</span>${tel}</div>
+          <b class="ph-q">What brings you in today?</b><div class="ph-opts" data-part="ph-purpose">${purposes.map(([icon, l]) => `<button class="ph-opt" data-pick="purpose" data-sync="purpose">${ic(icon)}<span>${l}</span></button>`).join("")}</div>
+          <div data-ph-otp hidden><b class="ph-q">The code we just sent</b><div class="ph-otp">${"481902".split("").map(d => `<span>${d}</span>`).join("")}</div><p class="ph-legal">Filled in from your messages.</p></div>
         </div>
-        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:${walk ? "you" : "today"}" data-sync-event="verified">Verify and continue</button></div>
+        <div class="ph-foot"><button class="ph-btn" data-reveal="[data-ph-otp], [data-ph-verify]" data-reveal-hide>Send code</button><button class="ph-btn" data-ph-verify hidden data-step-to="ph:order" data-sync-event="verified">Verify and continue</button></div>
       </div>
-      ${walk ? `<div class="ph-scr" data-flow="ph" data-flow-step="you" data-part="ph-you" hidden>
+      <div class="ph-scr" data-flow="ph" data-flow-step="order" data-part="ph-order" hidden>
         ${top(1)}
         <div class="ph-page">${phBrand()}
-          <h3>Tell us about you</h3><p class="ph-sub">No booking on this mobile, so we'll set you up now.</p>
-          ${prog(2, "About you")}
-          <div class="ph-two"><div><b class="ph-q">First name</b><div class="ph-input">${fName}</div></div><div><b class="ph-q">Last name</b><div class="ph-input">${lName.join(" ")}</div></div></div>
-          <b class="ph-q">Email</b><div class="ph-input">${p.email}</div>
-          <b class="ph-q">What brings you in today?</b><div class="ph-opts">${purposes.map(([icon, l]) => `<button class="ph-opt" data-pick="purpose" data-sync="purpose">${ic(icon)}<span>${l}</span></button>`).join("")}</div>
+          <h3>Do you have an existing order?</h3>
+          <p class="ph-sub">A test drive booked for today, or a car you've ordered with us.</p>
+          ${prog(2, "Your order")}
+          <div class="ph-yn">
+            <button class="ph-opt big" data-pick="order" data-sync="order" data-sync-val="${walk ? "Yes, but none found" : `Yes &middot; ${p.id}`}" data-step-to="ph:${walk ? "none" : "found"}" data-sync-event="${walk ? "order" : "order submitted"}">${ic("file-check")}<span><b>Yes</b><small>Find my order and check me in</small></span></button>
+            <button class="ph-opt big" data-pick="order" data-sync="order" data-sync-val="No: new customer" data-step-to="ph:you" data-sync-event="order">${ic("user-plus")}<span><b>No</b><small>I'm new here: add my details</small></span></button>
+          </div>
         </div>
-        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:today" data-sync-event="you">Next</button></div>
-      </div>` : ""}
-      <div class="ph-scr" data-flow="ph" data-flow-step="today" data-part="ph-today" hidden>
-        ${top(walk ? 2 : 1)}
-        <div class="ph-page">${phBrand()}
-          <h3>${walk ? "About today" : `Hi ${fn}, we found your booking`}</h3>
-          ${walk ? `<p class="ph-sub">Three quick questions, so your DA can help you faster.</p>` : `<div class="ph-visit">${ic("calendar-check")}<div><b>Test drive &middot; today 2:30 PM</b><small>${c.title}</small></div></div>`}
-          ${prog(walk ? 3 : 2, "About today")}
-          <b class="ph-q">Who's with you today?</b>${choose("acc", ["Just me", "Partner", "Family", "A friend"])}
-          <b class="ph-q">Do you need financing after the test drive?</b>
-          <div class="ph-radios" data-part="ph-finance">${FIN.map(([key, label]) => `<button class="ph-radio" data-pick="fin" data-sync="pay" data-sync-key="fin=${key}" data-sync-val="${label}"><i></i>${label}</button>`).join("")}</div>
-          <b class="ph-q">${MK.area}</b><div class="ph-input">${VISIT[t].area}</div>
-        </div>
-        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:consent" data-sync-event="today">Next</button></div>
       </div>
-      <div class="ph-scr" data-flow="ph" data-flow-step="consent" data-part="ph-consent" hidden>
-        ${top(walk ? 3 : 2)}
+      ${walk ? `<div class="ph-scr" data-flow="ph" data-flow-step="none" hidden>
+        ${top(1)}
+        <div class="ph-page">${phBrand()}
+          <h3>We couldn't find an order</h3>
+          <p class="ph-sub">Nothing is booked on ${MK.dial} ${tel} for today. Add your details and we'll check you in.</p>
+        </div>
+        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:you" data-sync="order" data-sync-val="No order found: new customer">Add my details</button></div>
+      </div>`
+      : `<div class="ph-scr" data-flow="ph" data-flow-step="found" data-part="ph-found" hidden>
+        ${top(1)}
+        <div class="ph-page">${phBrand()}
+          <div class="ph-checked">${ic("circle-check")}<div><b>You're checked in, ${fn}</b><small>${tk.at} &middot; we've told your DA</small></div></div>
+          <b class="ph-q">Your order for today</b>
+          <div class="ph-visit">${ic("calendar-check")}<div><b>Test drive &middot; today 2:30 PM</b><small>${c.title} &middot; order ${p.id}</small></div></div>
+          <div class="ph-token sm"><small>Your token</small><b>${tk.no}</b><span>Stay at ${tk.seat.toLowerCase()}: your DA will come to you</span></div>
+        </div>
+        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:consent-in">Next: one quick question</button></div>
+      </div>
+      <div class="ph-scr" data-flow="ph" data-flow-step="consent-in" data-part="ph-consent" hidden>
+        ${top(2)}
+        <div class="ph-page">${phBrand()}
+          <h3>One quick question</h3>
+          ${prog(3, "Consent")}
+          <div class="ph-onfile">${ic("badge-check")}<div><b>Licence already on file</b><small>Uploaded 2 days ago. Your DA checks it before the drive.</small></div></div>
+          ${rec("ph-done")}
+        </div>
+        <div class="ph-foot"><button class="ph-btn" id="ph-done" disabled data-step-to="ph:token">See my token</button></div>
+      </div>`}
+      <div class="ph-scr" data-flow="ph" data-flow-step="you" ${walk ? `data-part="ph-you"` : ""} hidden>
+        ${top(2)}
+        <div class="ph-page scroll">${phBrand()}
+          <h3>Tell us about you</h3>
+          ${prog(2, "Your details")}
+          <b class="ph-q">${req("Phone number")}</b><div class="ph-input ph-tel"><span>${MK.dial}</span>${tel}<em>${ic("circle-check")}</em></div>
+          ${field("Email", p.email)}
+          <div class="ph-two"><div>${field("First name", fName)}</div><div>${field("Last name", lName.join(" "))}</div></div>
+          ${field(MK.postcode, post)}
+          <b class="ph-q">Do you need financing after the test drive?</b>
+          <div class="ph-radios"${walk ? ` data-part="ph-finance"` : ""}>${FIN.map(([key, label]) => `<button class="ph-radio" data-pick="fin" data-sync="pay" data-sync-key="fin=${key}" data-sync-val="${label}"><i></i>${label}</button>`).join("")}</div>
+          <b class="ph-q">Where did you hear about us?</b>
+          <select class="ph-input ph-sel" data-sync-select="heard" aria-label="Where did you hear about us?"${walk ? ` data-part="ph-heard"` : ""}><option value="" selected disabled>Select where did you hear about us</option>${MK.heard.map(h => `<option>${h}</option>`).join("")}</select>
+        </div>
+        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:consent" data-sync-event="you">Next</button></div>
+      </div>
+      <div class="ph-scr" data-flow="ph" data-flow-step="consent" ${walk ? `data-part="ph-consent"` : ""} hidden>
+        ${top(3)}
         <div class="ph-page">${phBrand()}
           <h3>Almost done</h3>
-          ${prog(total, "Licence and consent")}
-          ${walk ? `<b class="ph-q">Your driving licence <span class="ph-tag">optional</span></b><div class="ph-tiles sm">${["Front", "Back"].map((side, i) => `<button class="ph-tile" data-zone data-sync="licence" data-sync-val="${i ? "Front and back added" : "Front added"}">${ic("camera")}<b>${side}</b><small>Take a photo</small></button>`).join("")}</div><p class="ph-legal">Or show it to your DA at the car.</p>`
-            : `<div class="ph-onfile">${ic("badge-check")}<div><b>Licence already on file</b><small>Uploaded 2 days ago. Your DA checks it before the drive.</small></div></div>`}
-          <b class="ph-q">Can we record your test drive?</b>
-          <p class="ph-sub">From the moment your DA starts it. It helps your DA keep notes. Your visit is the same either way.</p>
-          <div class="ph-radios">
-            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="Yes, recording on" data-enables="ph-submit"><i></i>Yes, that's fine</button>
-            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="No: AI notes off for this visit" data-enables="ph-submit"><i></i>No, please don't</button>
-          </div>
-          <p class="ph-legal">By checking in you agree to the CARS24 <u>${MK.privacy}</u>.</p>
+          ${prog(3, "Licence and consent")}
+          <b class="ph-q">Your driving licence <span class="ph-tag">optional</span></b><div class="ph-tiles sm">${["Front", "Back"].map((side, i) => `<button class="ph-tile" data-zone data-sync="licence" data-sync-val="${i ? "Front and back added" : "Front added"}">${ic("camera")}<b>${side}</b><small>Take a photo</small></button>`).join("")}</div><p class="ph-legal">Or show it to your DA at the car.</p>
+          ${rec("ph-submit")}
         </div>
         <div class="ph-foot"><button class="ph-btn" id="ph-submit" disabled data-step-to="ph:token" data-sync-event="submitted">Check in</button></div>
       </div>

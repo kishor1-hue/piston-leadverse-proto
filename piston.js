@@ -301,6 +301,12 @@ function mountScreen(root) {
     go(el.dataset.go);
   }));
   root.querySelectorAll("[data-mode-set]").forEach(el => el.addEventListener("click", (e) => { e.stopPropagation(); setMode(el.dataset.modeSet); }));
+  // data-reveal="selector" shows those elements; with data-reveal-hide the button hides itself (Send OTP, then Verify)
+  root.querySelectorAll("[data-reveal]").forEach(b => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    root.querySelectorAll(b.dataset.reveal).forEach(x => { x.hidden = false; });
+    if (b.hasAttribute("data-reveal-hide")) b.hidden = true;
+  }));
   root.querySelectorAll("[data-enables]").forEach(el => el.addEventListener("click", () => { const target = root.querySelector("#" + el.dataset.enables); if (target) target.disabled = false; }));
   root.querySelectorAll("[data-pick]").forEach(el => el.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -498,10 +504,21 @@ function mountSync(stage) {
       const row = el.closest("[data-sync-row]");
       if (row) { row.classList.remove("skip"); row.classList.add("got"); row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
     }));
+    // one tap can fire several events, e.g. Yes to an existing order is both the answer and the check-in
     const ev = e.target.closest("[data-sync-event]");
-    if (ev && !ev.disabled) fire(ev.dataset.syncEvent);
+    if (ev && !ev.disabled) ev.dataset.syncEvent.split(" ").forEach(fire);
     else setTimeout(drawPins, 0);
   }, true);
+  // a select on the phone sends its chosen option, e.g. where they heard about us
+  if (phone) phone.addEventListener("change", (e) => {
+    const sel = e.target.closest("select[data-sync-select]");
+    if (!sel) return;
+    screens.forEach(root => root.querySelectorAll(`[data-synced="${sel.dataset.syncSelect}"]`).forEach(el => {
+      el.textContent = sel.selectedOptions[0].textContent;
+      const row = el.closest("[data-sync-row]");
+      if (row) { row.classList.remove("skip"); row.classList.add("got"); }
+    }));
+  });
   // the sim bar plays the staff actions in order
   const bar = stage.querySelector("[data-sim-bar]");
   if (bar) bar.addEventListener("click", (e) => {
@@ -712,6 +729,12 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;Check-in: first the mobile number, then the purpose of visit, then send and verify the OTP. Next: do you have an existing order? Yes: today's order shows and check-in is marked. No: the basic details form&rdquo;</div><h4>Check-in asks for the mobile first, then whether there is an order</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">Mobile and OTP &rarr; (walk-in: name, email, purpose) &rarr; About today (accompanied by, finance, area) &rarr; Consent &rarr; Token</span><span class="k">After</span><span class="seq"><em>Mobile, purpose, OTP</em> &rarr; <em>Existing order?</em> &rarr; Yes: <em>today's order, checked in</em> &rarr; recording question &rarr; Token. No: <em>basic details</em> &rarr; licence and consent &rarr; Token</span></div>
+        <p><b>Step 1, one screen.</b> The mobile number with the market's dial code (+61, +971), then What brings you in today. Send code shows the code under the form and turns into Verify. Only buy or test drive goes on to a DA.</p>
+        <p><b>Step 2, existing order?</b> Yes finds today's order by the mobile and checks the customer in on the spot: the order shows with Checked in and the token, and the receptionist's row turns green. If nothing is booked on that mobile, the page says so and offers the details form. No opens the basic details form, as on the website: phone (already verified), email, first and last name, post code (or emirate and area), Do you need financing after the test drive, and Where did you hear about us. That creates the lead.</p>
+        <p><b>The rest is unchanged.</b> The recording question, the licence and the token page stay as they were. Accompanied by is no longer asked. The staff form follows the same two steps, so either way of checking in gives the same answers.</p>
+        ${links(stepLink("I1", "Seat QR, booked: Yes", { track: "booked", market: "au", mode: "qr" }), stepLink("I1", "Seat QR, walk-in: No", { track: "walkin", market: "au", mode: "qr" }), stepLink("I1", "By staff", { track: "booked", market: "ae", mode: "staff" }), stepLink("I1", "By staff, walk-in", { track: "walkin", market: "ae", mode: "staff" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;A pre-approval form whenever the payment mode is Finance by CARS24 or Own loan: skippable, opened at any point from the Next dropdown. Two forms with different inputs, partial and full, one goal: the pre-approval&rdquo;</div><h4>A finance pre-approval inside the call, from any step</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Pre-approval only as a link: the customer does it on the website, or from the QR on the token page at the hub</span><span class="k">After</span><span class="seq">Payment mode in the lead pane &rarr; any call step &rarr; Next menu: <em>Run a finance pre-approval</em> &rarr; <em>P7f</em> &rarr; back to the same step</span></div>
         <p><b>The payment mode decides.</b> Cash, Finance by CARS24 or Own loan, in the lead pane on every call step, defaulting to what the customer said in the app or to the chatbot. With either finance mode, the arrow next to Next offers the pre-approval on every step of the call; with Cash it stays off. For an own loan the pitch is to beat their lender's rate.</p>
@@ -817,7 +840,7 @@ function renderChanges() {
         <tr><td><b>Calling agent</b></td><td class="seq">Not in the Console</td><td class="seq">P1 Queue (tabs) &rarr; P2 Orders and interest &rarr; P3 Discovery if unsure &rarr; P4 TD type per car &rarr; P5 Hub slot / P6 Video slot &rarr; P7 Book</td><td>A new persona in Tasks (b2c-lead-td-booking-by-cc). An order exists, or the call creates one per car; one call can book a hub TD and a video TD.</td></tr>
         <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign DA</td><td class="seq">I1 Check-in (the form creates the lead) &rarr; S1 DA assigned automatically</td><td>Car choice and the order move to the DA, after the handshake. The receptionist assigns a DA only when every DA is busy.</td></tr>
         <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign DA</td><td class="seq">I1 Check-in, or the customer does it from the seat QR &rarr; S1 automatic</td><td>No Mark arrived: check-in is the arrival. No licence check at the desk.</td></tr>
-        <tr><td><b>Customer</b></td><td class="seq">Not in the Console</td><td class="seq">Seat QR &rarr; Mobile and OTP &rarr; About today &rarr; Consent &rarr; Token page</td><td>A public page outside Leadverse, then a live token page with the same status as the TV.</td></tr>
+        <tr><td><b>Customer</b></td><td class="seq">Not in the Console</td><td class="seq">Seat QR &rarr; Mobile, purpose and OTP &rarr; Existing order? &rarr; Yes: checked in, or No: your details &rarr; Consent &rarr; Token page</td><td>A public page outside Leadverse, then a live token page with the same status as the TV.</td></tr>
         <tr><td><b>Yardie</b></td><td class="seq">Not in the Console</td><td class="seq">S2 Bring the booked car &rarr; O1 Prep and bring a walk-in's car</td><td>A new persona with a mobile task list. Each tap updates the TV and tells the DA.</td></tr>
         <tr><td><b>Everyone in the hub</b></td><td class="seq">Not in the Console</td><td class="seq">I2 Ground TV</td><td>Tokens with status, DA and car, moved only by staff actions.</td></tr>
         <tr><td><b>DA</b></td><td class="seq">Conduct TD &rarr; Select VAS &rarr; Confirm VAS &rarr; Payment &rarr; Token paid</td><td class="seq">Booked: T1 Handshake and Start TD &rarr; O3 Consent &rarr; O4 DL &rarr; O5&ndash;O7 &rarr; N1&ndash;N3. Walk-in: T1 Handshake &rarr; T2 Needs and cars &rarr; T4 Promise &rarr; T5 Book now &rarr; O2 Start TD &rarr; O3 Consent &rarr; O4 DL &rarr; O5&ndash;O7 &rarr; N1&ndash;N3</td><td>The DA's journey starts at the handshake; for a booking, the handshake starts the TD. For a walk-in, the DA books the current slot, then comes back when the car reaches the hub. VAS moves into the delivery journey.</td></tr>
