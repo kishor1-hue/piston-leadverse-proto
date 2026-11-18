@@ -158,7 +158,7 @@ function leadPane(t, stepId, opts = {}) {
   </aside>`;
 }
 
-// on the call: how the customer pays (Finance by CARS24 or Own loan offers the pre-approval), the score and the pre-approval
+// on the call: how the customer pays (In-house finance or BYOF offers the pre-approval), the score and the pre-approval
 function leadFin(t) {
   const f = finOf(t), m = payMode(t), r = PREQ.run[t], ran = f.amount || f.rate;
   return `<div class="v2-group" data-part="paymode">
@@ -348,6 +348,10 @@ const ctxKey = (t) => `${CTX.market}-${t}`;
 const payMode = (t) => PAY[ctxKey(t)] || P360[t].pay;
 const payLabel = (m) => PAY_MODES.find(([k]) => k === m)[1];
 function setPayMode(t, m) { PAY[ctxKey(t)] = m; }
+// trade-in opted (yes or no), asked at TD type (P4); starts from what the customer told the app or the chatbot
+const TRADE = {};
+const tradeOpt = (t) => TRADE[ctxKey(t)] || P360[t].tradeIn;
+function setTradeIn(t, v) { TRADE[ctxKey(t)] = v; }
 // the pre-approval the screens show: from the finance service, updated by a run on this call. A partial run gives a
 // rate range; a full run gives the amount
 function finOf(t) {
@@ -461,8 +465,17 @@ function callStages(t, idx, cur, list = CALL_STEPS) {
     return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${state === "done" ? done[n] : state === "cur" ? (cur || "In progress") : "Pending"}</span></div>`;
   }).join("")}</div>`;
 }
+// at TD type: how they pay (the same value as the lead pane) and whether a trade-in is opted, saved on each order
+function payTrade(t) {
+  const m = payMode(t), tr = tradeOpt(t), me = P360[t];
+  return `<div class="v2-card td-pt">
+    <label for="p4-pay">Payment mode</label><select class="v2-input sm${m === "cash" ? "" : " fin"}" id="p4-pay" data-paymode data-part="pay-mode">${PAY_MODES.map(([k, l]) => `<option value="${k}"${k === m ? " selected" : ""}>${l}</option>`).join("")}</select>
+    <label for="p4-trade">Trade-in opted</label><select class="v2-input sm" id="p4-trade" data-tradein data-part="trade-in">${[["yes", "Yes"], ["no", "No"]].map(([k, l]) => `<option value="${k}"${k === tr ? " selected" : ""}>${l}</option>`).join("")}</select>
+    <small>BYOF: bring your own finance; either finance offers the pre-approval.${me.tradeIn === "yes" ? ` Their car: ${me.trade.split(",")[0]}.` : ""}</small>
+  </div>`;
+}
 // the pre-approval, under the arrow on every call step; off unless the payment mode is finance or an own loan
-const PRE_ITEM = (id) => ["Run a finance pre-approval", "P7f", "", "landmark", false, `data-from="${id}" data-needs="[data-paymode].fin" title="For Finance by CARS24 or Own loan"`];
+const PRE_ITEM = (id) => ["Run a finance pre-approval", "P7f", "", "landmark", false, `data-from="${id}" data-needs="[data-paymode].fin" title="For In-house finance or BYOF"`];
 // wide: the cars need the room (discovery), so CarGPT folds to a strip that opens its tips on a click
 function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev, steps }) {
   const p = PEOPLE[t];
@@ -569,11 +582,11 @@ const SCREENS = {
     const finance = f.amount
       ? `<div class="cx-fin-h"><span class="v2-pill green">${ic("badge-check")}${f.status}</span><b>Up to ${f.amount}</b><small>Valid until ${f.until} &middot; ${f.lender}</small></div>
       <div class="v2-kvs" style="margin-bottom:8px;">${kv("Est. repayment", f.repay)}${kv("Deposit", f.deposit)}${kv("Term", f.term)}${kv(MK.credit, `${PREQ.run[t].score} &middot; ${PREQ.run[t].band}`)}</div>
-      <div class="v2-kvs two" style="margin-bottom:8px;">${paying}${kv("Trade-in", me.trade)}</div>
+      <div class="v2-kvs two" style="margin-bottom:8px;">${paying}${kv("Trade-in", `${tradeOpt(t) === "yes" ? "Opted" : "Not opted"}<small>${me.trade}</small>`)}</div>
       <div class="cx-fin-a"><span class="v2-small" style="margin:0;">${ic("history")} Pre-approved ${f.when}.</span><button class="v2-btn sm">${ic("message-circle")}Send the pre-approval summary</button></div>`
       : `<div class="cx-fin-h"><span class="v2-pill ${f.rate ? "violet" : "grey"}">${ic(f.rate ? "percent" : "circle-dashed")}${f.status}</span><b>${f.rate ? f.rate : "No pre-approval yet"}</b><small>${f.rate ? "No amount yet: the full set gives it" : `${fn} wants finance; nothing from the finance service`}</small></div>
-      <div class="v2-kvs two" style="margin-bottom:8px;">${paying}${kv("Trade-in", me.trade)}</div>
-      <div class="cx-fin-a" data-part="run-pre"><span class="v2-small" style="margin:0;">${ic("info")} A soft check and a few questions, on this call. Skippable.</span><button class="v2-btn sm primary" data-go="P7f" data-from="P2" data-needs="[data-paymode].fin" title="For Finance by CARS24 or Own loan">${ic("landmark")}Run the pre-approval</button></div>`;
+      <div class="v2-kvs two" style="margin-bottom:8px;">${paying}${kv("Trade-in", `${tradeOpt(t) === "yes" ? "Opted" : "Not opted"}<small>${me.trade}</small>`)}</div>
+      <div class="cx-fin-a" data-part="run-pre"><span class="v2-small" style="margin:0;">${ic("info")} A soft check and a few questions, on this call. Skippable.</span><button class="v2-btn sm primary" data-go="P7f" data-from="P2" data-needs="[data-paymode].fin" title="For In-house finance or BYOF">${ic("landmark")}Run the pre-approval</button></div>`;
     const body = `${tiles}${tabs}${panel("orders", orders, "orders")}${panel("cars", cars, vtd ? "interest" : "wishlist")}${panel("finance", finance, "finance")}`;
     return callTask(t, 0, "P2", { secs: "00:40", title: vtd ? `${fn}: which cars to drive?` : `${fn}: orders, finance and cars`,
       desc: vtd ? "No order yet. Add the email on the left, then pick the cars: one order each." : "Clear intent: an order exists, from the app with a mobile and an email. Confirm it, then the TD type. Contact details are edited on the left.",
@@ -696,7 +709,7 @@ const SCREENS = {
         <div class="v2-seg2"><button class="${type === "hub" ? "on" : ""}" data-pick="tdt-${cid}" ${only ? "disabled" : ""}>${ic("store")}Hub TD</button><button class="${type === "video" ? "on" : ""}" data-pick="tdt-${cid}">${ic("video")}Video TD</button></div></div>`;
     }).join("");
     return callTask(t, 2, "P4", { secs: "06:20", title: "Hub or video, for each car", desc: vtd ? "4 orders were created from the cars of interest. Pick the TD type car by car." : `One car, on order ${p.id}.`,
-      body: `<div class="v2-card">${rowsHtml}</div>
+      body: `<div class="v2-card">${rowsHtml}</div>${payTrade(t)}
         <div class="v2-note" data-part="next-steps">${ic("route")}<span>${vtd ? "<b>2 for a hub TD, 2 for a video TD.</b> Next comes the hub slot, then the video slot." : "<b>All cars for a hub TD.</b> One slot step next."} If every car had the same type, there would be a single slot step.</span></div>`,
       hint: "Exit: a TD type for every car",
       buttons: [["Call back later", "P9", "", "phone-forwarded"], ["Next: hub slot", "P5", "primary", "arrow-right", true]],
@@ -793,7 +806,7 @@ const SCREENS = {
       <div class="pa-act" data-part="run"><button class="v2-btn primary" data-pa-run>${ic("play")}<span>${ran ? "Run it again" : "Run pre-approval"}</span></button><small data-pa-gate></small></div>`);
     const own = mode === "own";
     return callTask(t, idx, "P7f", { secs: "06:10", steps, cur: "Pre-approval open", wide: true, prev: from, title: "Finance pre-approval",
-      desc: `${own ? `${fn} has their own loan lined up: the same answers let CARS24 offer a rate to beat it.` : ran ? `${fn} was pre-approved ${f.when}. Run it again only if something changed.` : `${fn} pays by ${payLabel(mode)}. Fetch the credit score, then the questions.`} Skippable: it goes back to ${back} after.`,
+      desc: `${own ? `${fn} has their own loan lined up: the same answers let CARS24 offer a rate to beat it.` : ran ? `${fn} was pre-approved ${f.when}. Run it again only if something changed.` : `Payment mode: ${payLabel(mode)}. Fetch the credit score, then the questions.`} Skippable: it goes back to ${back} after.`,
       right: `<span class="v2-pill ${ran ? "green" : "grey"}" data-pa-status data-part="status">${ran ? f.status : "Not run yet"}</span>`,
       body: result + credit + questions,
       hint: `<span data-pa-hint>${ran ? `${f.status} ${f.when}` : "Skippable: Skip goes back without one"}</span>`,
@@ -1029,7 +1042,7 @@ const SCREENS = {
         ${row("Drive", chips("drive", ["2WD", "4WD"], [n.drive]))}
         ${row("Mostly for", chips("multi", MK.usage, n.usage))}
         ${row("Must-haves", chips("multi", ["Apple CarPlay", "Rear camera", "7 airbags", "Adaptive cruise", "Sunroof", "7 seats"], n.must))}
-        ${row("Paying by", chips("pay", [...PAY_MODES.map(([, l]) => l), "Not sure yet"], ["Finance by CARS24"]))}
+        ${row("Paying by", chips("pay", [...PAY_MODES.map(([, l]) => l), "Not sure yet"], ["In-house finance"]))}
       </div>`;
     return daStep(t, { id: "T2", title: "What are you looking for?", desc: "Prefilled from the booking and app browsing. Confirm or change; the booked car stays pinned next.",
       right: `<div data-part="prefill"><span class="v2-tag ai">${ic("sparkles")}Prefilled</span></div>`,

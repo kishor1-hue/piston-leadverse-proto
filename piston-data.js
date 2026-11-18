@@ -213,8 +213,8 @@ const STEPS = [
   },
   { id: "P4", phase: "P", name: "TD type per car", tracks: ["booked", "vtd"],
     owner: "Calling agent", device: "desktop",
-    purpose: "For each car, a hub TD or a video TD. The mix decides the next steps: one slot step if all cars share a type, two (hub, then video) if not.",
-    source: { trigger: "Cars picked", data: ["Listing: where each car is, and whether it can be shown on video", "OMS: the orders for these cars"] },
+    purpose: "For each car, a hub TD or a video TD. The mix decides the next steps: one slot step if all cars share a type, two (hub, then video) if not. Two more answers here: the payment mode (Cash, In-house finance or BYOF) and whether a trade-in is opted.",
+    source: { trigger: "Cars picked", data: ["Listing: where each car is, and whether it can be shown on video", "OMS: the orders for these cars", "Lead: the payment mode (the same value as in the lead pane) and trade-in opted, saved on each order"] },
     entry: ["At least one car picked", { booked: "Order exists", vtd: "Orders created" }],
     exits: {
       booked: [{ when: "All cars for a hub TD: one slot step", to: "P5" }],
@@ -286,10 +286,10 @@ const STEPS = [
   // Paying by finance or an own loan: a pre-approval from any step of the call, skippable, back to the same step
   { id: "P7f", phase: "P", name: "Finance pre-approval", tracks: ["booked", "vtd"], branch: true,
     owner: "Calling agent", device: "desktop",
-    purpose: "When the payment mode is Finance by CARS24 or Own loan, the agent can run a pre-approval at any point of the call, from the Next menu, and comes back to the same step. It is skippable. First the credit score: a soft check that matches on identity. Then the questions, as the customer is asked them, in one of two forms with the same goal: Partial, on the fly, gives a cohort and an interest rate range, as on the car listing page; Full also gives the amount they can borrow. The questions come from the market.",
-    source: { trigger: "Run a finance pre-approval, from the Next menu of any call step, when the payment mode is Finance by CARS24 or Own loan",
+    purpose: "When the payment mode is In-house finance or BYOF, the agent can run a pre-approval at any point of the call, from the Next menu, and comes back to the same step. It is skippable. First the credit score: a soft check that matches on identity. Then the questions, as the customer is asked them, in one of two forms with the same goal: Partial, on the fly, gives a cohort and an interest rate range, as on the car listing page; Full also gives the amount they can borrow. The questions come from the market.",
+    source: { trigger: "Run a finance pre-approval, from the Next menu of any call step, when the payment mode is In-house finance or BYOF",
       data: ["Lead: the payment mode, set in the lead pane", "Credit bureau: a soft check on name, date of birth and the market's ID or address", "Finance service: the pre-approval (status, cohort, rate range, amount, expiry)", "OMS: the amount to finance, from the order's car", "Market config: the partial and full question sets"] },
-    entry: ["Payment mode is Finance by CARS24 or Own loan", "Opened from any step of the call"],
+    entry: ["Payment mode is In-house finance or BYOF", "Opened from any step of the call"],
     exits: [
       { when: "Pre-approved, or skipped: back to the step it was opened from (the lead view here)", to: "P2" },
     ],
@@ -838,19 +838,21 @@ const CARX = marketTable({
 // wishlist (hearted cars), cars viewed this week, the most viewed car, finance (pre-approval), and past orders
 const P360 = marketTable({
   booked: { wish: ["c1", "c3", "c5"], viewed: 6, top: ["c1", 3], past: ["BK-87410", "2019 Toyota Corolla Ascent", "09981230", "March 2026", "TD done, not bought"],
-    fin: { status: "Pre-approved", amount: "AED 70,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "AED 1,060/mo", deposit: "AED 0", term: "5 years", when: "3 days ago, in the app" }, pay: "fin", trade: "None recorded" },
+    fin: { status: "Pre-approved", amount: "AED 70,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "AED 1,060/mo", deposit: "AED 0", term: "5 years", when: "3 days ago, in the app" }, pay: "fin", trade: "None recorded", tradeIn: "no" },
   vtd: { wish: ["c2", "c4"], viewed: 9, top: ["c2", 4], past: null,
-    fin: { status: "Not run yet", amount: null }, pay: "fin", trade: "2016 Honda Accord, asked the chatbot" },
+    fin: { status: "Not run yet", amount: null }, pay: "fin", trade: "2016 Honda Accord, asked the chatbot", tradeIn: "yes" },
 }, { au: {
   booked: { wish: ["c1", "c3", "c5"], viewed: 6, top: ["c1", 3], past: ["BK-87410", "2019 Toyota Corolla Ascent", "09981230", "March 2026", "TD done, not bought"],
-    fin: { status: "Pre-approved", amount: "$35,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "$139/week", deposit: "$0", term: "5 years", when: "3 days ago, in the app" }, pay: "fin", trade: "None recorded" },
+    fin: { status: "Pre-approved", amount: "$35,000", until: "12 Nov 2026", lender: "CARS24 Finance", repay: "$139/week", deposit: "$0", term: "5 years", when: "3 days ago, in the app" }, pay: "fin", trade: "None recorded", tradeIn: "no" },
   vtd: { wish: ["c2", "c4"], viewed: 9, top: ["c2", 4], past: null,
-    fin: { status: "Not run yet", amount: null }, pay: "fin", trade: "2016 Honda Accord, asked the chatbot" },
+    fin: { status: "Not run yet", amount: null }, pay: "fin", trade: "2016 Honda Accord, asked the chatbot", tradeIn: "yes" },
 } });
 
 // ---------------------------------------------------------------- finance pre-approval (P7f)
-// How the customer pays, set in the lead pane on the call. Finance by CARS24 and Own loan offer the pre-approval.
-const PAY_MODES = [["cash", "Cash"], ["fin", "Finance by CARS24"], ["own", "Own loan"]];
+// How the customer pays, set in the lead pane on the call and confirmed at TD type (P4). In-house finance and BYOF
+// offer the pre-approval.
+// In-house finance is CARS24's own; BYOF is bring your own finance (their own loan)
+const PAY_MODES = [["cash", "Cash"], ["fin", "In-house finance"], ["own", "BYOF"]];
 // One form in every market; the questions come from the market (in the build, tenant config from the finance
 // service). Items: sec (heading), pills, in (input), sel (select), date, month, freq (an amount and how often),
 // check, reveal (a check that shows a field), slider, pair (two side by side), hint, consent.

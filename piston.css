@@ -1469,3 +1469,9 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .ph-sel{width:100%; font-family:inherit; background:var(--v-panel); appearance:auto;}
 .ph-page.scroll{overflow-y:auto;}
 .ph-page.scroll .ph-q{margin-top:11px;}
+
+/* TD type (P4): payment mode and trade-in opted, on one row */
+.td-pt{display:grid; grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:6px 10px; padding:9px 14px;}
+.td-pt > label{font-size:12px; font-weight:500; color:var(--v-ink-2); white-space:nowrap;}
+.td-pt select.v2-input{appearance:auto;}
+.td-pt small{grid-column:1 / -1; font-size:11px; color:var(--v-muted); line-height:1.4;}

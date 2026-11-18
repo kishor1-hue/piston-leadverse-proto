@@ -357,14 +357,15 @@ function mountScreen(root) {
   root.addEventListener("click", (e) => { if (!e.target.closest("[data-menu]")) root.querySelectorAll(".v2-menu").forEach(m => { m.hidden = true; }); });
   // data-needs outside a menu follows its selector as it changes, e.g. Run the pre-approval on the payment mode
   const syncNeeds = () => root.querySelectorAll("[data-needs]").forEach(x => { if (!x.closest(".v2-menu")) x.disabled = !root.querySelector(x.dataset.needs); });
-  // the payment mode in the lead pane: Finance by CARS24 or Own loan offers the pre-approval
+  // the payment mode (the lead pane, and TD type): In-house finance or BYOF offers the pre-approval; every copy follows
   root.querySelectorAll("[data-paymode]").forEach(sel => sel.addEventListener("change", () => {
     setPayMode(VS.track, sel.value);
-    sel.classList.toggle("fin", sel.value !== "cash");
+    root.querySelectorAll("[data-paymode]").forEach(x => { x.value = sel.value; x.classList.toggle("fin", sel.value !== "cash"); });
     root.querySelectorAll("[data-paylabel]").forEach(x => { x.textContent = sel.selectedOptions[0].textContent; });
     syncNeeds();
   }));
   syncNeeds();
+  root.querySelectorAll("[data-tradein]").forEach(sel => sel.addEventListener("change", () => setTradeIn(VS.track, sel.value)));
   // filter tabs over a table or a list: rows carry data-cat, one or more categories
   root.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => {
     b.parentElement.querySelectorAll("[data-filter]").forEach(x => x.classList.toggle("on", x === b));
@@ -737,7 +738,7 @@ function renderChanges() {
         ${links(stepLink("I1", "Seat QR, booked: Yes", { track: "booked", market: "au", mode: "qr" }), stepLink("I1", "Seat QR, walk-in: No", { track: "walkin", market: "au", mode: "qr" }), stepLink("I1", "By staff", { track: "booked", market: "ae", mode: "staff" }), stepLink("I1", "By staff, walk-in", { track: "walkin", market: "ae", mode: "staff" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;A pre-approval form whenever the payment mode is Finance by CARS24 or Own loan: skippable, opened at any point from the Next dropdown. Two forms with different inputs, partial and full, one goal: the pre-approval&rdquo;</div><h4>A finance pre-approval inside the call, from any step</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Pre-approval only as a link: the customer does it on the website, or from the QR on the token page at the hub</span><span class="k">After</span><span class="seq">Payment mode in the lead pane &rarr; any call step &rarr; Next menu: <em>Run a finance pre-approval</em> &rarr; <em>P7f</em> &rarr; back to the same step</span></div>
-        <p><b>The payment mode decides.</b> Cash, Finance by CARS24 or Own loan, in the lead pane on every call step, defaulting to what the customer said in the app or to the chatbot. With either finance mode, the arrow next to Next offers the pre-approval on every step of the call; with Cash it stays off. For an own loan the pitch is to beat their lender's rate.</p>
+        <p><b>The payment mode decides.</b> Cash, In-house finance or BYOF (bring your own finance), in the lead pane on every call step, defaulting to what the customer said in the app or to the chatbot. With either finance mode, the arrow next to Next offers the pre-approval on every step of the call; with Cash it stays off. For BYOF the pitch is to beat their lender's rate.</p>
         <p><b>A side trip, not a stage.</b> The stage bar stays on the stage it was opened from, marked Pre-approval open. Next reads Skip until it runs, then Done; both go back to that step, so the agent picks up where they were.</p>
         <p><b>Score, then questions, two forms.</b> Result tiles on top (status, cohort, credit score, expiry). The credit score is a soft check on identity (name, date of birth, and the Emirates ID number or the address). Then the questions as the customer is asked them: Partial, on the fly, the same as the car listing page, gives a cohort and an interest rate range; Full adds loan, employment and personal details and the consent, and gives the amount they can borrow. Run stays off for Full until the consent is ticked.</p>
         <p><b>Per market, from config.</b> Australia asks the cars24.com.au questions (business use and ABN, balloon, net or gross income and how often, rent or mortgage, living situation, relationship, residency, 3 years of address). The UAE asks for the Emirates ID, the monthly salary, a salary transfer, monthly loan and card payments, residency and the down payment, with the AECB check. A run updates the lead pane, the Finance tile on the lead view, and whether each car fits on the car page and in the compare.</p>
@@ -851,7 +852,7 @@ function renderChanges() {
     <div class="decide">
       <div><b>A visit before an order</b>A walk-in checks in with no car, so the journey keys on a visit (VS-2041) until T5 creates the order (BK-89004).</div>
       <div><b>One visit, several drives</b>Each car gets its own TD record, consent and recording, from Start TD to End TD. The licence is checked once per visit. A second car is a second order, booked the same way.</div>
-      <div><b>A pre-approval on the lead</b>The payment mode (Cash, Finance by CARS24, Own loan) and the latest pre-approval (partial: cohort and rate range; full: the amount, repayment and expiry) live on the lead, so the call, the hub and delivery read the same one. The question sets are market config from the finance service.</div>
+      <div><b>A pre-approval on the lead</b>The payment mode (Cash, In-house finance, BYOF), trade-in opted, and the latest pre-approval (partial: cohort and rate range; full: the amount, repayment and expiry) live on the lead, so the call, the hub and delivery read the same one. The question sets are market config from the finance service.</div>
       <div><b>A journey driven by the next-step API</b>Each Next posts the step's answers; the response names the next step (a journey page by slug, as Leadverse's journey engine already renders) and the stage list. The booking call branches to a TD or a deposit this way.</div>
       <div><b>A queue token</b>One per check-in: hub, day, B or W, and a number. Its status on the TV and the phone is derived from state events, never typed. Not to be confused with the payment token (TOKEN PAID).</div>
       <div><b>A yard task</b>Bring, or prep and bring: the car, from a yard spot, to a bay, with picked-up and at-hub times. It moves the TV's car column and pushes the DA.</div>
