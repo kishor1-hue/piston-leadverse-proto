@@ -58,6 +58,7 @@ Deep links: `#booked-I1`, `#booked-P3a`, `#walkin-T2`, `#vtd-O5`, `#blueprint`, 
 - `index.html`: the page.
 - `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 36 steps, plus mock people and cars per market and the copy layer for Australia.
 - `piston-anatomy.js`: parts, fields, actions and states for every screen.
+- `PISTON-spec.md`: the whole spec as one Markdown file (flows, phases, journey maps, states, core logic, every step with its anatomy, markets, what changed). Built from the spec files by `node tools/gen-spec-md.js . PISTON-spec.md`; rerun it after a spec change.
 - `piston-screens.js`: one Leadverse screen per step, the ground TV board, and the phone screens: the seat QR check-in, the customer's token page and the Yardie's task list.
 - `piston.js`: the viewer.
 - `piston.css`: the viewer and the TD Journey components.

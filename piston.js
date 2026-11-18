@@ -885,7 +885,7 @@ function renderChanges() {
       <div><b>Video TD check-in</b>Still an OTP on the call, now in the same step as the welcome. Its join link is already personal, so these questions could move to the page before the call.</div>
       <div><b>VAS before the token?</b>The Console sells VAS before payment, following the earlier rule. PISTON leaves VAS to the delivery journey so nothing sits between ready to buy and the token. Pick one.</div>
       <div><b>The DA's device</b>These screens assume a tablet for the DA on the floor. Leadverse is desktop-first today.</div>
-      <div><b>Recording consent</b>Asked at check-in; the recording runs from Start TD to End TD. The screens assume a customer can say no and still get the full visit, with AI notes off.</div>
+      <div><b>Recording consent</b>Asked by the DA at Start TD (T1 for a booking, O2 for a walk-in), not at check-in; the recording runs from Start TD to End TD. The screens assume a customer can say no and still get the full visit, with AI notes off. Confirm a spoken yes, set on the DA's tablet, is enough, or whether the customer should tick it on the TD consent (O3).</div>
       <div><b>An order before the car is final</b>P3 creates the order with the lead's car of interest, and P6 can change the car. Confirm OMS allows that, or create the order at P6 when the lead has no car yet.</div>
       <div><b>Gender and pincode at check-in</b>The TD Journey file asks for both. The screens use emirate and area instead of a pincode and leave gender out. Add gender back only if something uses it.</div>
       <div><b>Credit score</b>The file shows a CIBIL score, which is Indian. The screens show an AECB score for the UAE. Confirm Leadverse can read it.</div>
