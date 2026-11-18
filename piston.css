@@ -1475,3 +1475,10 @@ input.v2-input:focus{outline:none; border-color:var(--v-primary); box-shadow:0 0
 .td-pt > label{font-size:12px; font-weight:500; color:var(--v-ink-2); white-space:nowrap;}
 .td-pt select.v2-input{appearance:auto;}
 .td-pt small{grid-column:1 / -1; font-size:11px; color:var(--v-muted); line-height:1.4;}
+
+/* the DA in the token card: auto-assigned at check-in, so the last check-in screen names them */
+.tok-da{display:flex; align-items:center; gap:10px; align-self:stretch; margin-top:10px; padding-top:10px; border-top:1px dashed var(--v-line); text-align:left;}
+.tok-da > div{min-width:0;}
+.tok-da .v2-av{font-size:11px; color:#fff;}
+.ph-token .tok-da small, .v2-tokcard .tok-da small{display:block; font-size:11px; font-weight:500; letter-spacing:0; text-transform:none; color:var(--v-muted);}
+.ph-token .tok-da b, .v2-tokcard .tok-da b{display:block; font-size:14px; font-weight:600; letter-spacing:0; line-height:1.3; color:var(--v-ink); font-variant-numeric:normal;}

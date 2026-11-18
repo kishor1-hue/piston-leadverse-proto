@@ -148,7 +148,7 @@ function leadPane(t, stepId, opts = {}) {
         ${opts.emailEdit ? `<div class="v2-f edit-row" data-part="edit-email"><div><small>Email <span class="v2-tag warn">Was missing: added on this call</span></small><input class="v2-input sm" value="${p.email}" aria-label="Email"></div></div>`
           : `<div class="v2-f"><div><small>Email</small><b>${p.email}</b></div><div class="v2-acts">${isLead ? `<span class="edit" title="Edit">${ic("pencil")}</span>` : ""}<span>${ic("mail")}</span></div></div>`}
         <div class="v2-f"><div><small>Lead source</small><b>${v.src}</b></div></div>
-        <div class="v2-f"><div><small>${isLead ? "Lead owner" : "DA"}</small><b>${isLead ? v.owner : t === "vtd" ? PSTAFF.operator.name : ["I1", "I2"].includes(stepId) ? "Not assigned yet" : stepId === "S1" ? `${PSTAFF.da.name} (auto)` : PSTAFF.da.name}</b></div></div>
+        <div class="v2-f"><div><small>${isLead ? "Lead owner" : "DA"}</small><b>${isLead ? v.owner : t === "vtd" ? PSTAFF.operator.name : stepId === "I1" ? "Not assigned yet" : stepId === "S1" ? `${PSTAFF.da.name} (auto)` : PSTAFF.da.name}</b></div></div>
       </div>
       <div class="v2-sec">Finance</div>
       ${isLead ? leadFin(t) : `<div class="v2-group"><div class="v2-f"><div><small>${MK.credit}</small><b>${v.aecb}</b></div></div><div class="v2-f"><div><small>Pre-approval</small><b>${v.pre}</b></div></div></div>`}
@@ -868,14 +868,13 @@ const SCREENS = {
       ["", "Maryam Rashidi", "052 445 9981", "4:15 PM", "Hyundai Tucson", "Layla Ahmed", "&mdash;", pill("amber", "Expected"), checkBtn(false)],
     ];
     rows.unshift(walk
-      ? ["walkin", qr ? `<span data-on-you="${p.name}">New walk-in</span>` : "New walk-in", qr ? `<span data-on-verified="${p.phone}">Scanned the seat QR</span>` : "At the desk", "Now", "Chosen with the DA", "Not assigned", tokenCell, qr ? status : pill("violet", "Checking in"), qr ? "" : `<button class="v2-btn primary sm" data-open-flow="ci" data-part="check-in">${ic("log-in")}Check in</button>`]
+      ? ["walkin", qr ? `<span data-on-you="${p.name}">New walk-in</span>` : "New walk-in", qr ? `<span data-on-verified="${p.phone}">Scanned the seat QR</span>` : "At the desk", "Now", "Chosen with the DA", qr ? `<span data-on-submitted="${PDAS[0].name}">Not assigned</span>` : "Not assigned", tokenCell, qr ? status : pill("violet", "Checking in"), qr ? "" : `<button class="v2-btn primary sm" data-open-flow="ci" data-part="check-in">${ic("log-in")}Check in</button>`]
       : ["booked", "Fatima Al Suwaidi", "050 123 4567", "2:30 PM", "Nissan Altima SV", "Omar Hassan", tokenCell, status, qr ? "" : checkBtn(true)]);
     const purposes = ["Buy or test drive", "Drop off a car", "Pick up a car", "Service", "Sell my car", "Something else"];
     const [fName, ...lName] = p.name.split(" ");
     const tel = p.phone.replace(/^0/, ""), post = (VISIT[t].area.match(/\d{4}/) || [VISIT[t].area])[0];
     const req = (l) => `${l} <i class="v2-req">*</i>`;
     const field = (label, val, id, part) => `<div class="v2-field"${part ? ` data-part="${part}"` : ""}><label for="${id}">${req(label)}</label><input class="v2-input" id="${id}" value="${val}" placeholder="${label}"></div>`;
-    const recText = `${first(t)} agrees to record the test drive, from Start TD to the end, for AI notes and service quality. Saying no doesn't change the visit.`;
     // by staff: the same form the seat QR opens, filled with the customer. First the mobile, the purpose and the OTP;
     // then Existing order? Yes finds today's order and checks it in at once; No opens the basic details form
     const modal = `<div class="v2-dim" data-flow-dim></div>
@@ -902,8 +901,7 @@ const SCREENS = {
       : `<div class="v2-modal sm" data-flow="ci" data-flow-step="found" hidden>
         <div class="v2-mb center"><div class="v2-success"><span class="big">${ic("check")}</span><h4>${first(t)} is checked in</h4><p>Today's order found on ${MK.dial} ${tel}. Please take ${tk.seat.toLowerCase()}; ${PSTAFF.da.name.split(" ")[0]}, the DA, is being told now.</p></div>
           <div class="v2-found" data-part="booking" style="margin-top:14px; text-align:left;">${ic("calendar-check")}<div><b>Test drive &middot; 2:30 PM &middot; ${p.id}</b><small>${PCARS[p.car].title} &middot; licence uploaded before the visit</small></div><span class="v2-pill green">${ic("check")}Checked in</span></div>
-          <div class="v2-tokcard" data-part="token-card"><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span></div>
-          <div style="text-align:left; margin-top:12px;">${toggle(true, "Recording consent", recText, "consent")}</div>
+          <div class="v2-tokcard" data-part="token-card"><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span>${tokDa("da", "Their sales associate (DA)")}</div>
           ${finCard(t, "need", "fin-card")}</div>
         <div class="v2-mf"><button class="v2-btn primary wide" data-go="I2">Done: show the token on the TV</button></div>
       </div>`}
@@ -916,21 +914,20 @@ const SCREENS = {
           ${field(MK.postcode, post, "ci-pc")}
           <div class="v2-field" ${walk ? `data-part="finance"` : ""}><label>Do you need financing after the test drive?</label>${radios("fin", FIN.map(([, l]) => l), FIN[0][1])}</div>
           <div class="v2-field" ${walk ? `data-part="heard"` : ""}><label for="ci-hd">Where did you hear about us?</label><select class="v2-input" id="ci-hd"><option value="" disabled>Select where did you hear about us</option>${MK.heard.map((h, i) => `<option${i === 3 ? " selected" : ""}>${h}</option>`).join("")}</select></div>
-          ${toggle(true, "Recording consent", recText, walk ? "consent" : "")}
         </div>
         <div class="v2-mf"><button class="v2-btn" data-step-to="ci:order">${ic("arrow-left")}Go back</button><button class="v2-btn primary wide" data-step-to="ci:token">${ic("log-in")}Check in</button></div>
       </div>
       <div class="v2-modal sm" data-flow="ci" data-flow-step="token" ${walk ? `data-part="token"` : ""} hidden>
-        <div class="v2-mb center"><div class="v2-success"><span class="big">${ic("check")}</span><h4>${first(t)} is checked in</h4><p>Please take ${tk.seat.toLowerCase()}. ${walk ? "A DA is being assigned now." : `${PSTAFF.da.name.split(" ")[0]}, your DA, is being told now.`}</p></div>
-          <div class="v2-tokcard" ${walk ? `data-part="token-card"` : ""}><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span></div>
+        <div class="v2-mb center"><div class="v2-success"><span class="big">${ic("check")}</span><h4>${first(t)} is checked in</h4><p>Please take ${tk.seat.toLowerCase()}. ${PSTAFF.da.name.split(" ")[0]}, your DA, is being told now.</p></div>
+          <div class="v2-tokcard" ${walk ? `data-part="token-card"` : ""}><small>Token</small><b>${tk.no}</b><span>On the ground TV now. Sent to ${first(t)}'s WhatsApp with a live tracker.</span>${tokDa(walk ? "da" : "", "Their sales associate (DA)")}</div>
           ${finCard(t, "need", walk ? "fin-card" : "")}</div>
         <div class="v2-mf"><button class="v2-btn primary wide" data-go="I2">Done: show the token on the TV</button></div>
       </div>`;
     // by QR: the receptionist only watches; the answers arrive in the side panel as the customer gives them
     const answers = walk
       ? [["purpose", "Purpose", "", ""], ["order", "Existing order", "", ""], ["name", "Name and email", "", `data-on-you="${p.name} &middot; ${p.email}"`], ["post", MK.postcode, "", `data-on-you="${post}"`],
-        ["pay", "Finance", "", `data-def-you="Not answered"`], ["heard", "Heard about us", "", `data-def-you="Not answered"`], ["licence", "Licence", "", `data-def-submitted="Not added: scan it at the car"`], ["rec", "Recording consent", "", ""]]
-      : [["purpose", "Purpose", "", ""], ["order", "Existing order", "", ""], ["booking", "Today's order", "", `data-on-submitted="${p.id} &middot; 2:30 PM &middot; checked in"`], ["licence", "Licence", "On file &middot; uploaded 2 days ago", ""], ["rec", "Recording consent", "", ""]];
+        ["pay", "Finance", "", `data-def-you="Not answered"`], ["heard", "Heard about us", "", `data-def-you="Not answered"`], ["licence", "Licence", "", `data-def-submitted="Not added: scan it at the car"`], ["da", "DA", "", `data-on-submitted="${PDAS[0].name} &middot; auto-assigned"`]]
+      : [["purpose", "Purpose", "", ""], ["order", "Existing order", "", ""], ["booking", "Today's order", "", `data-on-submitted="${p.id} &middot; 2:30 PM &middot; checked in"`], ["licence", "Licence", "On file &middot; uploaded 2 days ago", ""], ["da", "DA", "", `data-on-submitted="${PDAS[0].name} &middot; auto-assigned"`]];
     const tl = [["Scanned", walk ? "2:41 PM" : "2:24 PM", walk ? "done" : "", walk ? "" : `data-cls-scanned="done"`],
       ["Mobile verified", "", "", `data-cls-verified="done"`], [walk ? "Details" : "Order found", "", "", walk ? `data-cls-you="done"` : `data-cls-submitted="done"`], ["Checked in", "", "", `data-cls-submitted="done"`]];
     const side = `<aside class="v2-drawer side" data-part="live-checkin">
@@ -1005,7 +1002,7 @@ const SCREENS = {
           <div class="v2-card" data-part="summary"><div class="v2-kvs two" style="margin-bottom:0;">${kv("Car", `${c.title} &middot; ${c.plate}`)}${kv("Driver", `${p.name} &middot; licence checked after the consent`)}</div></div>
           <div class="v2-card"><div class="v2-grid2" data-part="odo">${inp("Odometer at start (km)", "18,412", "t1-odo")}<div class="v2-field"><label>Fuel</label>${chips("fuel", ["1/4", "1/2", "3/4", "Full"], ["3/4"])}</div></div>
             ${row("Route", chips("route", ["City loop &middot; 15 min", "Highway loop &middot; 20 min"], ["City loop &middot; 15 min"]), "route")}</div>
-          ${toggle(true, "Recording starts with the drive", `${first(t)} agreed at check-in. Live notes and transcription run from this tap until the drive ends.`, "recording")}`,
+          ${toggle(true, "Recording consent", `Ask ${first(t)} before you start: can we record the drive? Live notes and transcription run from this tap until it ends. Saying no doesn't change the drive.`, "recording")}`,
         footer: foot(t, "T1", "Exit: met, TD record created, recording on", [["Met: start TD and recording", "O3", "primary", "play"]]),
         cards: [["Why one tap", "handshake", `<p>${first(t)} chose the car on the call and it is at the hub. Meeting them is the start of the drive: no car finding.</p>`], ["Next", "pen-line", `<p>${first(t)} signs the TD consent on your tablet, then you check the licence, then the walkaround.</p>`]] });
     }
@@ -1139,9 +1136,9 @@ const SCREENS = {
         <div class="v2-card" data-part="summary"><div class="v2-kvs two" style="margin-bottom:0;">${kv("Car", `${c.title} &middot; ${c.plate}`)}${kv("Driver", `${p.name} &middot; licence checked next (O4)`)}</div></div>
         <div class="v2-card"><div class="v2-grid2" data-part="odo">${inp("Odometer at start (km)", walk ? "31,214" : "18,412", "o-odo")}<div class="v2-field"><label>Fuel</label>${chips("fuel", ["1/4", "1/2", "3/4", "Full"], ["3/4"])}</div></div>
           ${row("Route", chips("route", ["City loop &middot; 15 min", "Highway loop &middot; 20 min"], [walk ? "Highway loop &middot; 20 min" : "City loop &middot; 15 min"]), "route")}</div>
-        ${toggle(true, "Recording starts with the drive", `${first(t)} agreed at check-in. Live notes and transcription run from this tap until the drive ends.`, "recording")}`,
+        ${toggle(true, "Recording consent", `Ask ${first(t)} before you start: can we record the drive? Live notes and transcription run from this tap until it ends. Saying no doesn't change the drive.`, "recording")}`,
       footer: foot(t, "O2", "Exit: TD record created, recording on", [["Start TD and recording", "O3", "primary", "play"]]),
-      cards: [["Checks", "list-checks", `<p>Car at the hub. Not in another TD. Recording consent given at check-in.</p>`], ["Next", "pen-line", `<p>${first(t)} signs the TD consent, then you check the licence, then the walkaround.</p>`]] });
+      cards: [["Checks", "list-checks", `<p>Car at the hub. Not in another TD. Ask for the recording consent before you tap Start.</p>`], ["Next", "pen-line", `<p>${first(t)} signs the TD consent, then you check the licence, then the walkaround.</p>`]] });
   },
 
   // the consent sits in the middle column of the visit page; the DA hands the tablet over to sign
@@ -1151,7 +1148,7 @@ const SCREENS = {
     const body = `<div class="cs-strip" data-part="details">${kv("Driver", `${p.name}<small>Licence checked next</small>`)}${kv("Car", `${c.title}<small>${c.plate}</small>`)}${kv("Started", `${START[t]}<small>${walk ? "31,214" : "18,412"} km</small>`)}${kv("With", `${PSTAFF.da.name}<small>CARS24, rides along</small>`)}</div>
       <div class="cs-grid">
         <div class="v2-card cs-col" data-part="terms"><div class="cs-h">${ic("file-text")}What ${first(t)} agrees to</div>
-          <ul class="cs-terms"><li>I hold a valid driving licence and I am fit to drive.</li><li>I will follow UAE traffic laws and speed limits.</li><li>I am responsible for traffic fines during this drive.</li><li>A CARS24 associate rides with me for the whole drive.</li><li>The drive is recorded, as agreed at check-in.</li></ul>
+          <ul class="cs-terms"><li>I hold a valid driving licence and I am fit to drive.</li><li>I will follow UAE traffic laws and speed limits.</li><li>I am responsible for traffic fines during this drive.</li><li>A CARS24 associate rides with me for the whole drive.</li><li>The drive is recorded only if I said yes when it started.</li></ul>
           <p class="v2-small">Example terms for the prototype. One consent per car.</p></div>
         <div class="v2-card cs-col" data-part="signature"><div class="cs-h">${ic("pen-line")}Sign here</div>
           <div class="v2-sig cs-sig"><canvas id="sig" aria-label="Signature pad"></canvas><div class="line"></div><div class="sig-ph">Sign with your finger</div></div>
@@ -1340,7 +1337,7 @@ const SCREENS = {
 // ================================================================== the ground TV (hospital logic)
 // Everyone in the hub sees it. Each row is a token; its status, DA and car change only when staff act.
 // The row of this track's customer carries data-on-EVENT and data-cls-EVENT hooks, fired by staff actions on the
-// stage (see mountSync in piston.js): assigned, yard, met, chosen, prepped, picked, hub, drive.
+// stage (see mountSync in piston.js): yard, met, chosen, prepped, picked, hub, drive. The DA is auto-assigned at check-in.
 const carShort = (cid) => PCARS[cid].title.replace(/^\d{4} /, "").split(" ").slice(0, 2).join(" ");
 const boardName = (t) => { const [f, ...rest] = PEOPLE[t].name.split(" "); return `${f} ${(rest.join(" ")[0] || "")}.`; };
 const TV_TONES = [["wait", "Waiting for a DA"], ["coming", "DA coming to you"], ["with", "With your DA"], ["ready", "Car ready"], ["live", "On test drive"]];
@@ -1351,13 +1348,13 @@ function tvBoard(t, ctx) {
   // where this customer's row starts, and how each staff action moves it: { event: text } or { event: [text, class swap] }
   const F = {
     i2: walk
-      ? { tone: "wait", status: "Waiting for a DA", da: "&mdash;", car: "Chosen with the DA", wait: "1 min",
-          hooks: { status: { assigned: [`${da} is coming to you`, "wait>coming"], met: [`With ${da} &middot; car finding`, "coming>with"], chosen: ["Waiting for the car", "with>wait"], hub: [`Car ready &middot; ${da} is coming`, "wait>ready"], drive: ["On test drive", "ready>live"] },
-            da: { assigned: da }, car: { chosen: `${carW} &middot; being prepped`, hub: `${carW} &middot; at the hub, Bay 1`, drive: `${carW} &middot; on the road` }, wait: { met: "&mdash;", chosen: "car in ~12 min", hub: "&mdash;" } } }
+      ? { tone: "coming", status: `${da} is coming to you`, da, car: "Chosen with the DA", wait: "1 min",
+          hooks: { status: { met: [`With ${da} &middot; car finding`, "coming>with"], chosen: ["Waiting for the car", "with>wait"], hub: [`Car ready &middot; ${da} is coming`, "wait>ready"], drive: ["On test drive", "ready>live"] },
+            car: { chosen: `${carW} &middot; being prepped`, hub: `${carW} &middot; at the hub, Bay 1`, drive: `${carW} &middot; on the road` }, wait: { met: "&mdash;", chosen: "car in ~12 min", hub: "&mdash;" } } }
       // a booking: the DA meets the customer once the car is at the hub, and that handshake starts the drive
-      : { tone: "wait", status: "Waiting for a DA", da: "&mdash;", car: `${carB} &middot; in the yard, prepped`, wait: "2 min",
-          hooks: { status: { assigned: [`${da} assigned &middot; car coming`, "wait>coming"], hub: [`Car ready &middot; ${da} is coming`, "coming>ready"], met: ["On test drive", "ready>live"] },
-            da: { assigned: da }, car: { yard: `${carB} &middot; on its way, about 3 min`, hub: `${carB} &middot; at the hub, Bay 2`, met: `${carB} &middot; on the road` }, wait: { hub: "&mdash;" } } },
+      : { tone: "coming", status: `${da} assigned &middot; car coming`, da, car: `${carB} &middot; in the yard, prepped`, wait: "2 min",
+          hooks: { status: { hub: [`Car ready &middot; ${da} is coming`, "coming>ready"], met: ["On test drive", "ready>live"] },
+            car: { yard: `${carB} &middot; on its way, about 3 min`, hub: `${carB} &middot; at the hub, Bay 2`, met: `${carB} &middot; on the road` }, wait: { hub: "&mdash;" } } },
     s2: { tone: "coming", status: `${da} assigned &middot; car coming`, da, car: `${carB} &middot; in the yard, prepped`, wait: "2 min",
       hooks: { car: { picked: `${carB} &middot; on its way, about 3 min`, hub: `${carB} &middot; at the hub, Bay 2` }, status: { hub: [`Car ready &middot; ${da} is coming`, "coming>ready"] }, wait: { hub: "&mdash;" } } },
     o1: { tone: "wait", status: "Waiting for the car", da, car: `${carW} &middot; being prepped`, wait: "car in ~12 min",
@@ -1402,21 +1399,25 @@ function finCard(t, key, part, hidden) {
   }[kind];
   return `<div class="ph-fin ${kind}" data-part="${part}" data-when="fin=${key}"${hidden ? " hidden" : ""}>${qrSvg(15, 3)}<div><p>${text}</p><small>${url}</small><button class="ph-btn sm">${cta}</button></div></div>`;
 }
+// the DA, in the token card: auto-assigned the moment the customer checks in (S1), so the last check-in screen names them
+function tokDa(part, label = "Your sales associate (DA)") {
+  const da = PDAS[0].name;
+  return `<div class="tok-da"${part ? ` data-part="${part}"` : ""}><span class="v2-av staff">${inits(da)}</span><div><small>${label}</small><b>${da}</b></div></div>`;
+}
 function tokenPanel(t, { flowed } = {}) {
-  const p = PEOPLE[t], walk = t === "walkin", tk = TOKEN[t], da = PDAS[0].name, daFirst = da.split(" ")[0];
+  const p = PEOPLE[t], walk = t === "walkin", tk = TOKEN[t], daFirst = PDAS[0].name.split(" ")[0];
   const steps = walk
-    ? [["Checked in", "done", ""], ["DA on the way", "", `data-cls-assigned="done"`], ["With your DA", "", `data-cls-met="done"`], ["Car ready", "", `data-cls-hub="done"`], ["Test drive", "", `data-cls-drive="done"`]]
-    : [["Checked in", "done", ""], ["DA assigned", "", `data-cls-assigned="done"`], ["Car ready", "", `data-cls-hub="done"`], ["Test drive", "", `data-cls-met="done"`]];
+    ? [["Checked in", "done", ""], ["DA on the way", "done", ""], ["With your DA", "", `data-cls-met="done"`], ["Car ready", "", `data-cls-hub="done"`], ["Test drive", "", `data-cls-drive="done"`]]
+    : [["Checked in", "done", ""], ["DA assigned", "done", ""], ["Car ready", "", `data-cls-hub="done"`], ["Test drive", "", `data-cls-met="done"`]];
   const live = walk ? "drive" : "met";
   return `<div class="ph-scr"${flowed ? ` data-flow="ph" data-flow-step="token" hidden` : ""} data-part="ph-token">
     ${phStatus(walk ? "2:44" : "2:27")}<div class="ph-url">${ic("lock")}<span>${pick(stepById("I2").screen.phone, t)}</span></div>
     <div class="ph-page">${phBrand()}
-      <div class="ph-token"><small>Your token</small><b>${tk.no}</b><span>${tk.seat} &middot; checked in ${tk.at}</span></div>
+      <div class="ph-token"><small>Your token</small><b>${tk.no}</b><span>${tk.seat} &middot; checked in ${tk.at}</span>${tokDa("ph-da")}</div>
       <div class="ph-live"><div class="ph-live-h"><i class="sc-dot live" data-cls-${live}="live>done"></i><b ${walk
-        ? `data-on-assigned="${daFirst} is coming to your seat" data-on-chosen="Your car is being prepped" data-on-met="You're with ${daFirst}" data-on-hub="Your car is ready" data-on-drive="Enjoy the drive"`
-        : `data-on-assigned="${daFirst} is your DA. Your car is coming" data-on-yard="Your car is on its way from the yard" data-on-hub="Your car is ready. ${daFirst} is coming to your seat" data-on-met="Enjoy the drive"`}>Finding you a DA</b></div>
+        ? `data-on-chosen="Your car is being prepped" data-on-met="You're with ${daFirst}" data-on-hub="Your car is ready" data-on-drive="Enjoy the drive"`
+        : `data-on-yard="Your car is on its way from the yard" data-on-hub="Your car is ready. ${daFirst} is coming to your seat" data-on-met="Enjoy the drive"`}>${walk ? `${daFirst} is coming to your seat` : `${daFirst} is your DA. Your car is coming`}</b></div>
         <div class="ph-steps">${steps.map(([k, cls, a]) => `<span class="${cls}"${a ? " " + a : ""}><i></i>${k}</span>`).join("")}</div></div>
-      <div class="ph-row">${ic("user-round")}<div><small>Your DA</small><b data-on-assigned="${da}">Assigning one now&hellip;</b></div></div>
       <div class="ph-row">${ic("car-front")}<div><small>Your car</small><b${walk ? ` data-on-chosen="${PCARS.c4.title}"` : ""}>${walk ? "You'll choose it with your DA" : PCARS[p.car].title}</b>
         <span${walk ? ` data-on-chosen="Being prepped in the yard, about 12 min. Wait at your seat" data-on-hub="At the hub, Bay 1. ${daFirst} is coming back to you"` : ` data-on-yard="On its way from the yard, about 3 min" data-on-hub="At the hub, Bay 2"`} data-on-${live}="On the road with you">${walk ? "&nbsp;" : "Prepped, waiting in the yard"}</span></div></div>
       ${FIN.map(([key]) => finCard(t, key, "ph-fin", key !== "need")).join("")}
@@ -1447,8 +1448,8 @@ function yardPhone(t, kind) {
 }
 const PHONE_LABEL = { I1: "Customer's phone &middot; the form only", I2: "Customer's phone &middot; their token", S2: "Yardie's phone &middot; Leadverse mobile", O1: "Yardie's phone &middot; Leadverse mobile" };
 const PHONES = {
-  // I1 by seat QR: scan; mobile, purpose and OTP; Existing order? Yes: today's order, checked in at once, then the
-  // recording question. No: the basic details form, then licence and consent. Then the token
+  // I1 by seat QR: scan; mobile, purpose and OTP; Existing order? Yes: today's order, checked in at once.
+  // No: the basic details form, with the licence optional. Then the token, with the DA's name
   I1: (t) => {
     const p = PEOPLE[t], walk = t === "walkin", fn = first(t), c = PCARS[p.car], tk = TOKEN[t];
     const url = pick(stepById("I1").screen.phone, t);
@@ -1460,13 +1461,6 @@ const PHONES = {
     const tel = p.phone.replace(/^0/, ""), post = (VISIT[t].area.match(/\d{4}/) || [VISIT[t].area])[0];
     const req = (l) => `${l} <i class="ph-req">*</i>`;
     const field = (label, val) => `<b class="ph-q">${req(label)}</b><div class="ph-input">${val}</div>`;
-    const rec = (submit) => `<b class="ph-q">Can we record your test drive?</b>
-          <p class="ph-sub">From the moment your DA starts it. It helps your DA keep notes. Your visit is the same either way.</p>
-          <div class="ph-radios">
-            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="Yes, recording on" data-enables="${submit}"><i></i>Yes, that's fine</button>
-            <button class="ph-radio" data-pick="rec" data-sync="rec" data-sync-val="No: AI notes off for this visit" data-enables="${submit}"><i></i>No, please don't</button>
-          </div>
-          <p class="ph-legal">By checking in you agree to the CARS24 <u>${MK.privacy}</u>.</p>`;
     return `<div class="ph">
       <div class="ph-scr ph-cam" data-flow="ph" data-flow-step="scan" data-part="ph-scan">
         ${phStatus(times[0])}
@@ -1496,6 +1490,7 @@ const PHONES = {
             <button class="ph-opt big" data-pick="order" data-sync="order" data-sync-val="${walk ? "Yes, but none found" : `Yes &middot; ${p.id}`}" data-step-to="ph:${walk ? "none" : "found"}" data-sync-event="${walk ? "order" : "order submitted"}">${ic("file-check")}<span><b>Yes</b><small>Find my order and check me in</small></span></button>
             <button class="ph-opt big" data-pick="order" data-sync="order" data-sync-val="No: new customer" data-step-to="ph:you" data-sync-event="order">${ic("user-plus")}<span><b>No</b><small>I'm new here: add my details</small></span></button>
           </div>
+          <p class="ph-legal">By checking in you agree to the CARS24 <u>${MK.privacy}</u>.</p>
         </div>
       </div>
       ${walk ? `<div class="ph-scr" data-flow="ph" data-flow-step="none" hidden>
@@ -1512,25 +1507,15 @@ const PHONES = {
           <div class="ph-checked">${ic("circle-check")}<div><b>You're checked in, ${fn}</b><small>${tk.at} &middot; we've told your DA</small></div></div>
           <b class="ph-q">Your order for today</b>
           <div class="ph-visit">${ic("calendar-check")}<div><b>Test drive &middot; today 2:30 PM</b><small>${c.title} &middot; order ${p.id}</small></div></div>
-          <div class="ph-token sm"><small>Your token</small><b>${tk.no}</b><span>Stay at ${tk.seat.toLowerCase()}: your DA will come to you</span></div>
+          <div class="ph-token sm"><small>Your token</small><b>${tk.no}</b><span>Stay at ${tk.seat.toLowerCase()}: your DA will come to you</span>${tokDa()}</div>
         </div>
-        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:consent-in">Next: one quick question</button></div>
-      </div>
-      <div class="ph-scr" data-flow="ph" data-flow-step="consent-in" data-part="ph-consent" hidden>
-        ${top(2)}
-        <div class="ph-page">${phBrand()}
-          <h3>One quick question</h3>
-          ${prog(3, "Consent")}
-          <div class="ph-onfile">${ic("badge-check")}<div><b>Licence already on file</b><small>Uploaded 2 days ago. Your DA checks it before the drive.</small></div></div>
-          ${rec("ph-done")}
-        </div>
-        <div class="ph-foot"><button class="ph-btn" id="ph-done" disabled data-step-to="ph:token">See my token</button></div>
+        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:token">See my token</button></div>
       </div>`}
       <div class="ph-scr" data-flow="ph" data-flow-step="you" ${walk ? `data-part="ph-you"` : ""} hidden>
         ${top(2)}
         <div class="ph-page scroll">${phBrand()}
           <h3>Tell us about you</h3>
-          ${prog(2, "Your details")}
+          ${prog(3, "Your details")}
           <b class="ph-q">${req("Phone number")}</b><div class="ph-input ph-tel"><span>${MK.dial}</span>${tel}<em>${ic("circle-check")}</em></div>
           ${field("Email", p.email)}
           <div class="ph-two"><div>${field("First name", fName)}</div><div>${field("Last name", lName.join(" "))}</div></div>
@@ -1539,18 +1524,9 @@ const PHONES = {
           <div class="ph-radios"${walk ? ` data-part="ph-finance"` : ""}>${FIN.map(([key, label]) => `<button class="ph-radio" data-pick="fin" data-sync="pay" data-sync-key="fin=${key}" data-sync-val="${label}"><i></i>${label}</button>`).join("")}</div>
           <b class="ph-q">Where did you hear about us?</b>
           <select class="ph-input ph-sel" data-sync-select="heard" aria-label="Where did you hear about us?"${walk ? ` data-part="ph-heard"` : ""}><option value="" selected disabled>Select where did you hear about us</option>${MK.heard.map(h => `<option>${h}</option>`).join("")}</select>
-        </div>
-        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:consent" data-sync-event="you">Next</button></div>
-      </div>
-      <div class="ph-scr" data-flow="ph" data-flow-step="consent" ${walk ? `data-part="ph-consent"` : ""} hidden>
-        ${top(3)}
-        <div class="ph-page">${phBrand()}
-          <h3>Almost done</h3>
-          ${prog(3, "Licence and consent")}
           <b class="ph-q">Your driving licence <span class="ph-tag">optional</span></b><div class="ph-tiles sm">${["Front", "Back"].map((side, i) => `<button class="ph-tile" data-zone data-sync="licence" data-sync-val="${i ? "Front and back added" : "Front added"}">${ic("camera")}<b>${side}</b><small>Take a photo</small></button>`).join("")}</div><p class="ph-legal">Or show it to your DA at the car.</p>
-          ${rec("ph-submit")}
         </div>
-        <div class="ph-foot"><button class="ph-btn" id="ph-submit" disabled data-step-to="ph:token" data-sync-event="submitted">Check in</button></div>
+        <div class="ph-foot"><button class="ph-btn" data-step-to="ph:token" data-sync-event="you submitted">Check in</button></div>
       </div>
       ${tokenPanel(t, { flowed: true })}
     </div>`;
