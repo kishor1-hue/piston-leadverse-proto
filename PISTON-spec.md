@@ -1717,16 +1717,16 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 | Part | Widget | What it does |
 | --- | --- | --- |
 | Call bar | TELEPHONY | Live call with recording, mute, hold and end. Click-to-call through the telephony provider |
-| Stage bar | STAGE_STEPPER | Switched for a deposit: Interest, Discovery, Deposit, Reserved |
+| Stage bar | @cspl/stepper, inline | Switched for a deposit: Interest, Discovery, Deposit, Reserved. Done in green, the current one with the progress ring; the second line shows progress |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Deposit amount | TAG | Set per market; the token amount |
-| Status pill | STATUS_CHIP | The car's status as it is now; follows the select |
-| Send the bank details | SEND_TEMPLATE | Amount, account, IBAN or BSB, and the order as the reference, sent from the CRM by WhatsApp, email or SMS |
-| Deposit confirmation | UPLOAD | The customer emails a screenshot of the payment; the agent downloads it and uploads it here |
-| Upload | FILE_DROP | JPG, PNG or PDF, saved to the order's documents |
-| Car status | SELECT | Available or Reserved. Reserved takes the car off the website |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | Complete stays off until the confirmation is uploaded and the car is Reserved. Book a TD instead and Not paid yet are under the arrow |
+| Deposit amount | @cspl/badge, warning | Set per market; the token amount |
+| Car card | @cspl/car-context-card + @cspl/badge | The car with its status as it is now: Available in green, Reserved in violet; follows the select |
+| Send the bank details | @cspl/vertical-stepper | Step 1 of 3, done once a channel is sent. The bank details as @cspl/payment-details-card rows (amount, reference, account; copy on the reference and the account), the channels as @cspl/chip: WhatsApp, email or SMS, green once sent from the CRM |
+| Deposit confirmation | @cspl/file-upload-card | Step 2. The customer emails a screenshot of the payment; the agent downloads it and uploads it here. Uploaded: the file, its size, Saved to Documents and Replace |
+| Upload | @cspl/file-upload-card, upload button | JPG, PNG or PDF, saved to the order's documents |
+| Car status | @cspl/dropdown | Step 3. Available or Reserved. Reserved takes the car off the website |
+| CarGPT | CARGPT_PANEL | The line to say and the check before reserving, as @cspl/information-message (brand, warning) |
+| Footer actions | @cspl/button + @cspl/information-message | Complete stays off until the confirmation is uploaded and the car is Reserved; the message beside it says what is left. Book a TD instead and Not paid yet are under the arrow |
 
 *Fields*
 
@@ -1752,9 +1752,9 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 
 | State | Meaning |
 | --- | --- |
-| Awaiting payment | Bank details sent, no confirmation yet |
-| Confirmation uploaded | The file shows as saved to Documents |
-| Reserved | The status pill on the car turns Reserved; Complete is on |
+| Awaiting payment | Bank details sent (step 1 done), no confirmation yet (step 2 active) |
+| Confirmation uploaded | Step 2 done: the file shows as saved to Documents; step 3 active |
+| Reserved | The car's badge turns Reserved and step 3 is done; Complete is on |
 
 #### P7f · Finance pre-approval
 

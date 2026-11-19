@@ -451,28 +451,53 @@ function mountPreapproval(root) {
   gate();
 }
 
-// the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved
+// the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved. The vertical
+// stepper marks each task completed as it happens (any channel sent, a file uploaded, the car Reserved), the first open one active
 function mountDeposit(root) {
   const done = root.querySelector("[data-dep-done]");
   if (!done) return;
-  const up = root.querySelector("[data-upload]"), file = root.querySelector("[data-upload-file]"), status = root.querySelector("[data-status]"), hint = root.querySelector("[data-dep-hint]");
+  const up = root.querySelector("[data-upload]"), status = root.querySelector("[data-car-status]"), hint = root.querySelector("[data-dep-hint]");
+  const card = up.closest(".tu-fuc"), sample = card.querySelector("[data-upload-sample]"), replace = card.querySelector("[data-upload-replace]");
   const sync = () => {
-    const uploaded = up.classList.contains("done"), reserved = status.value === "Reserved";
+    const sent = !!root.querySelector("[data-dep-send].on"), uploaded = up.classList.contains("done"), reserved = status.value === "Reserved";
     done.disabled = !(uploaded && reserved);
-    root.querySelectorAll("[data-status-pill]").forEach(x => { x.textContent = status.value; x.className = `v2-pill ${reserved ? "violet" : "green"}`; });
-    if (hint) hint.textContent = uploaded && reserved ? "Deposit recorded, car reserved" : !uploaded ? "Upload the deposit confirmation" : "Set the car to Reserved";
+    root.querySelectorAll("[data-status-pill]").forEach(x => { x.textContent = status.value; x.className = `tu-badge ${reserved ? "information" : "success"}`; });
+    let open = false;
+    [["send", sent], ["upload", uploaded], ["status", reserved]].forEach(([k, ok]) => {
+      const row = root.querySelector(`[data-dep-step="${k}"]`), st = ok ? "completed" : open ? "inactive" : (open = true, "active");
+      row.classList.remove("completed", "active", "inactive");
+      row.classList.add(st);
+      row.dataset.status = st;
+    });
+    if (hint) {
+      const all = uploaded && reserved;
+      hint.className = `tu-info ${all ? "positive" : "general"}`;
+      hint.querySelector(".tui").className = `tui tui-${all ? "circle-check-filled" : "info-outline"} icon-base`;
+      hint.querySelector("p").textContent = all ? "Deposit recorded, car reserved" : !uploaded ? "Upload the deposit confirmation" : "Set the car to Reserved";
+    }
   };
   const setFile = (name, size) => {
     up.classList.add("done");
-    file.querySelector("b").textContent = name;
-    file.querySelector("small").textContent = `${size} \u00b7 uploaded just now`;
-    file.hidden = false;
-    up.hidden = true;
+    card.querySelector("[data-fuc-type]").textContent = (name.split(".").pop() || "file").toUpperCase();
+    card.querySelector("[data-fuc-desc]").textContent = `${name} \u00b7 ${size} \u00b7 uploaded just now`;
+    card.querySelector("[data-upload-badge]").hidden = false;
+    sample.hidden = true;
+    replace.hidden = false;
     sync();
   };
-  file.querySelector("[data-upload-replace]").addEventListener("click", (e) => { e.preventDefault(); up.hidden = false; up.querySelector("input").click(); });
+  replace.addEventListener("click", (e) => { e.preventDefault(); up.querySelector("input").click(); });
   up.querySelector("input").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) setFile(f.name, `${Math.max(1, Math.round(f.size / 1024))} KB`); });
-  up.querySelector("[data-upload-sample]").addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setFile("deposit-confirmation.png", "240 KB"); });
+  sample.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setFile("deposit-confirmation.png", "240 KB"); });
+  root.querySelectorAll("[data-dep-send]").forEach(x => x.addEventListener("click", sync));
+  // the reference and the account copy for pasting into a message; the icon shows a tick for a moment
+  root.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    try { navigator.clipboard.writeText(b.parentElement.textContent.trim()).catch(() => {}); } catch (_) { /* no clipboard in this frame */ }
+    const i = b.querySelector(".tui");
+    b.classList.add("ok");
+    i.className = "tui tui-check-outline icon-sm";
+    setTimeout(() => { b.classList.remove("ok"); i.className = "tui tui-copy icon-sm"; }, 1200);
+  }));
   status.addEventListener("change", sync);
   sync();
 }

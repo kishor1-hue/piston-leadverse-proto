@@ -1,0 +1,224 @@
+/* Turbo UI, the CARS24 DLS (CSPL-CARS24/turbo-ui, @cspl/* packages), for screens moved onto it.
+   A screen opts in with class "dls" on its root; dls.js writes each component's markup. Values are the DLS tokens
+   (packages/theme: primitives, the cars24 lego-* semantic set, radii), named after the token they come from.
+   The DLS has no dark theme; the dark values below only keep the prototype's own toggle readable. */
+
+@font-face{font-family:"turbo-ui-icons"; src:url("fonts/turbo-ui-icons.woff2") format("woff2"); font-weight:normal; font-style:normal; font-display:block;}
+
+.dls{
+  /* lego semantic (cars24) */
+  --tu-text-primary:#0F172B;          /* text-primary-rest */
+  --tu-text-secondary:#62748E;        /* text-secondary-rest */
+  --tu-text-secondary-active:#45556C; /* text-secondary-active */
+  --tu-text-tertiary:#90A1B9;         /* text-tertiary-rest, text-primary-disabled */
+  --tu-surface:#FFFFFF;               /* surface-light-rest */
+  --tu-surface-subtle:#F8FAFC;        /* surface-subtle-rest, surface-tertiary-disabled */
+  --tu-surface-tertiary:#F1F5F9;      /* surface-tertiary-rest */
+  --tu-border-tertiary:#E2E8F0;       /* border-tertiary-rest, border-secondary-disabled */
+  --tu-border-secondary:#CAD5E2;      /* border-secondary-rest, slate-300 */
+  --tu-brand:#4736FE;                 /* surface-brand-primary-rest, brand-blue-300 */
+  --tu-brand-hover:#4031E5;           /* surface-brand-primary-hover */
+  --tu-brand-pressed:#392BCB;
+  /* primitives */
+  --tu-brand-25:#F6F5FF; --tu-brand-50:#EDEBFF; --tu-brand-100:#E3E1FF; --tu-brand-200:#C6C1FF; --tu-brand-250:#A39AFF;
+  --tu-mint-50:#EFFFF7; --tu-mint-800:#368C61; --tu-mint-900:#2A6B4A;
+  --tu-green-100:#DCFCE7; --tu-green-600:#00A63E;
+  --tu-amber-50:#FFFBEB; --tu-amber-600:#E17100; --tu-amber-700:#BB4D00;
+  --tu-red-50:#FEF2F2; --tu-red-700:#C10007;
+  --tu-pink-50:#FFE8F7; --tu-pink-400:#FD49C0;
+  --tu-neutral-500:#737373;
+  --tu-shadow-lg:0 10px 15px -3px rgba(0,0,0,.1);
+  font-family:"Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height:1.36;
+}
+:root[data-lv-theme="dark"] .dls{
+  --tu-text-primary:#F1F5F9; --tu-text-secondary:#90A1B9; --tu-text-secondary-active:#CAD5E2; --tu-text-tertiary:#62748E;
+  --tu-surface:#181B25; --tu-surface-subtle:#1E2230; --tu-surface-tertiary:#262B38;
+  --tu-border-tertiary:#2A2F3D; --tu-border-secondary:#3A4153;
+  --tu-brand:#7C6CFF; --tu-brand-hover:#8F82FF; --tu-brand-pressed:#6B5CF0;
+  --tu-brand-25:#1F1B3D; --tu-brand-50:#262049; --tu-brand-100:#2E2759; --tu-brand-200:#3D3478; --tu-brand-250:#5B4FC0;
+  --tu-mint-50:#12301F; --tu-mint-800:#6EE7A0; --tu-mint-900:#6EE7A0;
+  --tu-green-100:#12301F; --tu-green-600:#34B26A;
+  --tu-amber-50:#332711; --tu-amber-600:#F2C14E; --tu-amber-700:#F2C14E;
+  --tu-red-50:#3A1A1D; --tu-red-700:#FCA5A5;
+  --tu-pink-50:#3B1529; --tu-pink-400:#F472B6;
+  --tu-neutral-500:#98A2B8;
+}
+
+/* Icons: the DLS IcoMoon font (getIconClass(name, size)) */
+.tui{font-family:"turbo-ui-icons" !important; font-style:normal; font-weight:normal; font-variant:normal; text-transform:none; line-height:1; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; display:inline-block; flex:none;}
+.tui.icon-xs{font-size:12px;} .tui.icon-sm{font-size:14px;} .tui.icon-base{font-size:16px;} .tui.icon-lg{font-size:18px;} .tui.icon-xl{font-size:20px;} .tui.icon-2xl{font-size:24px;}
+.tui-check-outline::before{content:"\ec65";}
+.tui-whatsapp::before{content:"\ea42";}
+.tui-email-envelope-outline::before{content:"\eb71";}
+.tui-bubble-text-message-chat-outline::before{content:"\eb6f";}
+.tui-copy::before{content:"\e921";}
+.tui-arrow-out-of-box-upload-share-outline::before{content:"\ea6c";}
+.tui-file-text-outline::before{content:"\ebab";}
+.tui-edit-outline::before{content:"\eb4e";}
+.tui-wallet-3-outline::before{content:"\e9ea";}
+.tui-car-outline::before{content:"\ec34";}
+.tui-chevron-down-small-outline::before{content:"\ec83";}
+.tui-info-outline::before{content:"\ebb7";}
+.tui-circle-check-filled::before{content:"\ec60";}
+.tui-arrow-left-outline::before{content:"\ec79";}
+.tui-lightbulb-outline::before{content:"\ea9a";}
+.tui-quote-outline::before{content:"\eb4c";}
+.tui-calendar-line::before{content:"\ebe5";}
+.tui-call-outgoing-outline::before{content:"\eb67";}
+.tui-bank-outline::before{content:"\eaaa";}
+.tui-call-decline-filled::before{content:"\eb68";}
+.tui-call-filled::before{content:"\eb6c";}
+.tui-microphone-off-outline::before{content:"\eba7";}
+.tui-pause-outline::before{content:"\eb9a";}
+.tui-sparkle-filled::before{content:"\e9ef";}
+
+/* Stepper, variant inline (@cspl/stepper): 20px marker, label and description beside it, a 2px connector */
+.tu-stepper{display:flex; align-items:center; gap:8px; margin:0; padding:12px 16px 12px 12px; list-style:none; background:var(--tu-surface); border-bottom:.5px solid var(--tu-border-tertiary); flex:none;}
+.tu-step{display:flex; align-items:center; gap:2px; flex:1; min-width:1px;}
+.tu-step:last-child{flex:none;}
+.tu-step .mk{order:0; display:flex; align-items:center; justify-content:center; width:20px; height:20px; padding:2px; border-radius:9999px; background-clip:content-box; background-color:var(--tu-brand-200); color:#fff; flex:none; overflow:hidden;}
+.tu-step .mk .tui{display:none;}
+.tu-step.completed .mk{background-color:var(--tu-green-600);}
+.tu-step.completed .mk .tui{display:block;}
+.tu-step.active .mk{background-color:transparent; padding:0; background-repeat:no-repeat; background-position:center; background-size:contain;
+  background-image:url("data:image/svg+xml;utf8,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10ZM6.43724 10C6.43724 11.9677 8.03234 13.5628 10 13.5628C11.9677 13.5628 13.5628 11.9677 13.5628 10C13.5628 8.03234 11.9677 6.43724 10 6.43724C8.03234 6.43724 6.43724 8.03234 6.43724 10Z' fill='%234736FE'/%3E%3C/svg%3E");}
+.tu-step .tx{order:2; display:flex; flex-direction:column; align-items:center; gap:2px; white-space:nowrap; flex:none;}
+.tu-step .tx b{font-size:14px; line-height:20px; font-weight:400; color:var(--tu-text-secondary);}
+.tu-step.active .tx b{font-weight:600; color:var(--tu-brand);}
+.tu-step.completed .tx b{font-weight:600; color:var(--tu-mint-800);}
+.tu-step .tx small{font-size:12px; line-height:16px; font-weight:500; color:var(--tu-neutral-500);}
+.tu-step .cn{order:3; margin-left:6px; flex:1; min-width:1px; height:2px; border-radius:9999px; background:var(--tu-brand-200);}
+.tu-step.completed .cn{background:var(--tu-mint-800);}
+
+/* VerticalStepper (@cspl/vertical-stepper), vertical with a border: a dot and a rail per step, the step's content beside it */
+.tu-vstep{display:flex; flex-direction:column; width:100%; overflow:hidden; background:var(--tu-surface); border:1px solid var(--tu-border-secondary); border-radius:20px; padding:16px;}
+.tu-vrow{display:flex; align-items:flex-start; width:100%;}
+.tu-vrow .ind{display:flex; flex-direction:column; align-items:center; gap:2px; align-self:stretch; width:36px; padding:0 10px; flex:none; box-sizing:border-box;}
+.tu-vrow .dot{display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none;}
+.tu-vrow .dot i{display:block; width:12px; height:12px; border-radius:9999px; background:var(--tu-brand-200);}
+.tu-vrow.active .dot i{width:16px; height:16px; box-sizing:border-box; border:4px solid var(--tu-brand); background:var(--tu-surface);}
+.tu-vrow.completed .dot i{width:16px; height:16px; background:var(--tu-mint-800); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px;}
+.tu-vrow.completed .dot i::before{content:"\ec65"; font-family:"turbo-ui-icons"; font-style:normal; line-height:1;}
+.tu-vrow .rail{width:2px; flex:1; min-height:1px; border-radius:9999px; background:var(--tu-brand-200);}
+.tu-vrow.active .rail{background:var(--tu-brand);}
+.tu-vrow.completed .rail{background:var(--tu-mint-800);}
+.tu-vrow .body{display:flex; flex-direction:column; gap:2px; flex:1; min-width:1px; padding-bottom:20px;}
+.tu-vrow:last-child .body{padding-bottom:0;}
+.tu-vrow .body > .tt{margin:0; font-size:17px; line-height:20px; font-weight:500; color:var(--tu-text-tertiary);}
+.tu-vrow.active .body > .tt{color:var(--tu-text-primary);}
+.tu-vrow.completed .body > .tt{color:var(--tu-mint-800);}
+.tu-vrow .body > .ds{margin:0; font-size:13px; line-height:18px; color:var(--tu-text-tertiary);}
+.tu-vrow.active .body > .ds{color:var(--tu-text-secondary);}
+.tu-vrow.completed .body > .ds{color:var(--tu-mint-800);}
+.tu-vrow .body > .ct{margin-top:10px; display:flex; flex-direction:column; gap:10px;}
+
+/* Badge (@cspl/badge), size xs, curve radius; tones subtle */
+.tu-badge{display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 6px; border-radius:6px; font-size:12px; font-weight:500; white-space:nowrap; flex:none;}
+.tu-badge.s{height:20px; padding:0 8px;}
+.tu-badge.neutral{background:var(--tu-surface-subtle); color:var(--tu-text-secondary);}
+.tu-badge.information{background:var(--tu-brand-50); color:var(--tu-brand);}
+.tu-badge.success{background:var(--tu-mint-50); color:var(--tu-mint-900);}
+.tu-badge.warning{background:var(--tu-amber-50); color:var(--tu-amber-600);}
+.tu-badge.error{background:var(--tu-red-50); color:var(--tu-red-700);}
+.tu-badge .tui{font-size:12px;}
+
+/* PaymentDetailsCard (@cspl/payment-details-card), the breakup rows: label left, value right, a value action (copy) before it */
+.tu-pay{display:flex; flex-direction:column; gap:6px; padding:12px; border-radius:12px; background:var(--tu-surface); border:.5px solid var(--tu-border-tertiary); box-shadow:0 4px 12px 0 rgba(0,0,0,.08);}
+.tu-pay .it{display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; color:var(--tu-text-secondary); min-width:0;}
+.tu-pay .it > span{white-space:nowrap;}
+.tu-pay .it .v{display:flex; align-items:center; gap:6px; color:var(--tu-text-primary); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tu-pay .va{display:inline-flex; align-items:center; border:none; background:none; padding:0; color:var(--tu-text-primary); cursor:pointer;}
+.tu-pay .va .tui{font-size:14px;}
+.tu-pay .va.ok{color:var(--tu-mint-800);}
+.tu-pay .sep{height:0; margin:2px 0; border-top:1px dashed var(--tu-border-tertiary);}
+.tu-pay .it.hl{font-size:15px; font-weight:600; color:var(--tu-text-primary);}
+.tu-pay .it.hl .v{font-weight:600;}
+
+/* Chip (@cspl/chip), size default, rounded; active with chipTheme Green */
+.tu-chips{display:flex; gap:8px; flex-wrap:wrap;}
+.tu-chip{display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:6px 8px; border-radius:8px; border:1px solid var(--tu-border-tertiary); background:var(--tu-surface); color:var(--tu-text-primary); font-family:inherit; font-size:13px; font-weight:500; white-space:nowrap; cursor:pointer; transition:background-color .15s, border-color .15s, box-shadow .15s;}
+.tu-chip:hover{background:var(--tu-surface-subtle); border-color:var(--tu-border-secondary); box-shadow:0 1px 3px 0 rgba(0,0,0,.1);}
+.tu-chip .tui{font-size:14px;}
+.tu-chip .ok{display:none; align-items:center; gap:2px; color:var(--tu-mint-900); font-weight:600;}
+.tu-chip.on{background:var(--tu-green-100); border-color:var(--tu-mint-800);}
+.tu-chip.on .ok{display:inline-flex;}
+
+/* FileUploadCard (@cspl/file-upload-card): the surface, a text column and the 80px dashed upload button */
+.tu-fuc{display:flex; flex-direction:column; gap:12px; padding:12px; border-radius:16px; border:.5px solid var(--tu-border-tertiary); background:var(--tu-surface);}
+.tu-fuc .row{display:flex; align-items:center; gap:24px;}
+.tu-fuc .tx{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; align-items:flex-start;}
+.tu-fuc .tt{display:flex; align-items:center; gap:4px; flex-wrap:wrap;}
+.tu-fuc .tt b{font-size:15px; font-weight:600; color:var(--tu-text-primary);}
+.tu-fuc .tx p{margin:0; font-size:13px; color:var(--tu-text-secondary); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.tu-fuc .tx .tu-link{margin-top:4px;}
+.tu-fuc .up{position:relative; width:80px; height:80px; flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:14px; border:1px dashed var(--tu-brand); background:var(--tu-brand-25); cursor:pointer; overflow:visible;}
+.tu-fuc .up .in{display:inline-flex; flex-direction:column; align-items:center; gap:4px; color:var(--tu-text-primary);}
+.tu-fuc .up .in span{font-size:9px; line-height:14px; font-weight:500;}
+.tu-fuc .up .doc{display:none; position:absolute; inset:0; border-radius:14px; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:var(--tu-pink-50); color:var(--tu-text-primary);}
+.tu-fuc .up .doc span{font-size:9px; line-height:14px; font-weight:500;}
+.tu-fuc .up .corner{display:none; position:absolute; right:-6px; bottom:-6px; width:28px; height:28px; border-radius:14px; border:2px solid var(--tu-surface); background:var(--tu-brand); color:#fff; align-items:center; justify-content:center;}
+.tu-fuc .up.done{border-color:var(--tu-pink-400); background:var(--tu-pink-50);}
+.tu-fuc .up.done .in{visibility:hidden;}
+.tu-fuc .up.done .doc, .tu-fuc .up.done .corner{display:flex;}
+
+/* CarContextCard (@cspl/car-context-card): media, title and subtitle; the status badge sits on the right */
+.tu-ccc{position:relative; display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:16px; border:.5px solid var(--tu-border-secondary); background:var(--tu-surface);}
+.tu-ccc .md{width:100px; height:60px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:rgba(15,23,43,.45); flex:none;}
+.tu-ccc .md .tui{font-size:30px;}
+.tu-ccc .cx{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px;}
+.tu-ccc .cx b{font-size:15px; font-weight:600; color:var(--tu-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tu-ccc .cx small{font-size:11px; font-weight:500; color:var(--tu-text-secondary);}
+
+/* Dropdown (@cspl/dropdown), size medium: label above, the trigger with a chevron */
+.tu-dd{display:flex; flex-direction:column; gap:8px; width:100%;}
+.tu-dd label{font-size:15px; color:var(--tu-text-primary); display:flex; align-items:center; gap:4px;}
+.tu-dd .trig{position:relative; display:flex; align-items:center;}
+.tu-dd select{appearance:none; -webkit-appearance:none; width:100%; height:40px; padding:0 36px 0 16px; border-radius:12px; border:1px solid var(--tu-border-secondary); background:var(--tu-surface); color:var(--tu-text-primary); font-family:inherit; font-size:15px; cursor:pointer;}
+.tu-dd select:focus{outline:none; border-color:var(--tu-brand);}
+.tu-dd .trig .tui{position:absolute; right:12px; pointer-events:none; color:var(--tu-text-primary); font-size:16px;}
+
+/* InformationMessage (@cspl/information-message): an icon and one line of text; a background per state when asked */
+.tu-info{display:flex; align-items:center; gap:8px; min-width:0;}
+.tu-info p{margin:0; flex:1; min-width:1px; font-size:13px; line-height:18px; color:var(--tu-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tu-info .tui{font-size:16px; color:var(--tu-text-secondary);}
+.tu-info.positive .tui{color:var(--tu-mint-900);}
+.tu-info.warning .tui{color:var(--tu-amber-700);}
+.tu-info.brand .tui{color:var(--tu-brand);}
+.tu-info.bg{align-items:flex-start; padding:10px 12px; border-radius:12px;}
+.tu-info.bg p{white-space:normal; overflow:visible;}
+.tu-info.bg.brand{background:var(--tu-brand-50);}
+.tu-info.bg.warning{background:var(--tu-amber-50);}
+.tu-info.bg .k{display:block; margin-bottom:2px; font-size:11px; font-weight:600; color:var(--tu-text-primary);}
+
+/* LinkButton (@cspl/link-button), tone brand, size sm */
+.tu-link{display:inline-flex; align-items:center; gap:4px; padding:0; border:none; background:transparent; font-family:inherit; font-size:13px; font-weight:600; color:var(--tu-brand); cursor:pointer; white-space:nowrap;}
+.tu-link:active{color:var(--tu-brand-hover);}
+
+/* Button (@cspl/button), size small, on the call footer; the footer's own markup (foot()) is restyled in the scope */
+.dls .v2-foot{gap:12px; padding:12px 16px; background:var(--tu-surface); border-top:.5px solid var(--tu-border-tertiary); box-shadow:0 -4px 12px 0 rgba(0,0,0,.08);}
+.dls .v2-foot .v2-hint{flex:1; min-width:0;}
+.dls .v2-btn{height:32px; padding:0 12px; gap:4px; border-radius:8px; font-family:inherit; font-size:12px; font-weight:600; border:1px solid transparent; background:var(--tu-brand-25); color:var(--tu-brand); transition:background-color .2s;}
+.dls .v2-btn:hover{background:var(--tu-brand-50);}
+.dls .v2-btn .tui{font-size:14px;}
+.dls .v2-btn.primary{background:var(--tu-brand); border-color:var(--tu-brand); color:#fff;}
+.dls .v2-btn.primary:hover{background:var(--tu-brand-hover); border-color:var(--tu-brand-hover);}
+.dls .v2-btn:disabled{opacity:1; background:var(--tu-surface-subtle); border-color:var(--tu-border-tertiary); color:var(--tu-text-tertiary); cursor:not-allowed;}
+.dls .v2-split .caret{padding:0 8px; margin-left:1px;}
+.dls .v2-split > .v2-btn.primary:first-child:not(:disabled) + .caret{border-left-color:rgba(255,255,255,.3);}
+.dls .v2-menu{min-width:270px; padding:6px; border-radius:12px; border:.5px solid var(--tu-border-tertiary); background:var(--tu-surface); box-shadow:var(--tu-shadow-lg);}
+.dls .v2-menu button{gap:8px; padding:9px 10px; border-radius:8px; font-size:13px; color:var(--tu-text-primary);}
+.dls .v2-menu button:hover{background:var(--tu-surface-tertiary);}
+.dls .v2-menu button .tui{font-size:16px; color:var(--tu-text-secondary);}
+
+/* the task head and the call bar in the scope */
+.dls .v2-content{background:var(--tu-surface-subtle); padding:16px;}
+.dls .v2-ch{margin-bottom:16px; align-items:flex-start;}
+.dls .v2-ch h3{font-size:17px; line-height:22px; font-weight:600; color:var(--tu-text-primary);}
+.dls .v2-ch p{margin-top:4px; font-size:13px; line-height:18px; color:var(--tu-text-secondary);}
+.dls .v2-call{font-family:inherit;}
+.dls .v2-call .tui{font-size:16px;}
+.dls .v2-call-r > span{display:inline-flex; align-items:center; justify-content:center;}
+
+/* the CarGPT tips as information messages */
+.v2-gbody.dls{background:transparent; display:flex; flex-direction:column; gap:8px;}
