@@ -1717,16 +1717,18 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 | Part | Widget | What it does |
 | --- | --- | --- |
 | Call bar | TELEPHONY | Live call with recording, mute, hold and end. Click-to-call through the telephony provider |
-| Stage bar | @cspl/stepper, inline | Switched for a deposit: Interest, Discovery, Deposit, Reserved. Done in green, the current one with the progress ring; the second line shows progress |
+| Stage bar | STAGE_STEPPER | Switched for a deposit: Interest, Discovery, Deposit, Reserved |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
 | Deposit amount | @cspl/badge, warning | Set per market; the token amount |
 | Car card | @cspl/car-context-card + @cspl/badge | The car with its status as it is now: Available in green, Reserved in violet; follows the select |
-| Send the bank details | @cspl/vertical-stepper | Step 1 of 3, done once a channel is sent. The bank details as @cspl/payment-details-card rows (amount, reference, account; copy on the reference and the account), the channels as @cspl/chip: WhatsApp, email or SMS, green once sent from the CRM |
-| Deposit confirmation | @cspl/file-upload-card | Step 2. The customer emails a screenshot of the payment; the agent downloads it and uploads it here. Uploaded: the file, its size, Saved to Documents and Replace |
+| 1 · Send the bank details | @cspl/section-card | Badge Sent once a channel is sent. The bank details as @cspl/payment-details-card rows (amount, reference, account; copy on the reference and the account), the channels as @cspl/chip: WhatsApp, email or SMS, green once sent from the CRM |
+| 2 · Deposit confirmation | @cspl/section-card + @cspl/file-upload-card | Badge Not uploaded, then Uploaded. The customer emails a screenshot of the payment; the agent downloads it and uploads it here. Uploaded: the file, its size, Saved to Documents and Replace |
 | Upload | @cspl/file-upload-card, upload button | JPG, PNG or PDF, saved to the order's documents |
-| Car status | @cspl/dropdown | Step 3. Available or Reserved. Reserved takes the car off the website |
-| CarGPT | CARGPT_PANEL | The line to say and the check before reserving, as @cspl/information-message (brand, warning) |
-| Footer actions | @cspl/button + @cspl/information-message | Complete stays off until the confirmation is uploaded and the car is Reserved; the message beside it says what is left. Book a TD instead and Not paid yet are under the arrow |
+| 3 · Car status | @cspl/section-card + @cspl/dropdown | Available or Reserved. Reserved takes the car off the website |
+| Payments | @cspl/table | The order's payment entries: type and source, reference and transaction ID, amount, when and by whom, and the status. The deposit by bank transfer is Not paid until the confirmation is uploaded, then Paid |
+| Price breakup | @cspl/table | As on the RM's order screen. Australia: DAP = EGC + government charges (motor vehicle duty, 3 months registration, CTP, transfer and handling fees) + interstate and home delivery charges + VAS, less any discount. The UAE: the car price. Total paid and the outstanding balance move when the deposit is paid |
+| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
+| Footer actions | SHELL_CTAS | Complete stays off until the confirmation is uploaded and the car is Reserved. Book a TD instead and Not paid yet are under the arrow |
 
 *Fields*
 
@@ -1737,13 +1739,16 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 | Car status | Single select | Yes | Agent | Available or Reserved |
 | Deposit | Money | Read only | Market setting | The token amount |
 | Reference | Text | Read only | OMS | The order ID |
+| Payment status | Status | Read only | OMS payments | Not paid, then Paid when the deposit confirmation is recorded |
+| Transaction ID | Text | No | The bank transfer | From the payment confirmation, when it shows one |
+| Total amount paid, outstanding balance | Money | Read only | OMS: the order total less its payments | The deposit counts toward the price |
 
 *Actions*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
 | Send (WhatsApp, email, SMS) | CRM templates with the bank details | Stays here |
-| Upload | Docs: deposit confirmation on the order | Stays here |
+| Upload | Docs: deposit confirmation on the order; OMS: the deposit payment entry, Paid | Stays here |
 | Complete: car reserved | OMS: deposit recorded; Listing: the car to Reserved; the call task closes | CAR RESERVED; N3 |
 | Book a TD instead | None | P4 |
 | Not paid yet: call back | Callback time on the task | P9 |
@@ -1752,9 +1757,9 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 
 | State | Meaning |
 | --- | --- |
-| Awaiting payment | Bank details sent (step 1 done), no confirmation yet (step 2 active) |
-| Confirmation uploaded | Step 2 done: the file shows as saved to Documents; step 3 active |
-| Reserved | The car's badge turns Reserved and step 3 is done; Complete is on |
+| Awaiting payment | Bank details Sent, the confirmation Not uploaded, the deposit Not paid in Payments |
+| Deposit paid | The confirmation is Uploaded and saved to Documents; Payments shows it Paid and the breakup's paid and outstanding rows move |
+| Reserved | The car's badge turns Reserved; Complete is on |
 
 #### P7f · Finance pre-approval
 

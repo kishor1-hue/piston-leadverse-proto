@@ -62,7 +62,7 @@ Deep links: `#booked-I1`, `#booked-P3a`, `#walkin-T2`, `#vtd-O5`, `#blueprint`, 
 - `piston-screens.js`: one Leadverse screen per step, the ground TV board, and the phone screens: the seat QR check-in, the customer's token page and the Yardie's task list.
 - `piston.js`: the viewer.
 - `piston.css`: the viewer and the TD Journey components.
-- `dls.js`, `dls.css`, `fonts/turbo-ui-icons.woff2`: Turbo UI, the CARS24 DLS ([CSPL-CARS24/turbo-ui](https://github.com/CSPL-CARS24/turbo-ui)), as plain markup. Each helper in `dls.js` mirrors one `@cspl/*` component (Stepper, VerticalStepper, Badge, PaymentDetailsCard, Chip, FileUploadCard, CarContextCard, Dropdown, InformationMessage, LinkButton) with its tokens in `dls.css` and the DLS icon font. A screen opts in with `dls: true` on `callTask`; P7d (the deposit) is the first on it.
+- `dls.js`, `dls.css`, `fonts/turbo-ui-icons.woff2`: Turbo UI, the CARS24 DLS ([CSPL-CARS24/turbo-ui](https://github.com/CSPL-CARS24/turbo-ui)), as plain markup. Each helper in `dls.js` mirrors one `@cspl/*` component (SectionCard, DataTable, Badge, PaymentDetailsCard, Chip, FileUploadCard, CarContextCard, Dropdown, LinkButton) with its tokens in `dls.css` and the DLS icon font. A call step's action area (between the stage bar and the footer) opts in with `dls: true` on `callTask`; the Leadverse shell around it is unchanged. P7d (the deposit) is the first on it, with the order's Payments and Price breakup tables.
 - `style.css`: shared Leadverse tokens and base styles, also used by the Test Drive Console.
 - `theme.js`: the Light / Dark toggle.
 - `artifact-entry.html`: the same page without the document wrapper, for publishing as a Claude artifact.

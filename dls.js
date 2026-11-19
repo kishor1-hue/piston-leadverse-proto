@@ -1,34 +1,37 @@
 // Turbo UI, the CARS24 DLS (CSPL-CARS24/turbo-ui), as plain markup. Each helper mirrors one @cspl component: the
-// same structure, states and props by the same names, styled by dls.css. A screen moved onto the DLS builds from
-// these inside an element with class "dls"; the rest of the prototype keeps the Leadverse look.
+// same structure, states and props by the same names, styled by dls.css. A screen's action area moves onto the DLS
+// by building from these inside an element with class "dls"; the Leadverse shell around it keeps its own look.
 
 // an icon from the DLS icon font, by its DLS name (getIconClass(name, size))
 const tui = (name, size = "base") => `<i class="tui tui-${name} icon-${size}" aria-hidden="true"></i>`;
-// the prototype's icon names (lucide) for the DLS ones, where a shared part (the footer, the call bar) draws them
-const TUI_OF = { "arrow-left": "arrow-left-outline", "calendar": "calendar-line", "phone-forwarded": "call-outgoing-outline", "check": "check-outline",
-  "landmark": "bank-outline", "phone-off": "call-decline-filled", "chevron-down": "chevron-down-small-outline", "phone-call": "call-filled",
-  "mic-off": "microphone-off-outline", "pause": "pause-outline", "message-square": "quote-outline", "list-checks": "info-outline", "lightbulb": "lightbulb-outline" };
-const tuiOf = (n, size) => tui(TUI_OF[n] || n, size);
 
 const TU = {
-  // Stepper, variant inline. steps: [{ label, description, status: default | active | completed }]
-  stepper(steps, attrs = "") {
-    return `<ol class="tu-stepper" aria-label="Progress steps"${attrs ? " " + attrs : ""}>${steps.map((s, i) => `<li class="tu-step ${s.status || "default"}" data-status="${s.status || "default"}"${s.status === "active" ? ` aria-current="step"` : ""}>
-      <span class="mk">${tui("check-outline", "base")}</span><span class="tx"><b>${s.label}</b>${s.description ? `<small>${s.description}</small>` : ""}</span>${i < steps.length - 1 ? `<span class="cn" aria-hidden="true"></span>` : ""}</li>`).join("")}</ol>`;
+  // SectionCard, display card (framed) or plain. The badge sits right of the title, Badge subtle xs
+  sectionCard({ title, subtitle, badge, items = [], framed = true, attrs = "" }) {
+    return `<section class="tu-sec${framed ? " framed" : ""}"${attrs ? " " + attrs : ""}>
+      <div class="hd"><div class="tx"><h4>${title}</h4>${subtitle ? `<p>${subtitle}</p>` : ""}</div>${badge ? TU.badge(badge.label, { variant: badge.variant, attrs: badge.attrs }) : ""}</div>
+      <div class="grid">${items.join("")}</div></section>`;
   },
-  // VerticalStepper, vertical with a border. steps: [{ title, description, content, status: inactive | active | completed, attrs }]
-  verticalStepper(steps, attrs = "") {
-    return `<div class="tu-vstep" role="list" aria-label="Progress steps"${attrs ? " " + attrs : ""}>${steps.map((s, i) => `<div class="tu-vrow ${s.status || "inactive"}" role="listitem" data-status="${s.status || "inactive"}"${s.attrs ? " " + s.attrs : ""}>
-      <div class="ind"><span class="dot"><i></i></span>${i < steps.length - 1 ? `<span class="rail" aria-hidden="true"></span>` : ""}</div>
-      <div class="body"><p class="tt">${s.title}</p>${s.description ? `<p class="ds">${s.description}</p>` : ""}${s.content ? `<div class="ct">${s.content}</div>` : ""}</div></div>`).join("")}</div>`;
+  // DataTable (@cspl/table). columns: [{ key, label, align, isBadge, subTextKey }]; rows: plain objects, a badge cell
+  // as { label, variant }; row.$cls and row.$attrs are this screen's own row renderers (totals, sub-rows)
+  dataTable({ columns, rows, attrs = "" }) {
+    const cell = (c, r) => {
+      const v = r[c.key], sub = c.subTextKey ? r[c.subTextKey] : null, at = r.$cell && r.$cell[c.key] ? " " + r.$cell[c.key] : "";
+      const inner = c.isBadge && v ? TU.badge(v.label, { variant: v.variant }) : `<span class="p">${v ?? "&mdash;"}</span>`;
+      return `<td class="${c.align || "left"}"${at}>${inner}${sub != null ? `<span class="s">${sub}</span>` : ""}</td>`;
+    };
+    return `<div class="tu-table"${attrs ? " " + attrs : ""}><div class="shell"><table>
+      <thead><tr>${columns.map(c => `<th class="${c.align || "left"}">${c.label}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(r => `<tr${r.$cls ? ` class="${r.$cls}"` : ""}${r.$attrs ? " " + r.$attrs : ""}>${columns.map(c => cell(c, r)).join("")}</tr>`).join("")}</tbody></table></div></div>`;
   },
   // Badge, appearance subtle. variant: neutral | information | success | warning | error; size xs (default) or s
   badge(text, { variant = "neutral", size = "xs", icon, attrs = "" } = {}) {
     return `<span class="tu-badge ${variant}${size === "s" ? " s" : ""}"${attrs ? " " + attrs : ""}>${icon ? tui(icon, "xs") : ""}${text}</span>`;
   },
-  // PaymentDetailsCard breakup rows. items: [{ label, value, valueAction: { icon, ariaLabel, attrs } }]; "sep" draws the dashed separator
-  paymentDetails(items, attrs = "") {
-    return `<div class="tu-pay"${attrs ? " " + attrs : ""}>${items.map(x => x === "sep" ? `<div class="sep"></div>` : `<div class="it${x.highlight ? " hl" : ""}"><span>${x.label}</span><span class="v">${x.valueAction ? `<button type="button" class="va" aria-label="${x.valueAction.ariaLabel}"${x.valueAction.attrs ? " " + x.valueAction.attrs : ""}>${tui(x.valueAction.icon, "sm")}</button>` : ""}${x.value}</span></div>`).join("")}</div>`;
+  // PaymentDetailsCard breakup rows. items: [{ label, value, highlight, valueAction: { icon, ariaLabel, attrs } }];
+  // "sep" draws the dashed separator. showShadow off when the card sits inside another card
+  paymentDetails(items, { showShadow = true, attrs = "" } = {}) {
+    return `<div class="tu-pay${showShadow ? " shadow" : ""}"${attrs ? " " + attrs : ""}>${items.map(x => x === "sep" ? `<div class="sep"></div>` : `<div class="it${x.highlight ? " hl" : ""}"><span>${x.label}</span><span class="v">${x.valueAction ? `<button type="button" class="va" aria-label="${x.valueAction.ariaLabel}"${x.valueAction.attrs ? " " + x.valueAction.attrs : ""}>${tui(x.valueAction.icon, "sm")}</button>` : ""}${x.value}</span></div>`).join("")}</div>`;
   },
   // Chip, size default, rounded. active uses chipTheme Green; trailing shows only while active
   chip(label, { leadingIcon, active, trailing, attrs = "" } = {}) {
@@ -50,10 +53,6 @@ const TU = {
   // Dropdown, size medium, as a native select so the screen's change handlers keep working
   dropdown({ id, label, options, value, attrs = "" }) {
     return `<div class="tu-dd"><label for="${id}">${label}</label><div class="trig"><select id="${id}"${attrs ? " " + attrs : ""}>${options.map(o => `<option${o === value ? " selected" : ""}>${o}</option>`).join("")}</select>${tui("chevron-down-small-outline")}</div></div>`;
-  },
-  // InformationMessage. state: general | brand | positive | negative | warning; background adds the state's surface
-  info(text, { state = "general", icon = "info-outline", background, title, attrs = "" } = {}) {
-    return `<div class="tu-info ${state}${background ? " bg" : ""}"${attrs ? " " + attrs : ""}>${icon ? tui(icon) : ""}<p>${title ? `<span class="k">${title}</span>` : ""}${text}</p></div>`;
   },
   // LinkButton, tone brand, size sm
   link(text, { icon, attrs = "" } = {}) {

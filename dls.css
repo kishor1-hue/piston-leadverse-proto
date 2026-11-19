@@ -1,5 +1,5 @@
 /* Turbo UI, the CARS24 DLS (CSPL-CARS24/turbo-ui, @cspl/* packages), for screens moved onto it.
-   A screen opts in with class "dls" on its root; dls.js writes each component's markup. Values are the DLS tokens
+   A screen's action area opts in with class "dls"; dls.js writes each component's markup. Values are the DLS tokens
    (packages/theme: primitives, the cars24 lego-* semantic set, radii), named after the token they come from.
    The DLS has no dark theme; the dark values below only keep the prototype's own toggle readable. */
 
@@ -11,6 +11,7 @@
   --tu-text-secondary:#62748E;        /* text-secondary-rest */
   --tu-text-secondary-active:#45556C; /* text-secondary-active */
   --tu-text-tertiary:#90A1B9;         /* text-tertiary-rest, text-primary-disabled */
+  --tu-text-ink:#020618;              /* slate-950, the table's cell text */
   --tu-surface:#FFFFFF;               /* surface-light-rest */
   --tu-surface-subtle:#F8FAFC;        /* surface-subtle-rest, surface-tertiary-disabled */
   --tu-surface-tertiary:#F1F5F9;      /* surface-tertiary-rest */
@@ -32,7 +33,7 @@
   line-height:1.36;
 }
 :root[data-lv-theme="dark"] .dls{
-  --tu-text-primary:#F1F5F9; --tu-text-secondary:#90A1B9; --tu-text-secondary-active:#CAD5E2; --tu-text-tertiary:#62748E;
+  --tu-text-primary:#F1F5F9; --tu-text-ink:#F1F5F9; --tu-text-secondary:#90A1B9; --tu-text-secondary-active:#CAD5E2; --tu-text-tertiary:#62748E;
   --tu-surface:#181B25; --tu-surface-subtle:#1E2230; --tu-surface-tertiary:#262B38;
   --tu-border-tertiary:#2A2F3D; --tu-border-secondary:#3A4153;
   --tu-brand:#7C6CFF; --tu-brand-hover:#8F82FF; --tu-brand-pressed:#6B5CF0;
@@ -59,59 +60,6 @@
 .tui-wallet-3-outline::before{content:"\e9ea";}
 .tui-car-outline::before{content:"\ec34";}
 .tui-chevron-down-small-outline::before{content:"\ec83";}
-.tui-info-outline::before{content:"\ebb7";}
-.tui-circle-check-filled::before{content:"\ec60";}
-.tui-arrow-left-outline::before{content:"\ec79";}
-.tui-lightbulb-outline::before{content:"\ea9a";}
-.tui-quote-outline::before{content:"\eb4c";}
-.tui-calendar-line::before{content:"\ebe5";}
-.tui-call-outgoing-outline::before{content:"\eb67";}
-.tui-bank-outline::before{content:"\eaaa";}
-.tui-call-decline-filled::before{content:"\eb68";}
-.tui-call-filled::before{content:"\eb6c";}
-.tui-microphone-off-outline::before{content:"\eba7";}
-.tui-pause-outline::before{content:"\eb9a";}
-.tui-sparkle-filled::before{content:"\e9ef";}
-
-/* Stepper, variant inline (@cspl/stepper): 20px marker, label and description beside it, a 2px connector */
-.tu-stepper{display:flex; align-items:center; gap:8px; margin:0; padding:12px 16px 12px 12px; list-style:none; background:var(--tu-surface); border-bottom:.5px solid var(--tu-border-tertiary); flex:none;}
-.tu-step{display:flex; align-items:center; gap:2px; flex:1; min-width:1px;}
-.tu-step:last-child{flex:none;}
-.tu-step .mk{order:0; display:flex; align-items:center; justify-content:center; width:20px; height:20px; padding:2px; border-radius:9999px; background-clip:content-box; background-color:var(--tu-brand-200); color:#fff; flex:none; overflow:hidden;}
-.tu-step .mk .tui{display:none;}
-.tu-step.completed .mk{background-color:var(--tu-green-600);}
-.tu-step.completed .mk .tui{display:block;}
-.tu-step.active .mk{background-color:transparent; padding:0; background-repeat:no-repeat; background-position:center; background-size:contain;
-  background-image:url("data:image/svg+xml;utf8,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10ZM6.43724 10C6.43724 11.9677 8.03234 13.5628 10 13.5628C11.9677 13.5628 13.5628 11.9677 13.5628 10C13.5628 8.03234 11.9677 6.43724 10 6.43724C8.03234 6.43724 6.43724 8.03234 6.43724 10Z' fill='%234736FE'/%3E%3C/svg%3E");}
-.tu-step .tx{order:2; display:flex; flex-direction:column; align-items:center; gap:2px; white-space:nowrap; flex:none;}
-.tu-step .tx b{font-size:14px; line-height:20px; font-weight:400; color:var(--tu-text-secondary);}
-.tu-step.active .tx b{font-weight:600; color:var(--tu-brand);}
-.tu-step.completed .tx b{font-weight:600; color:var(--tu-mint-800);}
-.tu-step .tx small{font-size:12px; line-height:16px; font-weight:500; color:var(--tu-neutral-500);}
-.tu-step .cn{order:3; margin-left:6px; flex:1; min-width:1px; height:2px; border-radius:9999px; background:var(--tu-brand-200);}
-.tu-step.completed .cn{background:var(--tu-mint-800);}
-
-/* VerticalStepper (@cspl/vertical-stepper), vertical with a border: a dot and a rail per step, the step's content beside it */
-.tu-vstep{display:flex; flex-direction:column; width:100%; overflow:hidden; background:var(--tu-surface); border:1px solid var(--tu-border-secondary); border-radius:20px; padding:16px;}
-.tu-vrow{display:flex; align-items:flex-start; width:100%;}
-.tu-vrow .ind{display:flex; flex-direction:column; align-items:center; gap:2px; align-self:stretch; width:36px; padding:0 10px; flex:none; box-sizing:border-box;}
-.tu-vrow .dot{display:flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none;}
-.tu-vrow .dot i{display:block; width:12px; height:12px; border-radius:9999px; background:var(--tu-brand-200);}
-.tu-vrow.active .dot i{width:16px; height:16px; box-sizing:border-box; border:4px solid var(--tu-brand); background:var(--tu-surface);}
-.tu-vrow.completed .dot i{width:16px; height:16px; background:var(--tu-mint-800); display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px;}
-.tu-vrow.completed .dot i::before{content:"\ec65"; font-family:"turbo-ui-icons"; font-style:normal; line-height:1;}
-.tu-vrow .rail{width:2px; flex:1; min-height:1px; border-radius:9999px; background:var(--tu-brand-200);}
-.tu-vrow.active .rail{background:var(--tu-brand);}
-.tu-vrow.completed .rail{background:var(--tu-mint-800);}
-.tu-vrow .body{display:flex; flex-direction:column; gap:2px; flex:1; min-width:1px; padding-bottom:20px;}
-.tu-vrow:last-child .body{padding-bottom:0;}
-.tu-vrow .body > .tt{margin:0; font-size:17px; line-height:20px; font-weight:500; color:var(--tu-text-tertiary);}
-.tu-vrow.active .body > .tt{color:var(--tu-text-primary);}
-.tu-vrow.completed .body > .tt{color:var(--tu-mint-800);}
-.tu-vrow .body > .ds{margin:0; font-size:13px; line-height:18px; color:var(--tu-text-tertiary);}
-.tu-vrow.active .body > .ds{color:var(--tu-text-secondary);}
-.tu-vrow.completed .body > .ds{color:var(--tu-mint-800);}
-.tu-vrow .body > .ct{margin-top:10px; display:flex; flex-direction:column; gap:10px;}
 
 /* Badge (@cspl/badge), size xs, curve radius; tones subtle */
 .tu-badge{display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 6px; border-radius:6px; font-size:12px; font-weight:500; white-space:nowrap; flex:none;}
@@ -124,7 +72,8 @@
 .tu-badge .tui{font-size:12px;}
 
 /* PaymentDetailsCard (@cspl/payment-details-card), the breakup rows: label left, value right, a value action (copy) before it */
-.tu-pay{display:flex; flex-direction:column; gap:6px; padding:12px; border-radius:12px; background:var(--tu-surface); border:.5px solid var(--tu-border-tertiary); box-shadow:0 4px 12px 0 rgba(0,0,0,.08);}
+.tu-pay{display:flex; flex-direction:column; gap:6px; padding:12px; border-radius:12px; background:var(--tu-surface); border:.5px solid var(--tu-border-tertiary);}
+.tu-pay.shadow{box-shadow:0 4px 12px 0 rgba(0,0,0,.08);}
 .tu-pay .it{display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; color:var(--tu-text-secondary); min-width:0;}
 .tu-pay .it > span{white-space:nowrap;}
 .tu-pay .it .v{display:flex; align-items:center; gap:6px; color:var(--tu-text-primary); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
@@ -178,47 +127,45 @@
 .tu-dd select:focus{outline:none; border-color:var(--tu-brand);}
 .tu-dd .trig .tui{position:absolute; right:12px; pointer-events:none; color:var(--tu-text-primary); font-size:16px;}
 
-/* InformationMessage (@cspl/information-message): an icon and one line of text; a background per state when asked */
-.tu-info{display:flex; align-items:center; gap:8px; min-width:0;}
-.tu-info p{margin:0; flex:1; min-width:1px; font-size:13px; line-height:18px; color:var(--tu-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.tu-info .tui{font-size:16px; color:var(--tu-text-secondary);}
-.tu-info.positive .tui{color:var(--tu-mint-900);}
-.tu-info.warning .tui{color:var(--tu-amber-700);}
-.tu-info.brand .tui{color:var(--tu-brand);}
-.tu-info.bg{align-items:flex-start; padding:10px 12px; border-radius:12px;}
-.tu-info.bg p{white-space:normal; overflow:visible;}
-.tu-info.bg.brand{background:var(--tu-brand-50);}
-.tu-info.bg.warning{background:var(--tu-amber-50);}
-.tu-info.bg .k{display:block; margin-bottom:2px; font-size:11px; font-weight:600; color:var(--tu-text-primary);}
-
 /* LinkButton (@cspl/link-button), tone brand, size sm */
 .tu-link{display:inline-flex; align-items:center; gap:4px; padding:0; border:none; background:transparent; font-family:inherit; font-size:13px; font-weight:600; color:var(--tu-brand); cursor:pointer; white-space:nowrap;}
 .tu-link:active{color:var(--tu-brand-hover);}
 
-/* Button (@cspl/button), size small, on the call footer; the footer's own markup (foot()) is restyled in the scope */
-.dls .v2-foot{gap:12px; padding:12px 16px; background:var(--tu-surface); border-top:.5px solid var(--tu-border-tertiary); box-shadow:0 -4px 12px 0 rgba(0,0,0,.08);}
-.dls .v2-foot .v2-hint{flex:1; min-width:0;}
-.dls .v2-btn{height:32px; padding:0 12px; gap:4px; border-radius:8px; font-family:inherit; font-size:12px; font-weight:600; border:1px solid transparent; background:var(--tu-brand-25); color:var(--tu-brand); transition:background-color .2s;}
-.dls .v2-btn:hover{background:var(--tu-brand-50);}
-.dls .v2-btn .tui{font-size:14px;}
-.dls .v2-btn.primary{background:var(--tu-brand); border-color:var(--tu-brand); color:#fff;}
-.dls .v2-btn.primary:hover{background:var(--tu-brand-hover); border-color:var(--tu-brand-hover);}
-.dls .v2-btn:disabled{opacity:1; background:var(--tu-surface-subtle); border-color:var(--tu-border-tertiary); color:var(--tu-text-tertiary); cursor:not-allowed;}
-.dls .v2-split .caret{padding:0 8px; margin-left:1px;}
-.dls .v2-split > .v2-btn.primary:first-child:not(:disabled) + .caret{border-left-color:rgba(255,255,255,.3);}
-.dls .v2-menu{min-width:270px; padding:6px; border-radius:12px; border:.5px solid var(--tu-border-tertiary); background:var(--tu-surface); box-shadow:var(--tu-shadow-lg);}
-.dls .v2-menu button{gap:8px; padding:9px 10px; border-radius:8px; font-size:13px; color:var(--tu-text-primary);}
-.dls .v2-menu button:hover{background:var(--tu-surface-tertiary);}
-.dls .v2-menu button .tui{font-size:16px; color:var(--tu-text-secondary);}
+/* SectionCard (@cspl/section-card): a title, subtitle and badge over its items; framed is the card display */
+.tu-sec{display:flex; flex-direction:column; gap:16px; color:var(--tu-text-primary);}
+.tu-sec.framed{padding:20px; border-radius:16px; border:1px solid var(--tu-border-tertiary); background:var(--tu-surface);}
+.tu-sec .hd{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
+.tu-sec .hd .tx{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.tu-sec .hd h4{margin:0; font-size:17px; line-height:1.36; font-weight:600; color:var(--tu-text-primary);}
+.tu-sec .hd p{margin:0; font-size:14px; line-height:1.36; color:var(--tu-text-secondary);}
+.tu-sec .grid{display:grid; gap:16px; min-width:0;}
+.tu-sec .grid > *{min-width:0;}
 
-/* the task head and the call bar in the scope */
-.dls .v2-content{background:var(--tu-surface-subtle); padding:16px;}
-.dls .v2-ch{margin-bottom:16px; align-items:flex-start;}
+/* DataTable (@cspl/table): the shell, a slate header row, 54px body rows; a cell's sub text below its value.
+   The price breakup's own row renderers: a sum (bold on the subtle surface), a group, its sub-rows and the balance */
+.tu-table{display:flex; flex-direction:column; gap:12px; width:100%;}
+.tu-table .shell{overflow:hidden; border-radius:12px; border:1px solid var(--tu-border-tertiary); background:var(--tu-surface);}
+.tu-table table{width:100%; border-collapse:collapse;}
+.tu-table thead tr{background:var(--tu-surface-tertiary); border-bottom:1px solid var(--tu-border-tertiary);}
+.tu-table th{height:34px; padding:0 12px; font-size:14px; font-weight:400; color:var(--tu-text-ink); white-space:nowrap;}
+.tu-table tbody tr{border-bottom:1px solid var(--tu-border-tertiary); background:var(--tu-surface); transition:background-color .15s;}
+.tu-table tbody tr:last-child{border-bottom:0;}
+.tu-table tbody tr:hover{background:var(--tu-brand-100);}
+.tu-table td{height:54px; padding:8px 12px; font-size:14px; font-weight:400; color:var(--tu-text-ink); vertical-align:middle;}
+.tu-table .left{text-align:left;} .tu-table .right{text-align:right;} .tu-table .center{text-align:center;}
+.tu-table td .p{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tu-table td .s{display:block; margin-top:2px; font-size:12px; color:var(--tu-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tu-table td .tu-badge + .s{margin-top:4px;}
+.tu-table tr.sum{background:var(--tu-surface-subtle);}
+.tu-table tr.sum td, .tu-table tr.grp td, .tu-table tr.due td{font-weight:600;}
+.tu-table tr.sub td{height:34px; padding-top:4px; padding-bottom:4px; font-size:13px; color:var(--tu-text-secondary);}
+.tu-table tr.sub td:first-child{padding-left:28px;}
+.tu-table tr.due.paid{background:var(--tu-mint-50);}
+.tu-table tr.due.paid td{color:var(--tu-mint-900);}
+
+/* the action area in the scope: its head in DLS type on the subtle surface, the cards stacked */
+.v2-content.dls{background:var(--tu-surface-subtle);}
+.dls .v2-ch{margin-bottom:16px;}
 .dls .v2-ch h3{font-size:17px; line-height:22px; font-weight:600; color:var(--tu-text-primary);}
 .dls .v2-ch p{margin-top:4px; font-size:13px; line-height:18px; color:var(--tu-text-secondary);}
-.dls .v2-call{font-family:inherit;}
-.dls .v2-call .tui{font-size:16px;}
-.dls .v2-call-r > span{display:inline-flex; align-items:center; justify-content:center;}
-
-/* the CarGPT tips as information messages */
-.v2-gbody.dls{background:transparent; display:flex; flex-direction:column; gap:8px;}
+.dls .tu-stack{display:flex; flex-direction:column; gap:16px;}

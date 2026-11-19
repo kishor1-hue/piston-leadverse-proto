@@ -451,30 +451,31 @@ function mountPreapproval(root) {
   gate();
 }
 
-// the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved. The vertical
-// stepper marks each task completed as it happens (any channel sent, a file uploaded, the car Reserved), the first open one active
+// the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved. Each task's
+// card badge follows it (sent, uploaded); the upload records the deposit as paid in Payments, and the price breakup's
+// paid and outstanding rows move with it
 function mountDeposit(root) {
   const done = root.querySelector("[data-dep-done]");
   if (!done) return;
   const up = root.querySelector("[data-upload]"), status = root.querySelector("[data-car-status]"), hint = root.querySelector("[data-dep-hint]");
   const card = up.closest(".tu-fuc"), sample = card.querySelector("[data-upload-sample]"), replace = card.querySelector("[data-upload-replace]");
+  const bk = root.querySelector("[data-bk-total]");
+  const badge = (k, label, variant) => root.querySelectorAll(`[data-dep-badge="${k}"]`).forEach(x => { x.textContent = label; x.className = `tu-badge ${variant}`; });
   const sync = () => {
     const sent = !!root.querySelector("[data-dep-send].on"), uploaded = up.classList.contains("done"), reserved = status.value === "Reserved";
     done.disabled = !(uploaded && reserved);
+    badge("send", sent ? "Sent" : "Not sent", sent ? "success" : "neutral");
+    badge("upload", uploaded ? "Uploaded" : "Not uploaded", uploaded ? "success" : "warning");
     root.querySelectorAll("[data-status-pill]").forEach(x => { x.textContent = status.value; x.className = `tu-badge ${reserved ? "information" : "success"}`; });
-    let open = false;
-    [["send", sent], ["upload", uploaded], ["status", reserved]].forEach(([k, ok]) => {
-      const row = root.querySelector(`[data-dep-step="${k}"]`), st = ok ? "completed" : open ? "inactive" : (open = true, "active");
-      row.classList.remove("completed", "active", "inactive");
-      row.classList.add(st);
-      row.dataset.status = st;
-    });
-    if (hint) {
-      const all = uploaded && reserved;
-      hint.className = `tu-info ${all ? "positive" : "general"}`;
-      hint.querySelector(".tui").className = `tui tui-${all ? "circle-check-filled" : "info-outline"} icon-base`;
-      hint.querySelector("p").textContent = all ? "Deposit recorded, car reserved" : !uploaded ? "Upload the deposit confirmation" : "Set the car to Reserved";
+    root.querySelectorAll("[data-pay-status]").forEach(x => { x.innerHTML = `<span class="tu-badge ${uploaded ? "success" : "warning"}">${uploaded ? "Paid" : "Not paid"}</span>`; });
+    root.querySelectorAll("[data-pay-paid]").forEach(x => { x.innerHTML = uploaded ? `<span class="p">Just now</span><span class="s">Agent</span>` : `<span class="p">\u2014</span><span class="s">&nbsp;</span>`; });
+    if (bk) {
+      const total = +bk.dataset.bkTotal, paid = uploaded ? +bk.dataset.bkDeposit : 0;
+      bk.querySelector("[data-bk-paid] td:last-child .p").textContent = money(paid);
+      bk.querySelector("[data-bk-due] td:last-child .p").textContent = money(total - paid);
+      bk.querySelector("[data-bk-due]").classList.toggle("paid", total - paid === 0);
     }
+    if (hint) hint.textContent = uploaded && reserved ? "Deposit recorded, car reserved" : !uploaded ? "Upload the deposit confirmation" : "Set the car to Reserved";
   };
   const setFile = (name, size) => {
     up.classList.add("done");

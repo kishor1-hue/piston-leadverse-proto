@@ -207,16 +207,12 @@ function stageBar(t, stepId, opts = {}) {
 }
 
 // ================================================================== CarGPT panel
-// dls: the tips as DLS information messages, a check in the warning tone
-function gpt(who, { cards = [], transcribing = null, dls } = {}) {
+function gpt(who, { cards = [], transcribing = null } = {}) {
   const name = (PSTAFF[who] || PSTAFF.da).name.split(" ")[0];
-  const card = ([k, icon, html]) => dls
-    ? TU.info(html.replace(/<\/?p>/g, ""), { state: k === "Check" ? "warning" : "brand", icon: TUI_OF[icon] || icon, background: true, title: k })
-    : `<div class="v2-gcard"><div class="k">${ic(icon)}${k}</div>${html}</div>`;
   return `<aside class="v2-gpt" data-part="gpt">
     <div class="v2-gh">${ic("panel-right")}CarGPT<span class="r">${ic("folder")}</span></div>
-    <div class="v2-gbody${dls && cards.length ? " dls" : ""}">
-      ${cards.length ? cards.map(card).join("") : `<div class="v2-hi">Hi ${name},<br>how can I help you?</div>`}
+    <div class="v2-gbody">
+      ${cards.length ? cards.map(([k, icon, html]) => `<div class="v2-gcard"><div class="k">${ic(icon)}${k}</div>${html}</div>`).join("") : `<div class="v2-hi">Hi ${name},<br>how can I help you?</div>`}
     </div>
     <div class="v2-compose"><span>Type &lsquo;/&rsquo; to mention a record&hellip;</span><div class="row">${ic("plus")}<span class="v2-send">${ic("arrow-up")}</span></div></div>
     ${transcribing
@@ -244,20 +240,20 @@ function prevOf(t, id) {
 // The standard footer: Previous, the step's main exit as Next, and every other exit in a menu under the arrow next
 // to it, so no screen carries a row of buttons. A customer drop-off (to the disposition) is always in that menu.
 // buttons: [label, go, kind, icon, iconAfter, attrs]; the primary one (or the last) is Next.
-function foot(t, id, hint, buttons, prevId, dls) {
-  const prev = prevId || prevOf(t, id), icn = dls ? tuiOf : ic;
+function foot(t, id, hint, buttons, prevId) {
+  const prev = prevId || prevOf(t, id);
   let mi = buttons.map(b => b[2]).lastIndexOf("primary");
   if (mi < 0) mi = buttons.length - 1;
   const main = buttons[mi];
   const phase = id[0];
   const drop = phase === "P" ? ["Customer dropped off: call disposition", "N7", "", "phone-off"] : phase === "N" ? null : ["Customer left: fill the disposition", "N1", "", "log-out"];
   const items = [...buttons.filter((_, i) => i !== mi), ...(drop ? [drop] : [])];
-  const btn = ([label, go, kind, icon, after, attrs]) => `<button class="v2-btn ${kind || ""}" ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon && !after ? icn(icon) : ""}${label}${icon && after ? icn(icon) : ""}</button>`;
+  const btn = ([label, go, kind, icon, after, attrs]) => `<button class="v2-btn ${kind || ""}" ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon && !after ? ic(icon) : ""}${label}${icon && after ? ic(icon) : ""}</button>`;
   return `<div class="v2-foot" data-part="foot">
-    <button class="v2-btn" ${prev ? `data-go="${prev}"` : "disabled"}>${icn("arrow-left")}Previous</button>
+    <button class="v2-btn" ${prev ? `data-go="${prev}"` : "disabled"}>${ic("arrow-left")}Previous</button>
     <span class="v2-hint">${hint}</span>
-    <div class="v2-split">${main ? btn(main) : ""}${items.length ? `<button class="v2-btn ${main && main[2] === "primary" ? "primary" : ""} caret" data-menu aria-label="More actions" title="More actions">${icn("chevron-down")}</button>
-      <div class="v2-menu" hidden>${items.map(([label, go, , icon, , attrs]) => `<button ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon ? icn(icon) : ""}${label}</button>`).join("")}</div>` : ""}</div>
+    <div class="v2-split">${main ? btn(main) : ""}${items.length ? `<button class="v2-btn ${main && main[2] === "primary" ? "primary" : ""} caret" data-menu aria-label="More actions" title="More actions">${ic("chevron-down")}</button>
+      <div class="v2-menu" hidden>${items.map(([label, go, , icon, , attrs]) => `<button ${go ? `data-go="${go}"` : ""}${attrs ? " " + attrs : ""}>${icon ? ic(icon) : ""}${label}</button>`).join("")}</div>` : ""}</div>
   </div>`;
 }
 function head2(title, desc, right) {
@@ -460,12 +456,10 @@ const CALL_TASK = { booked: "TK-6120", vtd: "TK-6127" };
 const CALL_STEPS = ["Interest", "Discovery", "TD type", "Slots", "Book"];
 // a customer convinced on the call pays a deposit instead: the stages switch
 const DEPOSIT_STEPS = ["Interest", "Discovery", "Deposit", "Reserved"];
-function callStages(t, idx, cur, list = CALL_STEPS, dls) {
+function callStages(t, idx, cur, list = CALL_STEPS) {
   const done = t === "vtd"
     ? { Interest: "4 cars, 4 orders", Discovery: "Not needed", "TD type": "2 hub, 2 video", Slots: "Hub + video", Book: "Booked", Deposit: "Paid", Reserved: "Car reserved" }
     : { Interest: `Order ${PEOPLE[t].id}`, Discovery: "Not needed", "TD type": "1 hub", Slots: "Today 2:30 PM", Book: "Booked", Deposit: "Paid", Reserved: "Car reserved" };
-  if (dls) return TU.stepper(list.map((n, i) => i < idx ? { label: n, description: done[n], status: "completed" }
-    : i === idx ? { label: n, description: cur || "In progress", status: "active" } : { label: n, description: "Pending" }), `data-part="stages"`);
   return `<div class="v2-stages" data-part="stages">${list.map((n, i) => {
     const state = i < idx ? "done" : i === idx ? "cur" : "todo";
     return `<div class="v2-stg ${state}"><span class="c">${ic("square-check")}</span><b>${n}</b><span>${state === "done" ? done[n] : state === "cur" ? (cur || "In progress") : "Pending"}</span></div>`;
@@ -480,18 +474,34 @@ function payTrade(t) {
     <small>BYOF: bring your own finance; either finance offers the pre-approval.${me.tradeIn === "yes" ? ` Their car: ${me.trade.split(",")[0]}.` : ""}</small>
   </div>`;
 }
+// the order's price breakup, as on the RM's order screen (rm-flow). Australia: EGC plus the government charges (duty at
+// 4.223% of the price, 3 months' registration, CTP, transfer, handling) is the drive-away price (DAP); the UAE has the
+// car price. Nothing is paid until the deposit lands; mountDeposit moves the paid and outstanding rows
+function priceBreakup(cid) {
+  const price = PCARS[cid].price, au = CTX.market === "au";
+  const g = { duty: Math.round(price * 0.04223), rego: 173, ctp: 147, transfer: 46, handling: 599 };
+  const govt = au ? g.duty + g.rego + g.ctp + g.transfer + g.handling : 0, total = price + govt;
+  const row = (item, amount, $cls, $attrs) => ({ item, amount, $cls, $attrs });
+  const rows = au ? [row("DAP", money(total), "sum"), row("EGC", money(price)), row("Govt charges", money(govt), "grp"),
+      row("Motor vehicle duty", money(g.duty), "sub"), row("3 months registration", money(g.rego), "sub"), row("CTP insurance", money(g.ctp), "sub"),
+      row("Transfer fee", money(g.transfer), "sub"), row("Handling fee", money(g.handling), "sub"), row("Interstate charges", money(0)), row("Home delivery charges", money(0))]
+    : [row("Car price", money(price))];
+  rows.push(row("Discount value", "&mdash;"), row("VAS", money(0)), row("Total amount to be paid", money(total), "sum"),
+    row("Total amount paid", money(0), "", "data-bk-paid"), row("Outstanding balance", money(total), "due", "data-bk-due"));
+  return TU.dataTable({ attrs: `data-bk-total="${total}" data-bk-deposit="${MK.token}"`, columns: [{ key: "item", label: "Item" }, { key: "amount", label: "Amount", align: "right" }], rows });
+}
 // the pre-approval, under the arrow on every call step; off unless the payment mode is finance or an own loan
 const PRE_ITEM = (id) => ["Run a finance pre-approval", "P7f", "", "landmark", false, `data-from="${id}" data-needs="[data-paymode].fin" title="For In-house finance or BYOF"`];
 // wide: the cars need the room (discovery), so CarGPT folds to a strip that opens its tips on a click.
-// dls: the task is built on Turbo UI, the CARS24 DLS (dls.js): the stages, the footer and the CarGPT tips follow it
+// dls: the action area (the content between the stages and the footer) is built on Turbo UI, the CARS24 DLS (dls.js)
 function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev, steps, dls }) {
-  const p = PEOPLE[t], icon = dls ? tuiOf : ic;
-  const callbar = `<div class="v2-call" data-part="call"><span class="cb">${icon("phone-call")}</span><div><b>On call with ${first(t)}</b><small>${p.phone} &middot; ${secs}</small></div><span class="v2-recpill"><i></i>Recording</span>
-    <div class="v2-call-r"><span>${icon("mic-off")}</span><span>${icon("pause")}</span><span class="end">${icon("phone-off")}</span></div></div>`;
+  const p = PEOPLE[t];
+  const callbar = `<div class="v2-call" data-part="call"><span class="cb">${ic("phone-call")}</span><div><b>On call with ${first(t)}</b><small>${p.phone} &middot; ${secs}</small></div><span class="v2-recpill"><i></i>Recording</span>
+    <div class="v2-call-r"><span>${ic("mic-off")}</span><span>${ic("pause")}</span><span class="end">${ic("phone-off")}</span></div></div>`;
   const content = `<div class="v2-body">
     ${leadPane(t, id, leadOpts || {})}
-    <section class="v2-center${dls ? " dls" : ""}">${callbar}${callStages(t, idx, cur, steps, dls)}<div class="v2-content${wide ? " scrolls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, id === "P7f" ? buttons : [PRE_ITEM(id), ...buttons], prev, dls)}</section>
-    ${wide ? gptMini(cards || []) : gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}`, dls })}
+    <section class="v2-center">${callbar}${callStages(t, idx, cur, steps)}<div class="v2-content${wide ? " scrolls" : ""}${dls ? " dls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, id === "P7f" ? buttons : [PRE_ITEM(id), ...buttons], prev)}</section>
+    ${wide ? gptMini(cards || []) : gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}` })}
   </div>`;
   return shell({ active: "tasks", who: "cc", crumb: crumbOf("Tasks", "TD booking call", `${p.name} - ${CALL_TASK[t]}`), body: content });
 }
@@ -766,30 +776,38 @@ const SCREENS = {
   },
 
   // deposit instead of a TD: send the bank details, upload the payment confirmation the customer emails, reserve the car.
-  // Built on Turbo UI (the DLS): the three tasks are a vertical stepper, each done in its order, the first open one active
+  // The action area is on Turbo UI (the DLS): a section card per task, then the order's payments and its price breakup
   P7d: (t) => {
     const p = PEOPLE[t], fn = first(t), cid = PICKED.car || p.car, c = PCARS[cid];
     const order = cid === p.car ? p.id : "BK-88219";
     const agent = PSTAFF.cc.name.split(" ")[0].toLowerCase();
     const copy = (what) => ({ icon: "copy", ariaLabel: `Copy the ${what}`, attrs: "data-copy" });
-    const send = `${TU.paymentDetails([{ label: "Deposit", value: money(MK.token), highlight: true }, { label: "Reference", value: order, valueAction: copy("reference") }, "sep",
-        { label: "Account name", value: "CARS24 UAE" }, { label: "IBAN", value: "AE07 0331 0000 0123 4567 890", valueAction: copy("account") }])}
-      <div class="tu-chips">${[["whatsapp", "WhatsApp"], ["email-envelope-outline", "Email"], ["bubble-text-message-chat-outline", "SMS"]]
-        .map(([i, l], k) => TU.chip(l, { leadingIcon: i, active: k === 0, trailing: `${tui("check-outline", "xs")}Sent`, attrs: `data-pick="multi" data-dep-send` })).join("")}</div>`;
-    const upload = TU.fileUploadCard({ title: "Deposit confirmation", description: "JPG, PNG or PDF &middot; click to browse",
-      badge: TU.badge("Saved to Documents", { variant: "success", size: "s", icon: "check-outline", attrs: "data-upload-badge hidden" }),
-      cta: TU.link("Use a sample", { attrs: "data-upload-sample" }) + TU.link("Replace", { attrs: "data-upload-replace hidden" }),
-      attrs: `data-part="confirmation"`, buttonAttrs: `data-upload data-part="upload"` });
-    const status = `${TU.carContext({ title: c.title, subtitle: `Appointment ${c.appt}`, color: c.color, right: TU.badge("Available", { variant: "success", attrs: `data-status-pill data-part="car"` }) })}
-      ${TU.dropdown({ id: "dp-status", label: "Status", options: ["Available", "Reserved"], value: "Available", attrs: "data-car-status" })}`;
-    const body = TU.verticalStepper([
-      { title: "Send the bank details", description: "From the CRM, with the amount and the order as the reference", content: send, status: "completed", attrs: `data-part="send" data-dep-step="send"` },
-      { title: "Upload the deposit confirmation", description: `${fn} emails the payment screenshot to ${agent}@${MK.site}. Download it and upload it here.`, content: upload, status: "active", attrs: `data-dep-step="upload"` },
-      { title: "Car status", description: "Reserved takes the car off the website and holds it for the customer", content: status, attrs: `data-part="status" data-dep-step="status"` }]);
+    const send = TU.sectionCard({ title: "1 &middot; Send the bank details", subtitle: "From the CRM, with the amount and the order as the reference",
+      badge: { label: "Sent", variant: "success", attrs: "data-dep-badge=\"send\"" }, attrs: `data-part="send"`, items: [
+        TU.paymentDetails([{ label: "Deposit", value: money(MK.token), highlight: true }, { label: "Reference", value: order, valueAction: copy("reference") }, "sep",
+          { label: "Account name", value: "CARS24 UAE" }, { label: "IBAN", value: "AE07 0331 0000 0123 4567 890", valueAction: copy("account") }], { showShadow: false }),
+        `<div class="tu-chips">${[["whatsapp", "WhatsApp"], ["email-envelope-outline", "Email"], ["bubble-text-message-chat-outline", "SMS"]]
+          .map(([i, l], k) => TU.chip(l, { leadingIcon: i, active: k === 0, trailing: `${tui("check-outline", "xs")}Sent`, attrs: `data-pick="multi" data-dep-send` })).join("")}</div>`] });
+    const upload = TU.sectionCard({ title: "2 &middot; Upload the deposit confirmation", subtitle: `${fn} emails the payment screenshot to ${agent}@${MK.site}. Download it and upload it here.`,
+      badge: { label: "Not uploaded", variant: "warning", attrs: "data-dep-badge=\"upload\"" }, items: [
+        TU.fileUploadCard({ title: "Deposit confirmation", description: "JPG, PNG or PDF &middot; click to browse",
+          badge: TU.badge("Saved to Documents", { variant: "success", size: "s", icon: "check-outline", attrs: "data-upload-badge hidden" }),
+          cta: TU.link("Use a sample", { attrs: "data-upload-sample" }) + TU.link("Replace", { attrs: "data-upload-replace hidden" }),
+          attrs: `data-part="confirmation"`, buttonAttrs: `data-upload data-part="upload"` })] });
+    const status = TU.sectionCard({ title: "3 &middot; Car status", subtitle: "Reserved takes the car off the website and holds it for the customer", attrs: `data-part="status"`, items: [
+      TU.carContext({ title: c.title, subtitle: `Appointment ${c.appt}`, color: c.color, right: TU.badge("Available", { variant: "success", attrs: `data-status-pill data-part="car"` }) }),
+      TU.dropdown({ id: "dp-status", label: "Status", options: ["Available", "Reserved"], value: "Available", attrs: "data-car-status" })] });
+    // the payment entry: the deposit by bank transfer, Not paid until the confirmation is uploaded
+    const payments = TU.sectionCard({ title: "Payments", framed: false, attrs: `data-part="payments"`, items: [TU.dataTable({ attrs: "data-dep-payments",
+      columns: [{ key: "type", label: "Payment type", subTextKey: "source" }, { key: "ref", label: "Reference", subTextKey: "txn" }, { key: "amount", label: "Amount", align: "right" },
+        { key: "paid", label: "Paid", subTextKey: "by" }, { key: "status", label: "Status", isBadge: true }],
+      rows: [{ type: "DEPOSIT", source: "Bank transfer", ref: order, txn: "Transaction ID &mdash;", amount: money(MK.token), paid: "&mdash;", by: "&nbsp;", status: { label: "Not paid", variant: "warning" },
+        $cell: { paid: "data-pay-paid", status: "data-pay-status" } }] })] });
+    const breakup = TU.sectionCard({ title: "Price breakup", framed: false, attrs: `data-part="breakup"`, items: [priceBreakup(cid)] });
     return callTask(t, 2, "P7d", { dls: true, secs: "07:45", steps: DEPOSIT_STEPS, cur: "Awaiting payment", prev: "P2", title: `Take a deposit for the ${carShort(cid)}`,
       desc: `${fn} wants the ${c.title} now, no test drive (order ${order}). Send the bank details, upload the confirmation they email, reserve the car.`,
       right: TU.badge(`${money(MK.token)} deposit`, { variant: "warning", icon: "wallet-3-outline", attrs: `data-part="amount"` }),
-      body, hint: TU.info("Upload the deposit confirmation", { attrs: "data-dep-hint" }),
+      body: `<div class="tu-stack">${send}${upload}${status}${payments}${breakup}</div>`, hint: `<span data-dep-hint>Upload the deposit confirmation</span>`,
       buttons: [["Book a TD instead", "P4", "", "calendar"], ["Not paid yet: call back", "P9", "", "phone-forwarded"], ["Complete: car reserved", "N3", "primary", "check", false, "data-dep-done disabled"]],
       cards: [["Say this", "message-square", `<p>&ldquo;I've sent our bank details on WhatsApp. Once it's paid, email the screenshot to me and I'll reserve the ${carShort(cid)} for you straight away.&rdquo;</p>`], ["Check", "list-checks", `<p>The amount and the reference ${order} on the screenshot must match before you reserve the car.</p>`]] });
   },
