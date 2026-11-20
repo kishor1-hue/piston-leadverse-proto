@@ -112,7 +112,7 @@ function inline(tracks, fn) {
   if (vs.length === 1 && !label(vs[0].cs, tracks)) return md(vs[0].v);
   return "\n" + vs.map(g => `  - *${label(g.cs, tracks) || "Everywhere else"}:* ${md(g.v)}`).join("\n");
 }
-const DEVICE = { desktop: "Leadverse web", tablet: "Leadverse on the DA's tablet", customer: "DA's tablet, turned to the customer", video: "Leadverse web with a video panel", pair: "Customer's phone + Leadverse web", tvpair: "Ground TV + the customer's phone", phone: "Phone", none: "No screen, a human moment" };
+const DEVICE = { desktop: "Leadverse web", tablet: "Leadverse on the SA's tablet", customer: "SA's tablet, turned to the customer", video: "Leadverse web with a video panel", pair: "Customer's phone + Leadverse web", tvpair: "Ground TV + the customer's phone", phone: "Phone", none: "No screen, a human moment" };
 
 // ---------------------------------------------------------------- document
 const L = [];
@@ -148,7 +148,7 @@ P(`**Tracks.** Every step belongs to one or more tracks.`,
   ]));
 P(`**Check-in ways.** Hub customers check in one of two ways, with the same form. The market sets the default; both work everywhere.`,
   table(["Way", "Who fills the form", "Default in"], [
-    ["By staff", "A receptionist or DA, with the customer", "UAE (and India)"],
+    ["By staff", "A receptionist or SA, with the customer", "UAE (and India)"],
     ["Seat QR", "The customer, on their own phone, from the QR on their seat", "Australia"],
   ]));
 P(`**Markets.** ${Object.values(X.MARKETS).map(m => `${m.label} (tenant \`${m.tenant}\`)`).join(" and ")}. One build; the market changes defaults, documents and copy.`,
@@ -230,7 +230,7 @@ P(`### 6.1 The TD booking call (P1 to P9)`,
     `- **Discovery is a branch.** P3 listing (search by appointment ID, market filters), P3a car page, P3b compare (2 or 3 cars). Pick for TD sends the cars on to P4.`,
     `- **TD type per car (P4).** Each car is hub or video. All hub: P5 hub slot. All video: P6 video slot. Mixed: P5, then P6, then one read-back at P7 that books both. Australia: an interstate car is video only.`,
     `- **Payment mode and trade-in on P4.** Payment mode (${payModes}) and Trade-in opted (Yes / No). The payment mode is one value shared with the lead pane select; it starts from what the customer said in the app or chatbot. Trade-in opted starts from the same source and shows on the lead view's Trade-in tile.`,
-    `- **Booking closes the task (P7).** Booked: ORDER BOOKED. Video or mixed: VTD BOOKED. Then P8 pre-arrival readiness: reminders at T-24h and T-2h with a licence upload link, yard prep, DA pre-assigned by capacity.`,
+    `- **Booking closes the task (P7).** Booked: ORDER BOOKED. Video or mixed: VTD BOOKED. Then P8 pre-arrival readiness: reminders at T-24h and T-2h with a licence upload link, yard prep, SA pre-assigned by capacity.`,
     `- **Callbacks (P9).** No slot works, no answer, or busy: the task moves to Callbacks and resumes where the call stopped. After 3 attempts it closes as dropped. A missed TD shows in Today missed TD.`,
     `- **The pitch decides, not a fixed path.** Each Next posts the step's answers to the journey's next-step API; the response names the next step and the stages to show. That is how the call branches to a TD or a deposit.`,
   ].join("\n"));
@@ -254,15 +254,16 @@ P(`### 6.3 Finance pre-approval on the call (P7f)`,
 P(`### 6.4 Check-in (I1): welcome and check-in in one gesture`,
   `Checking in is the arrival: there is no Mark arrived. The seat QR page and the staff form are the same form, so either way gives the same answers.`,
   [
-    `1. **Mobile, purpose and OTP (one screen).** Mobile number with the market's dial code (+971, +61). Purpose of visit: buy or test drive, drop off a car, pick up a car, a booked service, sell my car, something else. Only buy or test drive goes on to a DA; the rest are routed to that desk. Send code → the code appears under the form → Verify. 3 tries; resend after 30 s. After 3 failures a receptionist checks ID by hand (Emirates ID in the UAE, photo ID in Australia) and finishes the check-in.`,
+    `1. **Mobile, purpose and OTP (one screen).** Mobile number with the market's dial code (+971, +61). Purpose of visit: buy or test drive, drop off a car, pick up a car, a booked service, sell my car, something else. Only buy or test drive goes on to an SA; the rest are routed to that desk. Send code → the code appears under the form → Verify. 3 tries; resend after 30 s. After 3 failures a receptionist checks ID by hand (Emirates ID in the UAE, photo ID in Australia) and finishes the check-in.`,
     `2. **Existing order? Yes or No.**`,
     `   - **Yes, order found** (by the mobile): today's order shows with *Checked in*, at once. CHECKED IN.`,
     `   - **Yes, nothing found:** the page says nothing is booked on that mobile today and offers the details form.`,
     `   - **No:** the basic details form: phone (already verified), email, first and last name, post code (UAE: emirate and area), *Do you need financing after the test drive?*, *Where did you hear about us?* (market list), and the driving licence photos, front and back, optional. Check in creates the lead (dedupe on mobile) and the visit. CHECKED IN.`,
-    `3. **The last screen: the token with the DA.** Token number, seat and the DA's name (*Your sales associate (DA)*), on the phone and in the staff form.`,
+    `3. **The last screen: the token with the SA.** Token number, seat and the SA's name (*Your sales associate (SA)*), on the phone and in the staff form.`,
   ].join("\n"),
-  `**What one check-in fires:** a queue token, DA auto-assignment (S1), the Yardie's task for a booked car (S2), the token on the ground TV, and the token page link on WhatsApp.`,
-  `**No recording question at check-in.** The DA asks for the recording consent at Start TD (T1 for a booking, O2 for a walk-in), when the recording would start.`,
+  `**What one check-in fires:** a queue token, SA auto-assignment (S1), the Yardie's task for a booked car (S2), the token on the ground TV, and the token page link on WhatsApp.`,
+  `**The visit's UUID.** Check-in gives the visit a UUID. The SA's task finds the lead by it, with every order the lead has today (T1).`,
+  `**No recording question at check-in.** The SA asks for the recording consent at the key handover (O1), when the TD starts and the recording would.`,
   `**Seat QR specifics:** the QR is the same on every seat, so the mobile and OTP prove who is checking in. The receptionist's Today list shows the check-in live, with each answer landing in a side panel. No answer for 3 min: the receptionist gets a nudge. *Finish it for them* opens the staff form with what was already filled. Each part autosaves.`,
   `**Video TD:** check-in is an OTP read out on the call, in the same step as the welcome. Not joined 10 min after the slot → P9.`);
 
@@ -278,49 +279,53 @@ P(`### 6.5 Finance next step after check-in`,
 P(`### 6.6 The token and the ground TV (I2)`,
   [
     `- **One token per check-in:** hub, day, B for bookings or W for walk-ins, and a number (B-07, W-12). Bookings are served at their slot time, then tokens in order. Not the payment token (TOKEN PAID).`,
-    `- **The ground TV** shows token, first name and initial, status, DA, car and waiting time. A QR on the TV catches anyone who missed the one on their seat.`,
-    `- **Statuses:** Waiting for a DA, DA coming to you, With your DA, Car ready, On test drive. They change only on staff actions, never typed.`,
-    `- **The customer's token page** shows the same token, the DA, the car and live progress, and updates by itself.`,
-    `- **What moves them.** Booked: Yardie picks up the car → car parked at the hub → DA meets the customer, TD starts. Walk-in: DA meets the customer → slot booked, Yardie preps the car → car parked at the hub → DA comes back and starts the TD.`,
+    `- **The ground TV** shows token, first name and initial, status, SA, car and waiting time. A QR on the TV catches anyone who missed the one on their seat.`,
+    `- **Statuses:** Waiting for an SA, SA coming to you, With your SA, Car ready, On test drive. They change only on staff actions, never typed.`,
+    `- **The customer's token page** shows the same token, the SA, the car and live progress, and updates by itself.`,
+    `- **What moves them.** Booked: Yardie picks up the car → car parked at the hub → SA meets the customer, the SA's task opens → key handover, On test drive. Walk-in: SA meets the customer → cars picked, Yardie preps them → car parked at the hub → key handover, the TD starts.`,
   ].join("\n"));
 
-P(`### 6.7 DA assignment (S1)`,
+P(`### 6.7 SA assignment (S1)`,
   [
-    `- **Automatic, at check-in.** That is why the last check-in screen can name the DA.`,
-    `- **Rule, in order:** free now (not on a drive or a break), under today's cap, a free slot for the next hour. Then, for a booking, the booking's pre-assigned DA first; for a walk-in, the best language match. Ties go to the fewest drives today.`,
-    `- **Every DA busy or at cap:** the receptionist picks the next free DA by hand. Still no DA after 10 min: the manager is alerted.`,
-    `- **The handshake comes after assignment,** at the customer's seat, never at check-in. Not met within 5 min: the receptionist and the manager are alerted, and the DA can be reassigned.`,
+    `- **Automatic, at check-in.** That is why the last check-in screen can name the SA.`,
+    `- **Rule, in order:** free now (not on a drive or a break), under today's cap, a free slot for the next hour. Then, for a booking, the booking's pre-assigned SA first; for a walk-in, the best language match. Ties go to the fewest drives today.`,
+    `- **Every SA busy or at cap:** the receptionist picks the next free SA by hand. Still no SA after 10 min: the manager is alerted.`,
+    `- **The SA meets the customer after assignment,** at their seat, never at check-in, and the SA's task opens (T1). Not met within 5 min: the receptionist and the manager are alerted, and the SA can be reassigned.`,
   ].join("\n"));
 
-P(`### 6.8 The Yardie and the car (S2, O1)`,
+P(`### 6.8 The Yardie and the car (S2, T3)`,
   [
     `- Cars wait in the yard, about 500 m from the hub. The Yardie works a mobile task list.`,
-    `- **Booked:** the car was prepped before the day (P8). Check-in calls it to the hub: Picked up, driving over → Parked at the hub. CAR AT HUB tells the DA and moves the TV.`,
-    `- **Walk-in:** once the DA books the current slot (T5), the Yardie preps the car (quick wash, wipe the inside, fuel at least half, tyre pressure), then brings it. At the hub, the DA is told to go back to the customer.`,
-    `- Prep finds a problem: the DA is told to pick another car.`,
+    `- **Booked:** the car was prepped before the day (P8). Check-in calls it to the hub: Picked up, driving over → Parked at the hub. CAR AT HUB tells the SA and moves the TV.`,
+    `- **Walk-in, or a car added on the day:** each car picked in Discover more cars (T3) is an order for now, and the Yardie preps it (quick wash, wipe the inside, fuel at least half, tyre pressure), then brings it. At the hub, the SA's section for that order shows Car ready.`,
+    `- Prep finds a problem: the SA is told to pick another car.`,
   ].join("\n"));
 
-P(`### 6.9 On the road (T1/O2 to O7)`,
+P(`### 6.9 The SA's task (T1 to N2, booked and walk-in)`,
+  `One Leadverse task for the whole visit. The lead is found by the check-in UUID, and every order the lead has today runs in it: a booking can carry two or three TDs. Five pages, each built from DLS components in the action area:`,
   [
-    `- **Start TD.** Booked: the handshake is the start (T1). The car was chosen on the call and is at the hub, so there is no car finding. Walk-in: the DA goes back to the customer once the car is at the hub (O2). Starting creates the TD record (car, plate, time, odometer, fuel, route).`,
-    `- **Recording consent, at Start TD.** The DA asks *can we record the drive?* and sets the toggle. Yes: live notes and transcription run from Start TD to End TD. No: the drive goes ahead and only the objection tags are kept.`,
-    `- **TD consent (O3).** One per car, signed on the DA's tablet: terms, signature and tick. Declines → the TD is cancelled. The signed PDF goes to Documents and to the customer on WhatsApp.`,
-    `- **DL verify (O4).** The last check before the car moves. Car finding does not need a licence; driving does.`,
-    `- **Walkaround (O5), drive (O6), end (O7).** The drive shows a LIVE badge, live transcription and one-tap objection tags. End records the odometer, duration and the customer's reaction.`,
-  ].join("\n"));
+    `1. **T1 Interest.** Tabs, Check-in first: the check-in details (UUID, lead, token and seat, time and way, purpose, mobile, SA, today's TDs). Then Today's TD, Finance, Wishlist, Trade-in, Coupons (code, value, validity) and Notes.`,
+    `2. **T2 DL.** Once for the visit, before any drive: both sides (from the booking, the seat QR, or taken now), what was read off it, and three checks (name, expiry, photo). No valid licence: no drive today (N6).`,
+    `3. **T3 Cars.** Two tabs: today's orders, kept by default, or Discover more cars. A car picked in Discover joins the visit as an order for now; the Yardie preps it. About 95% of bookings go ahead with today's orders.`,
+    `4. **O1 Test drives.** One section per order, each with a stepper: Walkthrough → Key handover (TD consent for this car, recording consent, odometer and fuel; START_TEST_DRIVE) → TD done (COMPLETE_TEST_DRIVE) → Disposition → Checkout. The disposition is per car: Pay deposit, Needs time, Another car, Not interested.`,
+    `5. **N2 Checkout, one car.** A stepper inside the page: Delivery (the address and pick up or home delivery) → VAS → Discount (the customer's coupons, then any extra; a manager approves above the market's limit) → Sales promise → Payment mode (Cash, In-house finance, BYOF) → Pre-approval (In-house finance only: prefilled when on file, or send the link by SMS or email, or fill it now) → Deposit (bank transfer with the receipt uploaded, or a Stripe link confirmed by the webhook) → Booking confirmed. The order summary beside it moves with every choice. Another TD'd car is checked out the same way, back from O1.`,
+  ].join("\n"),
+  `**Walk-in:** the same task with no TD booked today: Today's TD is empty and Cars opens on Discover.`,
+  `**Recording consent, at the key handover.** Yes: live notes and transcription run until TD done. No: the drive goes ahead and only the objection tags are kept.`,
+  `**Video TD** keeps its own steps: the walkaround on camera (O5), the wrap-up (O7), the debrief (N1) and the token by payment link (N2).`);
 
-P(`### 6.10 Next step (N1 to N7)`,
-  `No visit ends without one. The DA records the decision at N1:`,
-  table(["Decision", "Goes to", "Result"], [
-    ["Ready to buy", "N2 Collect token", "Payment by the gateway → TOKEN PAID → N3 handoff to delivery (RM assigned)"],
+P(`### 6.10 Next step (O1, N2 to N7)`,
+  `No visit ends without one. At the hub, each TD'd car gets its disposition in its section on O1; on a video TD, the operator records it at N1:`,
+  table(["Disposition", "Goes to", "Result"], [
+    ["Pay deposit", "N2 Checkout (hub) or Collect token (video)", "Deposit paid → BOOKING CONFIRMED (hub) or TOKEN PAID (video) → N3 handoff to delivery (RM assigned)"],
     ["Needs time", "N4 Schedule follow-up", "FOLLOW-UP SCHEDULED, then N5 follow-up call"],
-    ["Wants another car (video TD: drive it at a hub)", "N6 Book another TD", "NEW TD BOOKED, restarts at Plan"],
+    ["Another car", "T3 Discover more cars (same visit), or N6 another day", "One more order in the visit, or NEW TD BOOKED"],
     ["Not interested", "N7 Close as dropped", "DROPPED, with the reason"],
   ]),
-  `At N2, a customer who leaves before paying keeps a live payment link and gets a follow-up (N4). TOKEN PAID comes from the payment webhook only.`);
+  `A customer who leaves before paying keeps a live payment link and gets a follow-up (N4). A Stripe payment is confirmed by its webhook only; a bank transfer by the receipt, checked by finance.`);
 
 P(`### 6.11 Oversight (M1)`,
-  `The manager (DATL) sees a live funnel all day: one row per state (checked in, DA assigned, met, car at the hub, DL verified, and on), with time between states. Late steps are caught and reassigned.`);
+  `The manager (SATL) sees a live funnel all day: one row per state (checked in, SA assigned, met, DL verified, TD started, TD conducted, booking confirmed), with time between states. Late steps are caught and reassigned.`);
 
 P(`### 6.12 Example people, per market`,
   table(["Role", "UAE", "Australia"], (() => {

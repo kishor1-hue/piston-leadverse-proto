@@ -49,6 +49,7 @@
 /* Icons: the DLS IcoMoon font (getIconClass(name, size)) */
 .tui{font-family:"turbo-ui-icons" !important; font-style:normal; font-weight:normal; font-variant:normal; text-transform:none; line-height:1; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; display:inline-block; flex:none;}
 .tui.icon-xs{font-size:12px;} .tui.icon-sm{font-size:14px;} .tui.icon-base{font-size:16px;} .tui.icon-lg{font-size:18px;} .tui.icon-xl{font-size:20px;} .tui.icon-2xl{font-size:24px;}
+/* icons:start */
 .tui-check-outline::before{content:"\ec65";}
 .tui-whatsapp::before{content:"\ea42";}
 .tui-email-envelope-outline::before{content:"\eb71";}
@@ -59,7 +60,43 @@
 .tui-edit-outline::before{content:"\eb4e";}
 .tui-wallet-3-outline::before{content:"\e9ea";}
 .tui-car-outline::before{content:"\ec34";}
+.tui-car-check-outline::before{content:"\ec9f";}
 .tui-chevron-down-small-outline::before{content:"\ec83";}
+.tui-key-outline::before{content:"\ec2c";}
+.tui-flag-2-priority-outlined::before{content:"\ea62";}
+.tui-location-outline::before{content:"\ebbf";}
+.tui-home-round-door-outline::before{content:"\ec3f";}
+.tui-tag-sale-outlined::before{content:"\e988";}
+.tui-checklist-list-outline::before{content:"\ea6f";}
+.tui-credit-card-2-card-payment-outline::before{content:"\e9ee";}
+.tui-bank-outline::before{content:"\eaaa";}
+.tui-check-badge-outline::before{content:"\ea5a";}
+.tui-shield-check-line::before{content:"\ea04";}
+.tui-package-block-delivery-outline::before{content:"\e9ce";}
+.tui-clock-timer-outline::before{content:"\ebde";}
+.tui-eye-open-show-see-reveal-look-visible-outline::before{content:"\ea8a";}
+.tui-receipt-check-outline::before{content:"\e91e";}
+.tui-link::before{content:"\e973";}
+.tui-send-line::before{content:"\eab0";}
+.tui-notepad-notes-outline::before{content:"\eb16";}
+.tui-circle-check-filled::before{content:"\ec60";}
+.tui-info-outline::before{content:"\ebb7";}
+.tui-arrow-right-outline::before{content:"\ec77";}
+.tui-arrow-left-outline::before{content:"\ec79";}
+.tui-plus-large-outline::before{content:"\ec51";}
+.tui-close-line::before{content:"\ec59";}
+.tui-calendar-check-outline::before{content:"\e918";}
+.tui-sparkle-filled::before{content:"\e9ef";}
+.tui-wishlist-outline::before{content:"\eabb";}
+.tui-arrow-right-left-sort1-switchhorizontal-outline::before{content:"\ea92";}
+.tui-coin-dollar-currency-money-outline::before{content:"\ebd1";}
+.tui-money-hand-coins-pay-outline::before{content:"\ebcb";}
+.tui-lock-private-outline::before{content:"\ea00";}
+.tui-people-circle-user-circle-avatar-profile-outline::before{content:"\ea16";}
+.tui-calendar-line::before{content:"\ebe5";}
+.tui-camera-picture-image-outline::before{content:"\eadd";}
+.tui-microphone-outline::before{content:"\ebaa";}
+/* icons:end */
 
 /* Badge (@cspl/badge), size xs, curve radius; tones subtle */
 .tu-badge{display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 6px; border-radius:6px; font-size:12px; font-weight:500; white-space:nowrap; flex:none;}
@@ -90,7 +127,8 @@
 .tu-chip:hover{background:var(--tu-surface-subtle); border-color:var(--tu-border-secondary); box-shadow:0 1px 3px 0 rgba(0,0,0,.1);}
 .tu-chip .tui{font-size:14px;}
 .tu-chip .ok{display:none; align-items:center; gap:2px; color:var(--tu-mint-900); font-weight:600;}
-.tu-chip.on{background:var(--tu-green-100); border-color:var(--tu-mint-800);}
+.tu-chip.on{background:var(--tu-brand-25); border-color:var(--tu-brand); color:var(--tu-brand);}
+.tu-chip.green.on{background:var(--tu-green-100); border-color:var(--tu-mint-800); color:var(--tu-text-primary);}
 .tu-chip.on .ok{display:inline-flex;}
 
 /* FileUploadCard (@cspl/file-upload-card): the surface, a text column and the 80px dashed upload button */
@@ -169,3 +207,141 @@
 .dls .v2-ch h3{font-size:17px; line-height:22px; font-weight:600; color:var(--tu-text-primary);}
 .dls .v2-ch p{margin-top:4px; font-size:13px; line-height:18px; color:var(--tu-text-secondary);}
 .dls .tu-stack{display:flex; flex-direction:column; gap:16px;}
+
+/* NotchTabs (@cspl/notch-tabs): text-base medium tabs on a 2px hairline, a 4px brand bar under the active one */
+.tu-notch{display:flex; overflow-x:auto; scrollbar-width:none; border-bottom:2px solid var(--tu-surface-tertiary);}
+.tu-notch::-webkit-scrollbar{display:none;}
+.tu-notch button{position:relative; flex:none; padding:10px 14px 12px; margin-bottom:-2px; border:none; border-bottom:2px solid transparent; background:none; font-family:inherit; font-size:15px; font-weight:500; line-height:20px; color:var(--tu-text-secondary); white-space:nowrap; cursor:pointer;}
+.tu-notch button.on{color:var(--tu-text-primary);}
+.tu-notch button.on::after{content:""; position:absolute; left:0; right:0; bottom:-2px; height:4px; border-radius:4px 4px 0 0; background:var(--tu-brand);}
+.tu-panel{padding-top:16px;}
+.tu-panel > * + *{margin-top:12px;}
+
+/* SegmentTabs (@cspl/segment-tabs), light, md: the slate track, the active segment on a white slider */
+.tu-seg{display:flex; padding:4px; border-radius:16px; background:var(--tu-surface-tertiary);}
+.tu-seg button{flex:1; min-width:0; height:36px; padding:0 16px; border:1px solid transparent; border-radius:12px; background:transparent; font-family:inherit; font-size:14px; font-weight:500; color:var(--tu-text-secondary); cursor:pointer; white-space:nowrap; transition:background-color .2s, color .2s;}
+.tu-seg button.on{background:var(--tu-surface); border-color:var(--tu-border-secondary); box-shadow:0 4px 6px -1px rgba(0,0,0,.1); color:var(--tu-text-primary); font-weight:600;}
+
+/* FetchedInfoCard (@cspl/fetched-info-card): the header row on gray-50, then the items, label over value */
+.tu-fic{overflow:hidden; border-radius:12px; border:.5px solid var(--tu-border-secondary); background:var(--tu-surface);}
+.tu-fic .hd{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background:var(--tu-surface-subtle);}
+.tu-fic .hd b{display:block; font-size:15px; font-weight:600; line-height:20px; color:var(--tu-text-primary);}
+.tu-fic .hd small{display:block; font-size:11px; font-weight:500; color:var(--tu-text-secondary);}
+.tu-fic .items{display:grid;}
+.tu-fic .items.c2{grid-template-columns:repeat(2,minmax(0,1fr));} .tu-fic .items.c3{grid-template-columns:repeat(3,minmax(0,1fr));} .tu-fic .items.c1{grid-template-columns:1fr;}
+.tu-fic .it{display:flex; flex-direction:column; gap:2px; padding:8px 12px; border-top:.5px solid var(--tu-border-secondary); min-width:0;}
+.tu-fic .it small{font-size:11px; font-weight:500; line-height:17px; color:var(--tu-text-secondary);}
+.tu-fic .it b{font-size:15px; font-weight:600; line-height:20px; color:var(--tu-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tu-fic .it .tu-badge{align-self:flex-start;}
+
+/* Stepper (@cspl/stepper), variant default: 36px markers, a 2px connector, the label and description centred under */
+.tu-stepper{display:flex; align-items:flex-start; margin:0; padding:4px 40px 0; list-style:none;}
+.tu-stepper .st{display:flex; flex-direction:column; align-items:flex-start; gap:12px; flex:1; min-width:1px;}
+.tu-stepper .st:last-child{flex:none;}
+.tu-stepper .trk{display:flex; align-items:center; width:100%;}
+.tu-stepper .mk{display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:9999px; flex:none; background:var(--tu-brand-200); color:#020618;}
+.tu-stepper .st.active .mk{background:var(--tu-brand); color:#fff; box-shadow:0 0 0 4px var(--tu-brand-100);}
+.tu-stepper .st.completed .mk{background:var(--tu-green-600); color:#fff;}
+.tu-stepper .cn{flex:1; min-width:1px; height:2px; background:var(--tu-brand-200);}
+.tu-stepper .st.completed .cn{background:var(--tu-mint-800);}
+.tu-stepper .tx{display:flex; flex-direction:column; align-items:center; gap:2px; width:36px; white-space:nowrap;}
+.tu-stepper .tx b{font-size:14px; line-height:20px; font-weight:400; color:var(--tu-text-secondary);}
+.tu-stepper .st.active .tx b{font-weight:600; color:var(--tu-brand);}
+.tu-stepper .st.completed .tx b{font-weight:600; color:var(--tu-mint-800);}
+.tu-stepper .tx small{font-size:12px; line-height:16px; font-weight:500; color:var(--tu-neutral-500);}
+.tu-stepper .st.skip{opacity:.5;}
+
+/* ChoiceTile (@cspl/choice-tile): a 16px-radius tile with the hairline ring, the dark ring once selected */
+.tu-tiles{display:grid; gap:8px;}
+.tu-tile{position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-height:64px; padding:10px 12px; border:none; border-radius:16px; background:var(--tu-surface); box-shadow:0 2px 2px rgba(0,0,0,.04), inset 0 0 0 .5px var(--tu-border-secondary); font-family:inherit; text-align:left; cursor:pointer;}
+.tu-tile .tui{color:var(--tu-text-secondary); margin-bottom:4px;}
+.tu-tile b{font-size:13px; font-weight:500; color:var(--tu-text-primary);}
+.tu-tile small{font-size:11px; color:var(--tu-text-secondary);}
+.tu-tile.on{box-shadow:inset 0 0 0 1px var(--tu-text-primary);}
+.tu-tile.on .tui{color:var(--tu-brand);}
+
+/* Checkbox (@cspl/checkbox), md: 20px box, 6px radius, brand when checked */
+.tu-cb{display:flex; align-items:center; gap:10px; min-height:32px; cursor:pointer; font-size:14px; color:var(--tu-text-primary);}
+.tu-cb .box{display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; border-radius:6px; border:1px solid var(--tu-border-secondary); background:var(--tu-surface); color:transparent; transition:background-color .2s;}
+.tu-cb.on .box{background:var(--tu-brand); border-color:var(--tu-brand); color:#fff;}
+.tu-cb .lb{flex:1; min-width:0; display:flex; flex-direction:column;}
+.tu-cb .lb small{font-size:12px; color:var(--tu-text-secondary);}
+.tu-cb .vl{font-weight:500; white-space:nowrap;}
+.tu-list{display:flex; flex-direction:column; padding:4px 12px; border-radius:12px; border:.5px solid var(--tu-border-secondary); background:var(--tu-surface);}
+.tu-list > *{padding:6px 0;} .tu-list > * + *{border-top:.5px solid var(--tu-border-tertiary);}
+
+/* TextInput (@cspl/text-input): label over a 44px field */
+.tu-ti{display:flex; flex-direction:column; gap:6px; min-width:0;}
+.tu-ti label{font-size:14px; color:var(--tu-text-primary);}
+.tu-ti input, .tu-ti textarea{height:44px; padding:0 14px; border-radius:12px; border:1px solid var(--tu-border-secondary); background:var(--tu-surface); color:var(--tu-text-primary); font-family:inherit; font-size:15px; min-width:0;}
+.tu-ti textarea{height:72px; padding:10px 14px; resize:none;}
+.tu-ti input:focus, .tu-ti textarea:focus{outline:none; border-color:var(--tu-brand);}
+.tu-row2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
+.tu-row3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px;}
+
+/* Coupon (@cspl/coupon): the brand strip with the value turned on its side, the card, a dashed divider */
+.tu-coupon{display:flex; min-height:96px;}
+.tu-coupon .dec{position:relative; display:flex; align-items:center; justify-content:center; width:45px; flex:none; border-radius:16px 0 0 16px; background:var(--tu-brand); overflow:hidden;}
+.tu-coupon .dec span{transform:rotate(-90deg); white-space:nowrap; font-size:15px; font-weight:600; color:#fff;}
+.tu-coupon .cd{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; gap:8px; padding:12px; border:1px solid var(--tu-border-tertiary); border-left:0; border-radius:0 20px 20px 0; background:linear-gradient(90deg, color-mix(in srgb, var(--tu-brand-200) 20%, transparent) 14%, var(--tu-surface) 95%);}
+.tu-coupon .cd > b{font-size:15px; font-weight:600; line-height:20px; color:var(--tu-text-primary);}
+.tu-coupon .dv{border-top:.5px dashed var(--tu-border-secondary);}
+.tu-coupon .ft{display:flex; align-items:center; gap:20px;}
+.tu-coupon .ft span{display:flex; flex-direction:column;}
+.tu-coupon .ft small{font-size:11px; color:var(--tu-text-secondary);}
+.tu-coupon .ft b{font-size:13px; font-weight:600; color:var(--tu-text-primary);}
+.tu-coupon .ft .tu-link, .tu-coupon .ft .tu-badge{margin-left:auto;}
+.tu-coupons{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
+
+/* AddressCard (@cspl/address-card), desktop-compact */
+.tu-addr{display:flex; flex-direction:column; gap:4px; padding:12px; border-radius:12px; border:1px solid var(--tu-border-tertiary); background:var(--tu-surface);}
+.tu-addr .tt{display:flex; align-items:center; gap:8px;}
+.tu-addr .tt b{font-size:15px; font-weight:600; color:var(--tu-text-primary);}
+.tu-addr .tt .tu-link{margin-left:auto;}
+.tu-addr p{margin:0; padding-left:24px; font-size:13px; color:var(--tu-text-secondary);}
+
+/* PaymentTile (@cspl/payment-method-tile): the 48px logo square, name and subtitle, a radio */
+.tu-ptiles{display:flex; flex-direction:column; overflow:hidden; border-radius:12px; border:.5px solid var(--tu-border-secondary);}
+.tu-ptile{display:flex; align-items:center; gap:12px; padding:12px; border:none; background:var(--tu-surface); font-family:inherit; text-align:left; cursor:pointer;}
+.tu-ptile + .tu-ptile{border-top:.5px solid var(--tu-border-tertiary);}
+.tu-ptile .lg{display:flex; align-items:center; justify-content:center; width:48px; height:48px; flex:none; border-radius:6px; background:var(--tu-surface-subtle); color:var(--tu-text-primary);}
+.tu-ptile .tx{flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;}
+.tu-ptile .tx b{font-size:15px; font-weight:600; line-height:18px; color:var(--tu-text-primary);}
+.tu-ptile .tx small{font-size:11px; line-height:17px; color:var(--tu-text-secondary);}
+.tu-ptile .rd{width:20px; height:20px; flex:none; border-radius:9999px; border:1px solid var(--tu-border-secondary);}
+.tu-ptile.on .rd{border:6px solid var(--tu-brand);}
+
+/* NoDataFound (@cspl/no-data-found), desktop-compact */
+.tu-nodata{display:flex; flex-direction:column; align-items:center; gap:6px; padding:28px 40px; text-align:center; color:var(--tu-text-tertiary);}
+.tu-nodata b{font-size:15px; font-weight:600; color:var(--tu-text-primary);}
+.tu-nodata small{font-size:13px; color:var(--tu-text-secondary);}
+.tu-nodata .tu-btn{margin-top:6px;}
+
+/* Button (@cspl/button): small 32px (8px radius) and medium 40px (12px radius); primary, secondary, tertiary */
+.tu-btn{display:inline-flex; align-items:center; justify-content:center; gap:4px; border:1px solid transparent; font-family:inherit; font-weight:600; white-space:nowrap; cursor:pointer; transition:background-color .2s, border-color .2s;}
+.tu-btn.small{height:32px; padding:0 12px; border-radius:8px; font-size:12px;}
+.tu-btn.medium{height:40px; padding:0 14px; border-radius:12px; font-size:15px;}
+.tu-btn.primary{background:var(--tu-brand); color:#fff;} .tu-btn.primary:hover{background:var(--tu-brand-hover);}
+.tu-btn.secondary{background:var(--tu-surface); border-color:var(--tu-brand); color:var(--tu-brand);} .tu-btn.secondary:hover{border-color:var(--tu-brand-hover); color:var(--tu-brand-hover);}
+.tu-btn.tertiary{background:var(--tu-brand-25); color:var(--tu-brand);} .tu-btn.tertiary:hover{background:var(--tu-brand-50);}
+.tu-btn:disabled{background:var(--tu-surface-subtle); border-color:var(--tu-border-tertiary); color:var(--tu-text-tertiary); cursor:not-allowed;}
+.tu-btns{display:flex; align-items:center; gap:8px;} .tu-btns .sp{flex:1;}
+
+/* the success header (DoSuccessHeader's layout, on a light surface) */
+.tu-success{display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px 0 4px; text-align:center;}
+.tu-success .bd{display:flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:9999px; background:var(--tu-mint-50); color:var(--tu-mint-800); margin-bottom:6px;}
+.tu-success b{font-size:19px; font-weight:600; color:var(--tu-text-primary);}
+.tu-success small{font-size:13px; color:var(--tu-text-secondary);}
+
+/* the SA task's layouts: the checkout's steps beside the order summary */
+.sa-co{display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:16px; align-items:start;}
+.sa-pane{display:flex; flex-direction:column; gap:14px;}
+.sa-pane[hidden]{display:none !important;}
+.sa-k{font-size:13px; font-weight:600; color:var(--tu-text-primary);}
+.sa-total{display:flex; align-items:center; justify-content:space-between; padding:4px 2px; font-size:14px; color:var(--tu-text-secondary);}
+.sa-total b{font-size:15px; color:var(--tu-text-primary);}
+.sa-note{display:flex; align-items:flex-start; gap:8px; font-size:14px; color:var(--tu-text-primary);}
+.sa-note .tui{color:var(--tu-text-secondary); margin-top:2px;}
+.tu-ccc .tu-cb{min-height:0;}
+.tu-ccc > .tu-badge + .tu-cb, .tu-ccc > .tu-badge + .tu-badge{margin-left:4px;}
+.sa-steps{padding:16px 12px 14px;}

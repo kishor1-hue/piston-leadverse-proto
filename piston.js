@@ -14,8 +14,8 @@ function drawIcons() { if (window.lucide) lucide.createIcons(); }
 
 const DEVICE_META = {
   desktop: { icon: "monitor", label: "Leadverse web" },
-  tablet: { icon: "tablet", label: "Leadverse on the DA's tablet" },
-  customer: { icon: "hand", label: "DA's tablet, turned to the customer" },
+  tablet: { icon: "tablet", label: "Leadverse on the SA's tablet" },
+  customer: { icon: "hand", label: "SA's tablet, turned to the customer" },
   video: { icon: "video", label: "Leadverse web with a video panel" },
   pair: { icon: "smartphone", label: "Customer's phone + web" },
   tvpair: { icon: "tv", label: "Ground TV + phone" },
@@ -25,7 +25,7 @@ const BUILD_LABEL = { reuse: "Reuse", extend: "Extend", new: "New", none: "No bu
 const TRACK_COLOR = { booked: ["var(--trk-booked)", "var(--trk-booked-bg)"], walkin: ["var(--trk-walkin)", "var(--trk-walkin-bg)"], vtd: ["var(--trk-vtd)", "var(--trk-vtd-bg)"] };
 const VIEWS = [["walk", "Walkthrough", "presentation"], ["blueprint", "Blueprint", "table-2"], ["fields", "Fields", "list-tree"], ["changes", "What changed", "git-pull-request-arrow"]];
 
-const MODE_STEPS = ["I1", "T1", "O4"];
+const MODE_STEPS = ["I1", "T1", "T2"];
 const modeMatters = (stepId, t) => t !== "vtd" && MODE_STEPS.includes(stepId);
 function modeSeg(compact) {
   return `<div class="pv-mode" role="group" aria-label="Check-in way"><span>Check-in</span>${Object.values(CHECKIN_WAYS).map(w =>
@@ -150,8 +150,8 @@ function noneCard(s, t) {
 // staff actions that move the ground TV and the customer's token page on I2; each fires one state event on both
 const SIM = {
   I2: {
-    booked: [["yard", "Yardie picks up the car"], ["hub", "Car parked at the hub"], ["met", "DA meets the customer: the TD starts"]],
-    walkin: [["met", "DA meets the customer"], ["chosen", "Slot booked, Yardie preps the car"], ["hub", "Car parked at the hub"], ["drive", "DA comes back, starts the TD"]],
+    booked: [["yard", "Yardie picks up the car"], ["hub", "Car parked at the hub"], ["met", "SA meets the customer: the task opens"]],
+    walkin: [["met", "SA meets the customer"], ["chosen", "Cars picked, Yardie preps them"], ["hub", "Car parked at the hub"], ["drive", "Key handover: the TD starts"]],
   },
 };
 function simBar(list) {
@@ -296,6 +296,7 @@ function mountScreen(root) {
     if (picked && picked.dataset.modeVal) VS.mode = picked.dataset.modeVal;
     else if (el.dataset.mode) VS.mode = el.dataset.mode;
     if (el.dataset.car) PICKED.car = el.dataset.car;
+    if (el.dataset.order) PICKED.order = el.dataset.order;
     if (el.dataset.from) PICKED.from = el.dataset.from;
     if (el.hasAttribute("data-cmp-go")) PICKED.cmp = [...root.querySelectorAll("[data-cmp].on")].map(x => x.dataset.cmp);
     go(el.dataset.go);
@@ -401,6 +402,7 @@ function mountScreen(root) {
   mountSignature(root);
   mountDeposit(root);
   mountPreapproval(root);
+  mountSaTask(root);
   drawIcons();
 }
 
@@ -449,6 +451,65 @@ function mountPreapproval(root) {
     run.querySelector("span").textContent = "Run it again";
   }));
   gate();
+}
+
+// the SA's task (T1 to N2, booked and walk-in): tabs, the licence, the visit's cars, each order's stepper and the
+// checkout. A change goes into the task's state (saState, piston-screens.js) and the stage is drawn again from it,
+// keeping the scroll. Exits (data-go) and chips (data-pick) are the screen's usual handlers
+const SA_PAGES = ["T1", "T2", "T3", "O1", "N2"];
+function mountSaTask(root) {
+  if (!SA_PAGES.includes(VS.step) || !isHub(VS.track) || !root.querySelector(".v2-content.dls")) return;
+  const t = VS.track, st = saState(t);
+  const order = (id) => st.orders.find(o => o.id === id);
+  const co = () => (st.coOrder ? coState(t, order(st.coOrder)) : null);
+  const redraw = () => {
+    const sc = $("#pv-stage .v2-content"), top = sc ? sc.scrollTop : 0;
+    renderStage();
+    const sc2 = $("#pv-stage .v2-content");
+    if (sc2) sc2.scrollTop = top;
+  };
+  const toggle = (list, v) => { const i = list.indexOf(v); if (i < 0) list.push(v); else list.splice(i, 1); };
+  root.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-tab], [data-choice], [data-sa-dl], [data-sa-dlcheck], [data-sa-keep], [data-sa-add], [data-sa-check], [data-sa-next], [data-co-act], [data-co-vas], [data-co-promise], [data-co-coupon]");
+    if (!el || el.disabled) return;
+    e.preventDefault();
+    const d = el.dataset, c = co();
+    if (d.tab) {
+      const g = el.parentElement.dataset.tuTabs;
+      if (g === "t1") st.tab = d.tab; else if (g === "t3") st.cars = d.tab; else if (g === "pre" && c) c.pre = d.tab;
+    } else if (d.choice) {
+      if (d.choice.startsWith("disp:")) order(d.choice.slice(5)).disp = d.value;
+      else if (c) c[{ "co-delivery": "delivery", "co-pay": "pay", "co-method": "method" }[d.choice]] = d.value;
+    } else if (d.saDl) st.dl[+d.saDl] = true;
+    else if (d.saDlcheck) st.checks[+d.saDlcheck] = !st.checks[+d.saDlcheck];
+    else if (d.saKeep) { const o = order(d.saKeep); o.off = !o.off; }
+    else if (d.saAdd) {
+      const o = st.orders.find(x => x.car === d.saAdd);
+      if (o) o.off = !o.off;
+      else st.orders.push({ id: `BK-${(t === "walkin" ? 89004 : 88213) + st.orders.length}`, car: d.saAdd, slot: "Now", step: 0, disp: null, booked: false, new: true });
+    } else if (d.saCheck) { const o = order(d.order); o[d.saCheck] = !o[d.saCheck]; }
+    else if (d.saNext) { const o = order(d.saNext); o.step = Math.min(3, o.step + 1); }
+    else if (d.coVas && c) toggle(c.vas, +d.coVas);
+    else if (d.coPromise && c) toggle(c.promise, +d.coPromise);
+    else if (d.coCoupon && c) c.coupon = d.coCoupon;
+    else if (d.coAct && c) {
+      const fin = c.pay === "fin";
+      if (d.coAct === "next") {
+        c.step = c.step === 4 && !fin ? 6 : c.step + 1;
+        if (c.step === 7) { c.confirmed = true; order(st.coOrder).booked = true; }
+      } else if (d.coAct === "back") c.step = c.step === 6 && !fin ? 4 : Math.max(0, c.step - 1);
+      else if (d.coAct === "pre-send") c.preSent = true;
+      else if (d.coAct === "pre-run") c.preRun = true;
+      else if (d.coAct === "receipt") c.receipt = true;
+      else if (d.coAct === "stripe-send") c.stripe = "sent";
+      else if (d.coAct === "stripe-paid") c.stripe = "paid";
+    }
+    redraw();
+  });
+  // the extra discount and its reason are typed; the summary follows on change
+  const disc = root.querySelector("[data-co-disc]"), reason = root.querySelector("#co-reason");
+  if (disc) disc.addEventListener("change", () => { const c = co(); if (c) { c.disc = disc.value; redraw(); } });
+  if (reason) reason.addEventListener("change", () => { const c = co(); if (c) c.reason = reason.value; });
 }
 
 // the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved. Each task's
@@ -756,11 +817,18 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;One lead can have two or three TDs. Check the customer in by the UUID, then the SA runs every TD in one task: Interest with Check-in as the first tab, the DL, today's orders or more cars, a section per order with a stepper, then a checkout per car. DLS components, little text. Call the role SA, sales associate&rdquo;</div><h4>The SA's task: one visit, every TD, one car's checkout at a time</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">Handshake &rarr; Consent &rarr; DL &rarr; Walkaround &rarr; Drive &rarr; End &rarr; Debrief &rarr; Token, one car after another</span><span class="k">After</span><span class="seq"><em>T1 Interest</em> &rarr; <em>T2 DL</em> &rarr; <em>T3 Cars</em> &rarr; <em>O1 Test drives, a section per order</em> &rarr; <em>N2 Checkout, one car</em></span></div>
+        <p><b>Found by the check-in UUID.</b> Check-in gives the visit a UUID; the SA's task opens on the lead it belongs to, with every order the lead has today. A booking can carry two or three TDs; they all run in this one task.</p>
+        <p><b>Five pages.</b> Interest: tabs, Check-in first, then Today's TD, Finance, Wishlist, Trade-in, Coupons and Notes. DL: both sides, what was read off it and three checks, once for the visit. Cars: today's orders, or Discover more cars, where a car picked joins the visit as an order. Test drives: a section per order with a stepper (walkthrough, key handover, TD done, disposition, checkout); the key handover starts the TD, with the TD consent and the recording consent. Checkout: one car, a stepper inside (delivery, VAS, discount, sales promise, payment mode, the pre-approval for In-house finance, the deposit by bank transfer or Stripe, confirmed) and the order summary beside it. Another TD'd car is checked out the same way, from the test drives page.</p>
+        <p><b>Walk-in, the same.</b> No test drive booked today, so Today's TD is empty and Cars opens on Discover; each car picked is an order for now, and the Yardie preps it.</p>
+        <p><b>On the DLS, little text.</b> Each page's action area is Turbo UI: NotchTabs, FetchedInfoCard, Coupon, FileUploadCard, Checkbox, SegmentTabs, CarContextCard, SectionCard, Stepper, ChoiceTile, AddressCard, PaymentTile and PaymentDetailsCard. The Leadverse shell (stage bar, lead pane, footer, CarGPT) stays.</p>
+        ${links(stepLink("T1", "Interest", { track: "booked" }), stepLink("T2", "DL", { track: "booked" }), stepLink("T3", "Cars, walk-in", { track: "walkin" }), stepLink("O1", "Test drives", { track: "booked" }), stepLink("N2", "Checkout", { track: "booked" }), stepLink("N2", "Checkout, walk-in", { track: "walkin" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;Check-in: first the mobile number, then the purpose of visit, then send and verify the OTP. Next: do you have an existing order? Yes: today's order shows and check-in is marked. No: the basic details form&rdquo;</div><h4>Check-in asks for the mobile first, then whether there is an order</h4>
-        <div class="ba"><span class="k">Before</span><span class="seq">Mobile and OTP &rarr; (walk-in: name, email, purpose) &rarr; About today (accompanied by, finance, area) &rarr; Consent &rarr; Token</span><span class="k">After</span><span class="seq"><em>Mobile, purpose, OTP</em> &rarr; <em>Existing order?</em> &rarr; Yes: <em>today's order, checked in</em> &rarr; Token with the DA. No: <em>basic details</em>, licence optional &rarr; Token with the DA</span></div>
-        <p><b>Step 1, one screen.</b> The mobile number with the market's dial code (+61, +971), then What brings you in today. Send code shows the code under the form and turns into Verify. Only buy or test drive goes on to a DA.</p>
+        <div class="ba"><span class="k">Before</span><span class="seq">Mobile and OTP &rarr; (walk-in: name, email, purpose) &rarr; About today (accompanied by, finance, area) &rarr; Consent &rarr; Token</span><span class="k">After</span><span class="seq"><em>Mobile, purpose, OTP</em> &rarr; <em>Existing order?</em> &rarr; Yes: <em>today's order, checked in</em> &rarr; Token with the SA. No: <em>basic details</em>, licence optional &rarr; Token with the SA</span></div>
+        <p><b>Step 1, one screen.</b> The mobile number with the market's dial code (+61, +971), then What brings you in today. Send code shows the code under the form and turns into Verify. Only buy or test drive goes on to an SA.</p>
         <p><b>Step 2, existing order?</b> Yes finds today's order by the mobile and checks the customer in on the spot: the order shows with Checked in and the token, and the receptionist's row turns green. If nothing is booked on that mobile, the page says so and offers the details form. No opens the basic details form, as on the website: phone (already verified), email, first and last name, post code (or emirate and area), Do you need financing after the test drive, and Where did you hear about us. That creates the lead.</p>
-        <p><b>No consent screen, and the DA on the token.</b> Check-in no longer asks to record: the DA asks at Start TD (T1, O2), when the recording would start. The optional licence photos sit at the end of the details form. The DA is auto-assigned the moment the customer checks in, so the last screen, on the phone and in the staff form, shows the token with the DA's name. Accompanied by is no longer asked. The staff form follows the same two steps, so either way of checking in gives the same answers.</p>
+        <p><b>No consent screen, and the SA on the token.</b> Check-in no longer asks to record: the SA asks at Start TD (T1, O2), when the recording would start. The optional licence photos sit at the end of the details form. The SA is auto-assigned the moment the customer checks in, so the last screen, on the phone and in the staff form, shows the token with the SA's name. Accompanied by is no longer asked. The staff form follows the same two steps, so either way of checking in gives the same answers.</p>
         ${links(stepLink("I1", "Seat QR, booked: Yes", { track: "booked", market: "au", mode: "qr" }), stepLink("I1", "Seat QR, walk-in: No", { track: "walkin", market: "au", mode: "qr" }), stepLink("I1", "By staff", { track: "booked", market: "ae", mode: "staff" }), stepLink("I1", "By staff, walk-in", { track: "walkin", market: "ae", mode: "staff" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;A pre-approval form whenever the payment mode is Finance by CARS24 or Own loan: skippable, opened at any point from the Next dropdown. Two forms with different inputs, partial and full, one goal: the pre-approval&rdquo;</div><h4>A finance pre-approval inside the call, from any step</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Pre-approval only as a link: the customer does it on the website, or from the QR on the token page at the hub</span><span class="k">After</span><span class="seq">Payment mode in the lead pane &rarr; any call step &rarr; Next menu: <em>Run a finance pre-approval</em> &rarr; <em>P7f</em> &rarr; back to the same step</span></div>
@@ -785,11 +853,12 @@ function renderChanges() {
       <div class="chg-card wide"><div class="q">&ldquo;Booked: the TD agent's handshake is the TD start, then the consent in the middle grid, the DL and the walkaround. Walk-in: Needs as pills like Discovery, the quality promise in the 3-column layout, then book the current slot, create the order and request prep&rdquo;</div><h4>A booking starts at the handshake; a walk-in books the slot it is in</h4>
         <div class="ba"><span class="k">Booked, before</span><span class="seq">T1 Handshake &rarr; T2 Needs &rarr; T3 Cars &rarr; T4 Promise &rarr; T5 Confirm &rarr; O2 Start TD &rarr; O3 Consent</span><span class="k">Booked, after</span><span class="seq"><em>T1 Handshake and Start TD</em> &rarr; O3 Consent &rarr; O4 DL &rarr; O5 Walkaround</span></div>
         <div class="ba"><span class="k">Walk-in, before</span><span class="seq">T2 Needs (a form) &rarr; T3 Recommend and compare &rarr; T4 Promise (customer screen) &rarr; T5 Create order</span><span class="k">Walk-in, after</span><span class="seq"><em>T2 Needs and cars (stepper pills)</em> &rarr; <em>T4 Quality promise (middle column)</em> &rarr; <em>T5 Book now: slot, order, prep</em></span></div>
-        <p><b>Booked: the handshake is the start.</b> The car was chosen on the call and the Yardie has it at the hub, so there is no car finding. The DA meets the customer at their seat and one tap creates the TD record and turns the recording on. The consent, the licence and the walkaround follow. On the TV and the token page the customer goes from Car ready to On test drive.</p>
+        <p><b>Booked: the handshake is the start.</b> The car was chosen on the call and the Yardie has it at the hub, so there is no car finding. The SA meets the customer at their seat and one tap creates the TD record and turns the recording on. The consent, the licence and the walkaround follow. On the TV and the token page the customer goes from Car ready to On test drive.</p>
         <p><b>Walk-in: needs as pills.</b> The same stepper as Discovery on the call: who it's for, budget, body type, fuel and gearbox, must-haves, then the matching cars with a link to each car's page and a compare. Recommend and compare are now part of this step.</p>
-        <p><b>The promise and the consent sit in the middle.</b> Both are on the visit page now, not a separate customer screen: lead pane on the left, CarGPT on the right. The promise shows the car, then three columns: inspected, warranty and return, finance. The consent shows the TD details, then the terms and the signature pad side by side; the DA hands the tablet over to sign.</p>
+        <p><b>The promise and the consent sit in the middle.</b> Both are on the visit page now, not a separate customer screen: lead pane on the left, CarGPT on the right. The promise shows the car, then three columns: inspected, warranty and return, finance. The consent shows the TD details, then the terms and the signature pad side by side; the SA hands the tablet over to sign.</p>
         <p><b>Walk-in: book the current slot.</b> One tap books the slot the customer is in, creates the order for the TD and sends the Yardie the prep request. The customer waits on their token until the car is at the hub.</p>
-        ${links(stepLink("T1", "Handshake and Start TD", { track: "booked" }), stepLink("O3", "Consent", { track: "booked" }), stepLink("T2", "Needs and cars", { track: "walkin" }), stepLink("T4", "Quality promise", { track: "walkin" }), stepLink("T5", "Book now", { track: "walkin" }))}</div>
+        <p><b>Since then:</b> the SA's task (first card) runs every TD of the visit in one page; the key handover starts the TD, and a walk-in picks cars in Discover.</p>
+        ${links(stepLink("O1", "Key handover and consent", { track: "booked" }), stepLink("T3", "Discover more cars", { track: "walkin" }), stepLink("T4", "Quality promise (video TD)", { track: "vtd" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;Pitch in CarGPT, no Welcome step, contact edits on the left. Start the lead view from the customer's orders and cars. Discovery as stepper pills, hub and video slots by TD type, a standard footer, and finance after check-in&rdquo;</div><h4>The call starts from what the customer already wants</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">P2 Welcome &rarr; P3 Contact (order) &rarr; P4 Pitch &rarr; P5 Discovery &rarr; P6 Finalize &rarr; P7 Book slot</span><span class="k">After</span><span class="seq"><em>P2 Orders and cars of interest</em> &rarr; (<em>P3 Discovery</em>, only if unsure) &rarr; <em>P4 TD type per car</em> &rarr; <em>P5 Hub slot</em> and/or <em>P6 Video slot</em> &rarr; P7 Book</span></div>
         <p><b>Two kinds of enquiry.</b> With a mobile and an email, an order already exists: a clear intent, so the agent confirms it and moves on. Without both, the cars the customer liked sit on the contact by appointment ID; the agent asks which ones to drive, adds the missing email on the left, and that creates one order per car. Discovery is only for a customer who is still unsure.</p>
@@ -798,29 +867,29 @@ function renderChanges() {
         <p><b>One footer everywhere.</b> Previous and Next; every other exit, including a customer dropping off (to the disposition), is under the arrow next to Next.</p>
         <p><b>Finance after check-in.</b> The form asks: Do you need financing after the test drive? The token page then shows the next step with a QR: the 2-minute pre-approval, a check against their own lender, or take a seat and browse the cars if they don't need finance or are already pre-approved.</p>
         ${links(stepLink("P1", "Queue tabs"), stepLink("P2", "Order exists", { track: "booked" }), stepLink("P2", "Cars of interest, no order", { track: "vtd" }), stepLink("P3", "Discovery"), stepLink("P4", "TD type, mixed", { track: "vtd" }), stepLink("P6", "Video slot", { track: "vtd" }), stepLink("I1", "Finance question on the seat QR", { market: "au", mode: "qr", track: "walkin" }))}</div>
-      <div class="chg-card wide"><div class="q">&ldquo;Start TD is when the DA meets the customer and starts the recording. Then the consent, then the DL. A walk-in waits on their token until the Yardie brings the car, and the DA meets them again&rdquo;</div><h4>The test drive starts when the DA and the customer meet at the car</h4>
+      <div class="chg-card wide"><div class="q">&ldquo;Start TD is when the SA meets the customer and starts the recording. Then the consent, then the DL. A walk-in waits on their token until the Yardie brings the car, and the SA meets them again&rdquo;</div><h4>The test drive starts when the SA and the customer meet at the car</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">O2 Walk to the car &rarr; O3 Walkaround &rarr; O4 DL verify &rarr; O5 Start TD &rarr; O6 Consent &rarr; O7 Drive &rarr; O8 End</span><span class="k">After</span><span class="seq"><em>Start TD, recording on</em> (O2; T1 for a booking) &rarr; <em>O3 Consent</em> &rarr; <em>O4 DL verify</em> &rarr; O5 Walkaround &rarr; O6 Drive &rarr; O7 End</span></div>
-        <p><b>Start TD is the meeting at the car.</b> Starting the TD creates the TD record and turns the recording on. The DA asks for the recording consent right there, not at check-in. The customer signs the TD consent next, then the DA checks the licence, the last check before the car moves. Live notes and transcription now cover the drive, not the wait.</p>
-        <p><b>A walk-in's journey.</b> Check-in, a DA assigned, car finding. Then the customer waits on their token while the Yardie preps the car; the TV and their phone show the car's ETA. When it reaches the hub, the DA is told, goes back to the customer, and starts the TD together.</p>
-        ${links(stepLink("O2", "Start TD (walk-in)", { track: "walkin" }), stepLink("O3", "Consent"), stepLink("O4", "DL verify"), stepLink("I2", "Waiting on the token (walk-in)", { track: "walkin" }), stepLink("O1", "Yardie preps the car", { track: "walkin" }))}</div>
-      <div class="chg-card wide"><div class="q">&ldquo;Check-in and welcome in the same gesture. A token on the ground TV, moved by the Yardie and the DA. DA assigned automatically, handshake after it. DL check just before the drive&rdquo;</div><h4>One gesture at the door, a token for everyone, and a Yardie for the cars</h4>
-        <div class="ba"><span class="k">Before</span><span class="seq">I1 Mark arrived &rarr; I2 Welcome &rarr; S1 Check-in &rarr; S2 DL verify &rarr; S3 Assign DA &rarr; T1 Handshake &rarr; &hellip; &rarr; O3 Start TD</span><span class="k">After</span><span class="seq"><em>I1 Welcome and check-in</em> &rarr; <em>I2 Token on the TV</em> &rarr; <em>S1 DA auto-assigned</em> &rarr; <em>S2 Yardie brings the car</em> &rarr; T1 Handshake &rarr; &hellip; &rarr; <em>O1 Yardie preps</em> &rarr; O2 Start TD &rarr; O3 Consent &rarr; <em>O4 DL verify</em></span></div>
-        <p><b>One gesture.</b> Checking in is the arrival, so there is no Mark arrived. The customer sits down and scans the QR on their seat, or a receptionist or DA fills the same form with them. Booked and walk-in customers use the same form; a walk-in's also creates the lead.</p>
-        <p><b>Hospital logic.</b> Every check-in gets a token: B for bookings, W for walk-ins, in order. The ground TV and the customer's own phone show each token's status, DA and car. Nobody types a status: each change comes from a staff action. The system assigns a DA, the Yardie moves the car, the DA meets the customer and starts the drive.</p>
-        <p><b>DA, then the handshake.</b> The DA is assigned automatically, by who is free now and has room in today's slots. A person assigns one only when every DA is busy. The handshake happens after that, at the customer's seat, never at check-in.</p>
-        <p><b>The Yardie.</b> Cars wait in the yard, about 500 m away. A booked car is prepped before the day and called to the hub the moment the customer checks in. A walk-in's car is prepped (a quick clean, fuel, tyres) once the DA and the customer choose it, then brought over. Each tap updates the TV's car column and tells the DA.</p>
-        <p><b>DL verify, before the car moves.</b> The DA checks the licence at the car, after Start TD and the consent. Car finding doesn't need one; driving does.</p>
-        ${links(stepLink("I1", "Seat QR check-in (Australia)", { market: "au", mode: "qr" }), stepLink("I1", "Check-in by staff (UAE)", { market: "ae", mode: "staff" }), stepLink("I2", "Token on the TV"), stepLink("S1", "DA auto-assigned"), stepLink("S2", "Yardie brings the car", { track: "booked" }), stepLink("O1", "Yardie preps a walk-in's car", { track: "walkin" }), stepLink("O4", "DL verify"))}</div>
+        <p><b>Start TD is the meeting at the car.</b> Starting the TD creates the TD record and turns the recording on. The SA asks for the recording consent right there, not at check-in. The customer signs the TD consent next, then the SA checks the licence, the last check before the car moves. Live notes and transcription now cover the drive, not the wait.</p>
+        <p><b>A walk-in's journey.</b> Check-in, an SA assigned, car finding. Then the customer waits on their token while the Yardie preps the car; the TV and their phone show the car's ETA. When it reaches the hub, the SA is told, goes back to the customer, and starts the TD together.</p>
+        ${links(stepLink("O1", "Key handover: start TD and consent", { track: "walkin" }), stepLink("T2", "DL verify, once per visit"), stepLink("I2", "Waiting on the token (walk-in)", { track: "walkin" }))}</div>
+      <div class="chg-card wide"><div class="q">&ldquo;Check-in and welcome in the same gesture. A token on the ground TV, moved by the Yardie and the SA. SA assigned automatically, handshake after it. DL check just before the drive&rdquo;</div><h4>One gesture at the door, a token for everyone, and a Yardie for the cars</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">I1 Mark arrived &rarr; I2 Welcome &rarr; S1 Check-in &rarr; S2 DL verify &rarr; S3 Assign SA &rarr; T1 Handshake &rarr; &hellip; &rarr; O3 Start TD</span><span class="k">After</span><span class="seq"><em>I1 Welcome and check-in</em> &rarr; <em>I2 Token on the TV</em> &rarr; <em>S1 SA auto-assigned</em> &rarr; <em>S2 Yardie brings the car</em> &rarr; T1 Handshake &rarr; &hellip; &rarr; <em>O1 Yardie preps</em> &rarr; O2 Start TD &rarr; O3 Consent &rarr; <em>O4 DL verify</em></span></div>
+        <p><b>One gesture.</b> Checking in is the arrival, so there is no Mark arrived. The customer sits down and scans the QR on their seat, or a receptionist or SA fills the same form with them. Booked and walk-in customers use the same form; a walk-in's also creates the lead.</p>
+        <p><b>Hospital logic.</b> Every check-in gets a token: B for bookings, W for walk-ins, in order. The ground TV and the customer's own phone show each token's status, SA and car. Nobody types a status: each change comes from a staff action. The system assigns an SA, the Yardie moves the car, the SA meets the customer and starts the drive.</p>
+        <p><b>SA, then the handshake.</b> The SA is assigned automatically, by who is free now and has room in today's slots. A person assigns one only when every SA is busy. The handshake happens after that, at the customer's seat, never at check-in.</p>
+        <p><b>The Yardie.</b> Cars wait in the yard, about 500 m away. A booked car is prepped before the day and called to the hub the moment the customer checks in. A walk-in's car is prepped (a quick clean, fuel, tyres) once the SA and the customer choose it, then brought over. Each tap updates the TV's car column and tells the SA.</p>
+        <p><b>DL verify, before the car moves.</b> The SA checks the licence at the car, after Start TD and the consent. Car finding doesn't need one; driving does.</p>
+        ${links(stepLink("I1", "Seat QR check-in (Australia)", { market: "au", mode: "qr" }), stepLink("I1", "Check-in by staff (UAE)", { market: "ae", mode: "staff" }), stepLink("I2", "Token on the TV"), stepLink("S1", "SA auto-assigned"), stepLink("S2", "Yardie brings the car", { track: "booked" }), stepLink("O1", "Yardie preps a walk-in's car", { track: "walkin" }), stepLink("O4", "DL verify"))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;Build it for Australia too: check in for the customer, or let them fill the check-in form themselves&rdquo;</div><h4>Two ways to check in, one form, any market</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Only the receptionist checks the customer in</span><span class="k">After</span><span class="seq"><em>By staff</em>, or by the customer from the <em>seat QR</em>, with the same form. The market sets the default</span></div>
         <p><b>Seat QR.</b> The customer scans the QR on their seat and gets a form-only page on their own phone: no Leadverse, no login. The code is the same on every seat, so a mobile number and OTP say who is checking in, and today's booking is found from it. Each answer lands on the receptionist's Today list as it is given. If the customer gets stuck, staff finish it for them and keep what was filled. This first shipped as a link sent at Mark arrived; with arrival and check-in now one gesture, the seat QR replaces that link.</p>
-        <p><b>By staff.</b> A receptionist or DA fills the same form with the customer. Both ways write the same check-in and issue the same token.</p>
+        <p><b>By staff.</b> A receptionist or SA fills the same form with the customer. Both ways write the same check-in and issue the same token.</p>
         <p><b>The market sets the default, not the product.</b> Australia defaults to the seat QR, because customers there already check themselves in with a form. The UAE and India default to staff. Either way works for any visit, in any market.</p>
         ${links(stepLink("I1", "Booked, seat QR", { market: "au", mode: "qr", track: "booked" }), stepLink("I1", "Walk-in, seat QR", { market: "au", mode: "qr", track: "walkin" }), stepLink("I1", "Walk-in, by staff", { market: "ae", mode: "staff", track: "walkin" }))}</div>
       <div class="chg-card"><div class="q">&ldquo;Use the Leadverse TD Journey file for design and knowledge&rdquo;</div><h4>Screens follow the Leadverse TD Journey design</h4>
         <p>White by default. Every screen uses that file's layout: an icon rail, a lead pane with an AI summary, contact actions, finance and documents, a stage bar, and CarGPT with live transcription.</p>
         <p>From its flows: check-in as a form with an OTP step and a purpose-of-visit question, DL verify as its own step (now right before the drive), a LIVE badge and live transcription during the drive, the disposition form, and the Add cars drawer.</p>
-        ${links(stepLink("I1", "Check-in"), stepLink("O4", "DL verify"), stepLink("O6", "TD live"), stepLink("N1", "Disposition"))}</div>
+        ${links(stepLink("I1", "Check-in"), stepLink("T2", "DL verify"), stepLink("O1", "Test drives"), stepLink("N2", "Checkout"))}</div>
       <div class="chg-card"><div class="q">&ldquo;One more depth&rdquo;</div><h4>Every screen, taken apart</h4>
         <p>Below each screen sits its anatomy: numbered parts shown as orange pins on the screen, the fields it captures with type, source and rule, the actions it fires and what they call, and the states it can be in.</p>
         <p>The Fields view collects every field into one data dictionary for engineering.</p>
@@ -832,11 +901,11 @@ function renderChanges() {
       <div class="chg-card"><div class="q">&ldquo;TD consent sign-off after TD start&rdquo;</div><h4>The TD consent moves to the car</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Check-in: OTP, DL, <em>TD declaration</em>, <em>recording consent</em></span><span class="k">After</span><span class="seq">O2 Start TD &rarr; <em>O3 Consent</em> &rarr; O4 DL verify &rarr; O6 Drive</span></div>
         <p>Consent is about one drive in one car, so it needs the car, plate and start odometer that exist only once the TD starts. It is signed once per car; a VTD needs none. DAP already unlocks the declaration only after Start Test Drive but checks it at Mark Test Drive Complete, so today a customer can drive before signing. ${stepLink("O3")} makes it a gate before the car moves.</p>
-        ${links(stepLink("I1", "Check-in"), stepLink("O2", "Start TD"), stepLink("O3", "Consent"))}</div>
+        ${links(stepLink("I1", "Check-in"), stepLink("O1", "Consent at the key handover"))}</div>
       <div class="chg-card"><div class="q">&ldquo;Handshake ke baad car finding journey&rdquo;</div><h4>One owner, from the handshake</h4>
-        <div class="ba"><span class="k">Before</span><span class="seq">Front desk finds the car, the DA meets the customer at the yard. Booked customers only reconfirm.</span><span class="k">After</span><span class="seq">S1 Assign DA &rarr; <em>T1 Handshake</em> &rarr; <em>T2 Needs and cars &rarr; T4 Promise &rarr; T5 Book now</em> (walk-in)</span></div>
-        <p>The DA meets the customer at their seat. For a walk-in, car finding starts there. A booked customer chose the car on the call, so for them the handshake starts the drive (reworked in the first card). The handshake is a real state: DAP hub work orders already have MET_CUSTOMER.</p>
-        ${links(stepLink("S1", "Assign DA"), stepLink("T1", "Handshake", { track: "walkin" }), stepLink("T2", "Needs and cars", { track: "walkin" }))}</div>
+        <div class="ba"><span class="k">Before</span><span class="seq">Front desk finds the car, the SA meets the customer at the yard. Booked customers only reconfirm.</span><span class="k">After</span><span class="seq">S1 Assign SA &rarr; <em>T1 Handshake</em> &rarr; <em>T2 Needs and cars &rarr; T4 Promise &rarr; T5 Book now</em> (walk-in)</span></div>
+        <p>The SA meets the customer at their seat. For a walk-in, car finding starts there. A booked customer chose the car on the call, so for them the handshake starts the drive (reworked in the first card). The handshake is a real state: DAP hub work orders already have MET_CUSTOMER.</p>
+        ${links(stepLink("S1", "Assign SA"), stepLink("T1", "Handshake", { track: "walkin" }), stepLink("T2", "Needs and cars", { track: "walkin" }))}</div>
       <div class="chg-card"><div class="q">&ldquo;Ek level depth: source, screen, entry, exit&rdquo;</div><h4>Every step, one level deeper</h4>
         <p>${STEPS.length} steps, each with its source, screen, entry conditions and exit conditions, per track. The same four are given for each flow and each phase.</p>
         <div><button class="linklike" data-view="blueprint">Open the blueprint</button></div></div>
@@ -865,13 +934,13 @@ function renderChanges() {
       <thead><tr><th style="width:150px;">Who</th><th>Console today</th><th>PISTON screens</th><th>Effect</th></tr></thead>
       <tbody>
         <tr><td><b>Calling agent</b></td><td class="seq">Not in the Console</td><td class="seq">P1 Queue (tabs) &rarr; P2 Orders and interest &rarr; P3 Discovery if unsure &rarr; P4 TD type per car &rarr; P5 Hub slot / P6 Video slot &rarr; P7 Book</td><td>A new persona in Tasks (b2c-lead-td-booking-by-cc). An order exists, or the call creates one per car; one call can book a hub TD and a video TD.</td></tr>
-        <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign DA</td><td class="seq">I1 Check-in (the form creates the lead) &rarr; S1 DA assigned automatically</td><td>Car choice and the order move to the DA, after the handshake. The receptionist assigns a DA only when every DA is busy.</td></tr>
-        <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign DA</td><td class="seq">I1 Check-in, or the customer does it from the seat QR &rarr; S1 automatic</td><td>No Mark arrived: check-in is the arrival. No licence check at the desk.</td></tr>
-        <tr><td><b>Customer</b></td><td class="seq">Not in the Console</td><td class="seq">Seat QR &rarr; Mobile, purpose and OTP &rarr; Existing order? &rarr; Yes: checked in, or No: your details &rarr; Token page, with the DA</td><td>A public page outside Leadverse, then a live token page with the same status as the TV.</td></tr>
-        <tr><td><b>Yardie</b></td><td class="seq">Not in the Console</td><td class="seq">S2 Bring the booked car &rarr; O1 Prep and bring a walk-in's car</td><td>A new persona with a mobile task list. Each tap updates the TV and tells the DA.</td></tr>
-        <tr><td><b>Everyone in the hub</b></td><td class="seq">Not in the Console</td><td class="seq">I2 Ground TV</td><td>Tokens with status, DA and car, moved only by staff actions.</td></tr>
-        <tr><td><b>DA</b></td><td class="seq">Conduct TD &rarr; Select VAS &rarr; Confirm VAS &rarr; Payment &rarr; Token paid</td><td class="seq">Booked: T1 Handshake and Start TD &rarr; O3 Consent &rarr; O4 DL &rarr; O5&ndash;O7 &rarr; N1&ndash;N3. Walk-in: T1 Handshake &rarr; T2 Needs and cars &rarr; T4 Promise &rarr; T5 Book now &rarr; O2 Start TD &rarr; O3 Consent &rarr; O4 DL &rarr; O5&ndash;O7 &rarr; N1&ndash;N3</td><td>The DA's journey starts at the handshake; for a booking, the handshake starts the TD. For a walk-in, the DA books the current slot, then comes back when the car reaches the hub. VAS moves into the delivery journey.</td></tr>
-        <tr><td><b>Manager</b></td><td class="seq">Oversight table</td><td class="seq">M1 Live funnel</td><td>Each state becomes a funnel row, with time between states: checked in, DA assigned, met, car at the hub, DL verified, and on.</td></tr>
+        <tr><td><b>Receptionist</b>, walk-in</td><td class="seq">Customer details &rarr; Select car &rarr; Order created &rarr; Check-in &rarr; Assign SA</td><td class="seq">I1 Check-in (the form creates the lead) &rarr; S1 SA assigned automatically</td><td>Car choice and the order move to the SA, after the handshake. The receptionist assigns an SA only when every SA is busy.</td></tr>
+        <tr><td><b>Receptionist</b>, booked</td><td class="seq">Check-in &rarr; Assign SA</td><td class="seq">I1 Check-in, or the customer does it from the seat QR &rarr; S1 automatic</td><td>No Mark arrived: check-in is the arrival. No licence check at the desk.</td></tr>
+        <tr><td><b>Customer</b></td><td class="seq">Not in the Console</td><td class="seq">Seat QR &rarr; Mobile, purpose and OTP &rarr; Existing order? &rarr; Yes: checked in, or No: your details &rarr; Token page, with the SA</td><td>A public page outside Leadverse, then a live token page with the same status as the TV.</td></tr>
+        <tr><td><b>Yardie</b></td><td class="seq">Not in the Console</td><td class="seq">S2 Bring the booked car &rarr; O1 Prep and bring a walk-in's car</td><td>A new persona with a mobile task list. Each tap updates the TV and tells the SA.</td></tr>
+        <tr><td><b>Everyone in the hub</b></td><td class="seq">Not in the Console</td><td class="seq">I2 Ground TV</td><td>Tokens with status, SA and car, moved only by staff actions.</td></tr>
+        <tr><td><b>SA</b></td><td class="seq">Conduct TD &rarr; Select VAS &rarr; Confirm VAS &rarr; Payment &rarr; Token paid</td><td class="seq">One task per visit: T1 Interest (Check-in tab first) &rarr; T2 DL &rarr; T3 Today's orders or Discover &rarr; O1 Test drives, a section per order &rarr; N2 Checkout, one car at a time &rarr; N3</td><td>The lead is found by the check-in UUID, with every TD of the day in the same task. The SA checks out each car: delivery, VAS, discount, sales promise, payment mode, pre-approval and the deposit. A walk-in is the same, with no TD booked today.</td></tr>
+        <tr><td><b>Manager</b></td><td class="seq">Oversight table</td><td class="seq">M1 Live funnel</td><td>Each state becomes a funnel row, with time between states: checked in, SA assigned, met, car at the hub, DL verified, and on.</td></tr>
       </tbody></table></div>
 
     <h3 class="doc-h3">New in the data model</h3>
@@ -881,8 +950,8 @@ function renderChanges() {
       <div><b>A pre-approval on the lead</b>The payment mode (Cash, In-house finance, BYOF), trade-in opted, and the latest pre-approval (partial: cohort and rate range; full: the amount, repayment and expiry) live on the lead, so the call, the hub and delivery read the same one. The question sets are market config from the finance service.</div>
       <div><b>A journey driven by the next-step API</b>Each Next posts the step's answers; the response names the next step (a journey page by slug, as Leadverse's journey engine already renders) and the stage list. The booking call branches to a TD or a deposit this way.</div>
       <div><b>A queue token</b>One per check-in: hub, day, B or W, and a number. Its status on the TV and the phone is derived from state events, never typed. Not to be confused with the payment token (TOKEN PAID).</div>
-      <div><b>A yard task</b>Bring, or prep and bring: the car, from a yard spot, to a bay, with picked-up and at-hub times. It moves the TV's car column and pushes the DA.</div>
-      <div><b>New states</b>CHECKED IN (now also the arrival), DA ASSIGNED, CAR AT HUB, DL VERIFIED and TD CONSENT SIGNED. MET CUSTOMER already exists for DAP hub work orders.</div>
+      <div><b>A yard task</b>Bring, or prep and bring: the car, from a yard spot, to a bay, with picked-up and at-hub times. It moves the TV's car column and pushes the SA.</div>
+      <div><b>New states</b>CHECKED IN (now also the arrival), SA ASSIGNED, CAR AT HUB, DL VERIFIED and TD CONSENT SIGNED. MET CUSTOMER already exists for DAP hub work orders.</div>
       <div><b>How a check-in happened</b>Staff or seat QR. The QR page autosaves each part, so staff can take over without retyping.</div>
       <div><b>Payment from the gateway</b>TOKEN PAID comes from the payment webhook. The Console's Mark as paid button is a prototype shortcut only.</div>
     </div>
@@ -891,8 +960,8 @@ function renderChanges() {
     <div class="decide">
       <div><b>Checking a deposit by hand</b>The agent checks the customer's screenshot and reserves the car; the at-hub token (N2) waits for the payment gateway instead. Keep the screenshot as the proof, or have finance confirm the bank credit (or a payment link) before the car is reserved? And who releases the car if the money never arrives?</div>
       <div><b>Where the listing comes from</b>The call's listing, car page and compare should show exactly what the website shows. Call the consumer listing and car page services from Leadverse, or build the screens from the shared DLS components with their own BFF?</div>
-      <div><b>One discovery at the hub too</b>The walk-in's car finding (T2) still uses the stepper pills. Use the same listing, car page and compare on the DA's tablet?</div>
-      <div><b>A booked customer who wants another car</b>A booking has no car finding: the handshake starts the drive. If they change their mind on the day, is that a new order (N6), or can the DA add a car at the handshake?</div>
+      <div><b>One discovery at the hub too</b>Discover more cars (T3) lists live stock with filter chips. Use the same listing, car page and compare as the call on the SA's tablet?</div>
+      <div><b>A booked customer who wants another car</b>Discover more cars in the SA's task adds the car to the same visit as one more order, for now. Confirm the slot planner allows a same-day order on top of the booking, and whether the hub's cap counts it.</div>
       <div><b>A walk-in into the current slot</b>The walk-in is booked into the slot they are in. When it is full, book the next one today, or let the hub go over its cap?</div>
       <div><b>Orders without an email</b>An order needs a mobile and an email, so a mobile-only enquiry stays a contact with appointment IDs until the call adds the email. Confirm OMS keeps that rule, and whether a missing email should block the TD booking.</div>
       <div><b>One call, two bookings</b>A mixed call books a hub TD and a video TD at once, with one order per car. Confirm the slot planner holds both from one task, and who owns the video one.</div>
@@ -900,18 +969,18 @@ function renderChanges() {
       <div><b>Finance links after check-in</b>The pre-approval and listing pages, and the pre-approval status, come from consumer web. Confirm the URLs, and whether "own loan" customers should also see pre-approval when they are already pre-approved.</div>
       <div><b>Token order</b>B for bookings, served at their slot time, and W for walk-ins, in arrival order, on one board. Or one queue for everyone?</div>
       <div><b>Names on the TV</b>The board shows the token with a first name and initial. The TV is in a public room: is the token alone enough?</div>
-      <div><b>The auto-assignment rule</b>Free now, under today's cap, a free slot for the next hour, then the booking's DA or the best language. When every DA is busy, does the receptionist or the manager pick?</div>
+      <div><b>The auto-assignment rule</b>Free now, under today's cap, a free slot for the next hour, then the booking's SA or the best language. When every SA is busy, does the receptionist or the manager pick?</div>
       <div><b>The Yardie's device</b>A Leadverse mobile view, or a separate app. The yard is about 500 m away, so it must work on mobile data.</div>
       <div><b>No licence, found late</b>With the licence checked after Start TD and the consent, a customer without one finds out at the car, and the started TD is cancelled. Ask one question at check-in (Do you have your licence with you?) and still verify at O4?</div>
-      <div><b>The S phase name</b>Check-in moved into Introduce, so S now covers the DA and the car. These screens call it Set up. Keep that, or rename?</div>
+      <div><b>The S phase name</b>Check-in moved into Introduce, so S now covers the SA and the car. These screens call it Set up. Keep that, or rename?</div>
       <div><b>An I'm here link</b>Booked customers could also check in from a link in the day-of reminder, skipping the OTP. Add it next to the seat QR?</div>
       <div><b>Where the customer pages live</b>Consumer web (cars24.ae, cars24.com.au) or public pages from Leadverse's form renderer. Either way the seat QR page must render the staff form's schema, so the two never drift apart.</div>
       <div><b>Token updates in Australia</b>The token and its tracker link go out on WhatsApp. If WhatsApp reaches too few customers in Australia, send them by SMS there.</div>
-      <div><b>Licence on the phone</b>Optional on the seat QR page, because the DA can scan it at the car. Australia may want it required for walk-ins.</div>
+      <div><b>Licence on the phone</b>Optional on the seat QR page, because the SA can scan it at the car. Australia may want it required for walk-ins.</div>
       <div><b>Video TD check-in</b>Still an OTP on the call, now in the same step as the welcome. Its join link is already personal, so these questions could move to the page before the call.</div>
       <div><b>VAS before the token?</b>The Console sells VAS before payment, following the earlier rule. PISTON leaves VAS to the delivery journey so nothing sits between ready to buy and the token. Pick one.</div>
-      <div><b>The DA's device</b>These screens assume a tablet for the DA on the floor. Leadverse is desktop-first today.</div>
-      <div><b>Recording consent</b>Asked by the DA at Start TD (T1 for a booking, O2 for a walk-in), not at check-in; the recording runs from Start TD to End TD. The screens assume a customer can say no and still get the full visit, with AI notes off. Confirm a spoken yes, set on the DA's tablet, is enough, or whether the customer should tick it on the TD consent (O3).</div>
+      <div><b>The SA's device</b>These screens assume a tablet for the SA on the floor. Leadverse is desktop-first today.</div>
+      <div><b>Recording consent</b>Asked by the SA at Start TD (T1 for a booking, O2 for a walk-in), not at check-in; the recording runs from Start TD to End TD. The screens assume a customer can say no and still get the full visit, with AI notes off. Confirm a spoken yes, set on the SA's tablet, is enough, or whether the customer should tick it on the TD consent (O3).</div>
       <div><b>An order before the car is final</b>P3 creates the order with the lead's car of interest, and P6 can change the car. Confirm OMS allows that, or create the order at P6 when the lead has no car yet.</div>
       <div><b>Gender and pincode at check-in</b>The TD Journey file asks for both. The screens use emirate and area instead of a pincode and leave gender out. Add gender back only if something uses it.</div>
       <div><b>Credit score</b>The file shows a CIBIL score, which is Indian. The screens show an AECB score for the UAE. Confirm Leadverse can read it.</div>

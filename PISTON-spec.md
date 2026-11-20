@@ -5,7 +5,7 @@ The complete spec behind the PISTON prototype, for the UAE and Australia, on the
 - **Prototype:** https://claude.ai/artifact/TWiP1PVT2sEx7vsug4dbH5
 - **Code:** https://github.com/kishor1-hue/piston-leadverse-proto
 - **Source:** generated from the spec files (`piston-data.js`, `piston-anatomy.js`, `piston.js`) by `tools/gen-spec-md.js`; rerun it after any spec change
-- **Steps:** 37, in 7 phases (P, I, S, T, O, N, M), across 3 tracks, 2 markets and 2 check-in ways
+- **Steps:** 33, in 7 phases (P, I, S, T, O, N, M), across 3 tracks, 2 markets and 2 check-in ways
 
 Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia runs the same journey with its own people, places and copy (Emily, Jack, Liam, Josh): see [Markets](#9-markets-configured-not-rebuilt).
 
@@ -36,7 +36,7 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 
 | Way | Who fills the form | Default in |
 | --- | --- | --- |
-| By staff | A receptionist or DA, with the customer | UAE (and India) |
+| By staff | A receptionist or SA, with the customer | UAE (and India) |
 | Seat QR | The customer, on their own phone, from the QR on their seat | Australia |
 
 **Markets.** UAE (tenant `cars24-ae`) and Australia (tenant `cars24-au`). One build; the market changes defaults, documents and copy.
@@ -58,21 +58,21 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 
 **Entry conditions**
 
-- A lead with a mobile number, booked on the TD booking call
+- A lead with a mobile number, booked on the TD booking call, one or more TDs on the day
 - On the day: customer arrives at the booked hub
 
 **How it can end**
 
 | Outcome | Meaning |
 | --- | --- |
-| TOKEN PAID | handed to the delivery journey |
+| BOOKING CONFIRMED | deposit paid at the SA's checkout, handed to delivery |
 | CAR RESERVED | a deposit taken on the call, no TD needed |
 | FOLLOW-UP SCHEDULED | date agreed, shortlist shared |
 | NEW TD BOOKED | another car, restarts at Plan |
 | DROPPED | reason recorded |
 | No-show | back to the callback queue (P9) |
 
-**Main path:** P1 → P2 → P4 → P5 → P7 → P8 → I1 → I2 → S1 → S2 → T1 → O3 → O4 → O5 → O6 → O7 → N1 → N2 → N3
+**Main path:** P1 → P2 → P4 → P5 → P7 → P8 → I1 → I2 → S1 → S2 → T1 → T2 → T3 → O1 → N2 → N3
 
 ### Walk-in hub TD
 
@@ -92,12 +92,12 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 
 | Outcome | Meaning |
 | --- | --- |
-| TOKEN PAID | handed to the delivery journey |
+| BOOKING CONFIRMED | deposit paid at the SA's checkout, handed to delivery |
 | FOLLOW-UP SCHEDULED | includes browse-only visits |
 | NEW TD BOOKED | another day or another car |
 | DROPPED | reason recorded |
 
-**Main path:** I1 → I2 → S1 → T1 → T2 → T4 → T5 → O1 → O2 → O3 → O4 → O5 → O6 → O7 → N1 → N2 → N3
+**Main path:** I1 → I2 → S1 → T1 → T2 → T3 → O1 → N2 → N3
 
 ### Video TD
 
@@ -139,14 +139,14 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 
 - **When:** First 3 minutes: welcome and check-in in one gesture
 - **Owner:** 
-  - *Booked and walk-in, by staff:* Receptionist or DA, with the customer
+  - *Booked and walk-in, by staff:* Receptionist or SA, with the customer
   - *Booked and walk-in, seat QR:* Customer, from the QR on their seat
   - *Video TD:* VTD operator
 - **Entry:** 
   - *Booked and walk-in:* Customer walks in and sits down
   - *Video TD:* Customer opens the video link
 - **Exit:** 
-  - *Booked and walk-in:* CHECKED IN, with a token on the ground TV. No handshake yet
+  - *Booked and walk-in:* CHECKED IN, with a token on the ground TV, the visit's UUID found on the lead
   - *Video TD:* VTD CHECKED IN
 - **Steps:** I1 Welcome and check-in, I2 Token on the ground TV
 
@@ -156,60 +156,65 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 - **Owner:** System, then the Yardie
 - **Entry:** CHECKED IN
 - **Exit:** 
-  - *Booked:* DA ASSIGNED, and the booked car at the hub
-  - *Walk-in:* DA ASSIGNED
-- **Steps:** S1 Assign DA, S2 Car to the hub
+  - *Booked:* SA ASSIGNED, and the booked cars at the hub
+  - *Walk-in:* SA ASSIGNED
+- **Steps:** S1 Assign SA, S2 Car to the hub
 
 ### T · Tailor
 
 - **When:** 
-  - *Booked:* The handshake, which starts the TD: the car was chosen on the call
-  - *Walk-in:* Handshake, then car finding and booking the current slot
+  - *Booked:* The SA's task: interest, the licence, then today's orders
+  - *Walk-in:* The SA's task: interest, the licence, then the cars to drive
   - *Video TD:* Car finding over screen share
 - **Owner:** 
-  - *Booked and walk-in:* DA, from the handshake to the close
+  - *Booked and walk-in:* SA, in one task for the whole visit
   - *Video TD:* VTD operator
 - **Entry:** 
-  - *Booked:* DA ASSIGNED and CAR AT HUB
-  - *Walk-in:* DA ASSIGNED
+  - *Booked and walk-in:* SA ASSIGNED, the lead found by the check-in UUID
   - *Video TD:* VTD CHECKED IN
 - **Exit:** 
-  - *Booked:* TD STARTED, recording on
-  - *Walk-in:* ORDER BOOKED for the current slot and yard prep requested, or a follow-up
+  - *Booked:* ORDERS CONFIRMED: today's orders, and any car added
+  - *Walk-in:* ORDER BOOKED for each car picked, yard prep requested, or a follow-up
   - *Video TD:* Car confirmed for the video walkaround
-- **Steps:** T1 Handshake and Start TD / Handshake, T2 Needs and cars / Needs, T3 Recommend and compare, T4 Quality promise, T5 Book now and request prep / Confirm cars
+- **Steps:** T1 Interest and check-in, T2 Upload and verify the DL / Needs, T3 Today's orders or more cars / Recommend and compare, T4 Quality promise, T5 Confirm cars
 
 ### O · On the road
 
 - **When:** 
-  - *Booked:* Consent, DL, walkaround, drive
-  - *Walk-in:* Car to the hub, then Start TD, consent, DL, walkaround, drive
+  - *Booked and walk-in:* Every TD of the visit in one page: walkthrough, key handover, TD done, disposition
   - *Video TD:* Walkaround on video
 - **Owner:** 
-  - *Booked:* DA
-  - *Walk-in:* Yardie, then the DA
+  - *Booked and walk-in:* SA, with the Yardie bringing each car
   - *Video TD:* VTD operator
 - **Entry:** 
-  - *Booked:* TD STARTED at the handshake
-  - *Walk-in:* ORDER BOOKED, yard prep requested
+  - *Booked:* ORDERS CONFIRMED
+  - *Walk-in:* ORDER BOOKED
   - *Video TD:* Car on camera
 - **Exit:** 
-  - *Booked and walk-in:* TD CONDUCTED for every car
+  - *Booked and walk-in:* TD CONDUCTED for every car, each with a disposition
   - *Video TD:* VTD CONDUCTED
-- **Steps:** O1 Yard prep and bring, O2 Start TD, O3 TD consent sign-off, O4 DL verify, O5 Walkaround, O6 Drive, O7 End TD
+- **Steps:** O1 Conduct the test drives, O5 Walkaround, O7 End TD
 
 ### N · Next step
 
-- **When:** No visit ends without one
-- **Owner:** DA, then RM
-- **Entry:** TD conducted, or a visit with no drive
-- **Exit:** TOKEN PAID, FOLLOW-UP SCHEDULED, NEW TD BOOKED or DROPPED
-- **Steps:** N1 Debrief and decision, N2 Collect token, N3 Handoff to delivery, N4 Schedule follow-up, N5 Follow-up call, N6 Book another TD, N7 Close as dropped
+- **When:** 
+  - *Booked and walk-in:* Checkout, one car at a time, or another next step. No visit ends without one
+  - *Video TD:* No visit ends without one
+- **Owner:** 
+  - *Booked and walk-in:* SA, then RM
+  - *Video TD:* VTD operator, then RM
+- **Entry:** 
+  - *Booked and walk-in:* A disposition on every TD'd order
+  - *Video TD:* VTD conducted
+- **Exit:** 
+  - *Booked and walk-in:* BOOKING CONFIRMED, FOLLOW-UP SCHEDULED, NEW TD BOOKED or DROPPED
+  - *Video TD:* TOKEN PAID, FOLLOW-UP SCHEDULED, NEW TD BOOKED or DROPPED
+- **Steps:** N1 Debrief and decision, N2 Checkout / Collect token, N3 Handoff to delivery, N4 Schedule follow-up, N5 Follow-up call, N6 Book another TD, N7 Close as dropped
 
 ### M · Oversight
 
 - **When:** All day
-- **Owner:** Manager (DATL)
+- **Owner:** Manager (SATL)
 - **Entry:** Manager role
 - **Exit:** Late steps caught and reassigned
 - **Steps:** M1 Live funnel
@@ -236,16 +241,13 @@ flowchart TD
   P9["P9 Callback and retry"]
   I1["I1 Welcome and check-in"]
   I2["I2 Token on the ground TV"]
-  S1["S1 Assign DA"]
+  S1["S1 Assign SA"]
   S2["S2 Car to the hub"]
-  T1["T1 Handshake and Start TD"]
-  O3["O3 TD consent sign-off"]
-  O4["O4 DL verify"]
-  O5["O5 Walkaround"]
-  O6["O6 Drive"]
-  O7["O7 End TD"]
-  N1["N1 Debrief and decision"]
-  N2["N2 Collect token"]
+  T1["T1 Interest and check-in"]
+  T2["T2 Upload and verify the DL"]
+  T3["T3 Today's orders or more cars"]
+  O1["O1 Conduct the test drives"]
+  N2["N2 Checkout"]
   N3["N3 Handoff to delivery"]
   N4["N4 Schedule follow-up"]
   N5["N5 Follow-up call"]
@@ -294,30 +296,25 @@ flowchart TD
   P9 -->|DROPPED| N7
   I1 -->|CHECKED IN| I2
   I1 -->|CHECKED IN| I2
-  I2 -->|A DA is assigned, automatically| S1
-  S1 -->|DA ASSIGNED| S2
-  S1 -->|DA ASSIGNED| S2
-  S1 -->|Still no DA after 10 min: manager alerted| M1
+  I2 -->|An SA is assigned, automatically| S1
+  S1 -->|SA ASSIGNED| S2
+  S1 -->|SA ASSIGNED| S2
+  S1 -->|Still no SA after 10 min: manager alerted| M1
   S2 -->|CAR AT HUB| T1
   S2 -->|The car can't be used damage, flat…| N6
-  T1 -->|TD STARTED| O3
+  T1 -->|MET CUSTOMER| T2
   T1 -->|Not met within 5 min: receptionist and…| S1
-  O3 -->|TD CONSENT SIGNED| O4
-  O3 -->|Customer refuses: TD cancelled, reason…| N1
-  O4 -->|DL VERIFIED| O5
-  O4 -->|No valid DL: the TD is cancelled before…| N6
-  O4 -->|Name or photo mismatch: the DA checks…| O5
-  O5 -->|Zones covered| O6
-  O5 -->|Customer goes off the car: end this TD…| O7
-  O6 -->|Back at the hub| O7
-  O7 -->|TD CONDUCTED| O3
-  O7 -->|TD CONDUCTED| N1
-  N1 -->|Ready to buy| N2
-  N1 -->|FOLLOW-UP SCHEDULED| N4
-  N1 -->|NEW TD BOOKED| N6
-  N1 -->|DROPPED| N7
-  N2 -->|TOKEN PAID| N3
-  N2 -->|Customer leaves before paying: link…| N4
+  T2 -->|DL VERIFIED| T3
+  T2 -->|No valid licence: cars can be shown, no…| N6
+  T3 -->|ORDERS CONFIRMED| O1
+  T3 -->|FOLLOW-UP SCHEDULED| N4
+  O1 -->|TD CONDUCTED| N2
+  O1 -->|FOLLOW-UP SCHEDULED| N4
+  O1 -->|Wants another car: discover more in the…| T3
+  O1 -->|DROPPED| N7
+  N2 -->|BOOKING CONFIRMED| N3
+  N2 -->|Another TD'd car to check out: back to…| O1
+  N2 -->|Customer leaves before paying: the link…| N4
   N3 -->|CONVERTED| END1(("end"))
   N4 -->|FOLLOW-UP SCHEDULED| N5
   N5 -->|Ready to buy: send a payment link| N2
@@ -325,7 +322,7 @@ flowchart TD
   N5 -->|DROPPED| N7
   N6 -->|NEW TD BOOKED| P8
   N7 -->|DROPPED| END2(("end"))
-  M1 -->|Customer waiting more than 5 min for a…| S1
+  M1 -->|Customer waiting more than 5 min for an…| S1
 ```
 
 ### Walk-in hub TD
@@ -334,20 +331,12 @@ flowchart TD
 flowchart TD
   I1["I1 Welcome and check-in"]
   I2["I2 Token on the ground TV"]
-  S1["S1 Assign DA"]
-  T1["T1 Handshake"]
-  T2["T2 Needs and cars"]
-  T4["T4 Quality promise"]
-  T5["T5 Book now and request prep"]
-  O1["O1 Yard prep and bring"]
-  O2["O2 Start TD"]
-  O3["O3 TD consent sign-off"]
-  O4["O4 DL verify"]
-  O5["O5 Walkaround"]
-  O6["O6 Drive"]
-  O7["O7 End TD"]
-  N1["N1 Debrief and decision"]
-  N2["N2 Collect token"]
+  S1["S1 Assign SA"]
+  T1["T1 Interest and check-in"]
+  T2["T2 Upload and verify the DL"]
+  T3["T3 Today's orders or more cars"]
+  O1["O1 Conduct the test drives"]
+  N2["N2 Checkout"]
   N3["N3 Handoff to delivery"]
   N4["N4 Schedule follow-up"]
   N5["N5 Follow-up call"]
@@ -356,38 +345,23 @@ flowchart TD
   M1["M1 Live funnel"]
   I1 -->|CHECKED IN| I2
   I1 -->|Purpose is drop-off, pickup, service or…| END1(("end"))
-  I2 -->|A DA is assigned, automatically| S1
-  S1 -->|DA ASSIGNED| T1
-  S1 -->|DA ASSIGNED| T1
-  S1 -->|Still no DA after 10 min: manager alerted| M1
+  I2 -->|An SA is assigned, automatically| S1
+  S1 -->|SA ASSIGNED| T1
+  S1 -->|SA ASSIGNED| T1
+  S1 -->|Still no SA after 10 min: manager alerted| M1
   T1 -->|MET CUSTOMER| T2
   T1 -->|Not met within 5 min: receptionist and…| S1
-  T2 -->|One or two cars picked from the matches| T4
-  T2 -->|FOLLOW-UP SCHEDULED| N4
-  T4 -->|Customer wants to drive now| T5
-  T4 -->|FOLLOW-UP SCHEDULED| N4
-  T5 -->|ORDER BOOKED| O1
-  T5 -->|Car is in another TD: pick again| T2
-  T5 -->|No room in the current slot: book a…| N6
-  O1 -->|CAR AT HUB| O2
-  O1 -->|Prep finds a problem: the DA is told to…| T2
-  O2 -->|TD STARTED| O3
-  O3 -->|TD CONSENT SIGNED| O4
-  O3 -->|Customer refuses: TD cancelled, reason…| N1
-  O4 -->|DL VERIFIED| O5
-  O4 -->|No valid DL: the TD is cancelled before…| N6
-  O4 -->|Name or photo mismatch: the DA checks…| O5
-  O5 -->|Zones covered| O6
-  O5 -->|Customer goes off the car: end this TD,…| T2
-  O6 -->|Back at the hub| O7
-  O7 -->|TD CONDUCTED| O2
-  O7 -->|TD CONDUCTED| N1
-  N1 -->|Ready to buy| N2
-  N1 -->|FOLLOW-UP SCHEDULED| N4
-  N1 -->|NEW TD BOOKED| N6
-  N1 -->|DROPPED| N7
-  N2 -->|TOKEN PAID| N3
-  N2 -->|Customer leaves before paying: link…| N4
+  T2 -->|DL VERIFIED| T3
+  T2 -->|No valid licence: cars can be shown, no…| N6
+  T3 -->|ORDER BOOKED| O1
+  T3 -->|FOLLOW-UP SCHEDULED| N4
+  O1 -->|TD CONDUCTED| N2
+  O1 -->|FOLLOW-UP SCHEDULED| N4
+  O1 -->|Wants another car: discover more in the…| T3
+  O1 -->|DROPPED| N7
+  N2 -->|BOOKING CONFIRMED| N3
+  N2 -->|Another TD'd car to check out: back to…| O1
+  N2 -->|Customer leaves before paying: the link…| N4
   N3 -->|CONVERTED| END2(("end"))
   N4 -->|FOLLOW-UP SCHEDULED| N5
   N5 -->|Ready to buy: send a payment link| N2
@@ -395,7 +369,7 @@ flowchart TD
   N5 -->|DROPPED| N7
   N6 -.->|NEW TD BOOKED| P8["P8 on another track"]
   N7 -->|DROPPED| END3(("end"))
-  M1 -->|Customer waiting more than 5 min for a…| S1
+  M1 -->|Customer waiting more than 5 min for an…| S1
 ```
 
 ### Video TD
@@ -508,45 +482,41 @@ A state is set by one exit of one step. Statuses on the ground TV and the token 
 | --- | --- | --- | --- |
 | DROPPED | P2 Orders and cars of interest | Wrong number or not interested: disposition | Booked, Video TD |
 | DROPPED | P9 Callback and retry | 3 attempts used, or not interested | Booked, Video TD |
-| DROPPED | N1 Debrief and decision | Not interested | Booked, Walk-in, Video TD |
+| DROPPED | O1 Conduct the test drives | Not interested | Booked, Walk-in |
+| DROPPED | N1 Debrief and decision | Not interested | Video TD |
 | DROPPED | N5 Follow-up call | No answer after 3 attempts, or not interested | Booked, Walk-in, Video TD |
 | DROPPED | N7 Close as dropped | Reason saved | Booked, Walk-in, Video TD |
 | BOOKING INITIATED | P2 Orders and cars of interest | The customer picks cars from their interest; with mobile and email, one order is created per car | Video TD |
 | BOOKING INITIATED | P3a Car details (CDP) | Customer wants to drive it: an order is created if none exists | Booked, Video TD |
 | BOOKING INITIATED | P3b Compare | Cars picked to drive: orders created if none exist | Booked, Video TD |
 | ORDER BOOKED | P7 Confirm and book | Hub TD booked; the calling task closes | Booked |
-| ORDER BOOKED | T5 Book now and request prep / Confirm cars | Current slot booked, order created, prep requested; the customer waits on their token until the car is at the hub | Walk-in |
+| ORDER BOOKED | T3 Today's orders or more cars / Recommend and compare | Cars picked: an order each for the current slot, prep requested | Walk-in |
 | VTD BOOKED | P7 Confirm and book | Hub TD and video TD booked; the calling task closes | Video TD |
 | CAR RESERVED | P7d Deposit and reserve | Confirmation uploaded and the car set to Reserved: complete. The order goes to the delivery journey | Booked, Video TD |
-| CHECKED IN | I1 Welcome and check-in | OTP verified, Yes to an existing order: today's order is found and checked in at once. A token is issued, a DA is assigned and the Yardie is told to bring the booked car | Booked |
+| CHECKED IN | I1 Welcome and check-in | OTP verified, Yes to an existing order: today's order is found and checked in at once. A token is issued, an SA is assigned and the Yardie is told to bring the booked car | Booked |
 | CHECKED IN | I1 Welcome and check-in | OTP fails 3 times: the receptionist checks Emirates ID, then finishes the check-in | Booked |
-| CHECKED IN | I1 Welcome and check-in | Mobile verified, Yes to an existing order: today's order found and checked in at once, token issued with the DA's name | Booked |
+| CHECKED IN | I1 Welcome and check-in | Mobile verified, Yes to an existing order: today's order found and checked in at once, token issued with the SA's name | Booked |
 | CHECKED IN | I1 Welcome and check-in | OTP verified, purpose buy or test drive, No to an existing order: the details form creates the lead and the visit, token issued | Walk-in |
 | CHECKED IN | I1 Welcome and check-in | Customer submits the details form (no existing order) with purpose buy or test drive: lead and visit created, token issued | Walk-in |
 | VTD CHECKED IN | I1 Welcome and check-in | OTP verified on the call, recording consent answered | Video TD |
-| DA ASSIGNED | S1 Assign DA | A DA is free: assigned automatically, pushed to the DA, shown on the TV. Meanwhile the Yardie brings the car | Booked |
-| DA ASSIGNED | S1 Assign DA | Every DA is busy or at their cap: the receptionist picks the next free DA by hand | Booked, Walk-in |
-| DA ASSIGNED | S1 Assign DA | A DA is free: assigned automatically, pushed to the DA, shown on the TV | Walk-in |
-| CAR AT HUB | S2 Car to the hub | Car parked at the hub: the DA is told and the TV shows Car ready. The DA goes to the customer: the handshake starts the TD | Booked |
-| CAR AT HUB | O1 Yard prep and bring | Prepped and parked at the hub: the DA is told to go back to the customer; the TV shows Car ready | Walk-in |
-| TD STARTED | T1 Handshake and Start TD / Handshake | DA meets the customer and taps Start TD: TD record created, recording on; the TV shows On test drive | Booked |
-| TD STARTED | O2 Start TD | TD record created and the recording on; the TV shows On test drive | Walk-in |
-| MET CUSTOMER | T1 Handshake and Start TD / Handshake | DA taps Met customer; the TV shows them together | Walk-in |
-| FOLLOW-UP SCHEDULED | T2 Needs and cars / Needs | Nothing fits today: shortlist shared | Walk-in |
-| FOLLOW-UP SCHEDULED | T3 Recommend and compare | Nothing fits today: shortlist shared | Video TD |
-| FOLLOW-UP SCHEDULED | T4 Quality promise | Wants to think: shortlist shared | Walk-in, Video TD |
-| FOLLOW-UP SCHEDULED | N1 Debrief and decision | Needs time | Booked, Walk-in, Video TD |
+| SA ASSIGNED | S1 Assign SA | An SA is free: assigned automatically, pushed to the SA, shown on the TV. Meanwhile the Yardie brings the car | Booked |
+| SA ASSIGNED | S1 Assign SA | Every SA is busy or at their cap: the receptionist picks the next free SA by hand | Booked, Walk-in |
+| SA ASSIGNED | S1 Assign SA | An SA is free: assigned automatically, pushed to the SA, shown on the TV | Walk-in |
+| CAR AT HUB | S2 Car to the hub | Car parked at the hub: the SA is told and the TV shows Car ready. The SA meets the customer: the SA's task opens | Booked |
+| MET CUSTOMER | T1 Interest and check-in | SA meets the customer: on to the licence | Booked, Walk-in |
+| DL VERIFIED | T2 Upload and verify the DL / Needs | Licence valid, name matches, not expired | Booked, Walk-in |
+| ORDERS CONFIRMED | T3 Today's orders or more cars / Recommend and compare | Today's orders kept, any new car added as an order | Booked |
+| FOLLOW-UP SCHEDULED | T3 Today's orders or more cars / Recommend and compare | Nothing fits today: shortlist shared | Booked, Walk-in, Video TD |
+| FOLLOW-UP SCHEDULED | T4 Quality promise | Wants to think: shortlist shared | Video TD |
+| FOLLOW-UP SCHEDULED | O1 Conduct the test drives | Needs time: date agreed | Booked, Walk-in |
+| FOLLOW-UP SCHEDULED | N1 Debrief and decision | Needs time | Video TD |
 | FOLLOW-UP SCHEDULED | N4 Schedule follow-up | Date agreed, shortlist sent, RM task created | Booked, Walk-in, Video TD |
-| TD CONSENT SIGNED | O3 TD consent sign-off | Signed: on to the licence check | Booked, Walk-in |
-| DL VERIFIED | O4 DL verify | DL valid, name matches, not expired | Booked, Walk-in |
-| TD CONDUCTED | O7 End TD | Another car on the booking is at the hub: start it here, then its own consent. The licence is already verified | Booked |
-| TD CONDUCTED | O7 End TD | Done driving | Booked, Walk-in |
-| TD CONDUCTED | O7 End TD | Another car is queued: start its TD, with its own consent. The licence is already verified | Walk-in |
+| TD CONDUCTED | O1 Conduct the test drives | Disposition Pay deposit on an order: Start checkout for that car | Booked, Walk-in |
 | VTD CONDUCTED | O7 End TD | Call wrapped up | Video TD |
-| NEW TD BOOKED | N1 Debrief and decision | Wants another car | Booked, Walk-in |
 | NEW TD BOOKED | N1 Debrief and decision | Wants to drive it at a hub | Video TD |
 | NEW TD BOOKED | N6 Book another TD | Slot confirmed | Booked, Walk-in, Video TD |
-| TOKEN PAID | N2 Collect token | Gateway confirms the payment | Booked, Walk-in, Video TD |
+| BOOKING CONFIRMED | N2 Checkout / Collect token | Deposit paid: the booking is confirmed | Booked, Walk-in |
+| TOKEN PAID | N2 Checkout / Collect token | Gateway confirms the payment | Video TD |
 | CONVERTED | N3 Handoff to delivery | Delivery tasks created, RM assigned. The TD journey closes | Booked, Walk-in, Video TD |
 
 ## 6. Core logic
@@ -560,7 +530,7 @@ The rules that span several steps. Each step's own entry and exit conditions are
 - **Discovery is a branch.** P3 listing (search by appointment ID, market filters), P3a car page, P3b compare (2 or 3 cars). Pick for TD sends the cars on to P4.
 - **TD type per car (P4).** Each car is hub or video. All hub: P5 hub slot. All video: P6 video slot. Mixed: P5, then P6, then one read-back at P7 that books both. Australia: an interstate car is video only.
 - **Payment mode and trade-in on P4.** Payment mode (Cash, In-house finance, BYOF) and Trade-in opted (Yes / No). The payment mode is one value shared with the lead pane select; it starts from what the customer said in the app or chatbot. Trade-in opted starts from the same source and shows on the lead view's Trade-in tile.
-- **Booking closes the task (P7).** Booked: ORDER BOOKED. Video or mixed: VTD BOOKED. Then P8 pre-arrival readiness: reminders at T-24h and T-2h with a licence upload link, yard prep, DA pre-assigned by capacity.
+- **Booking closes the task (P7).** Booked: ORDER BOOKED. Video or mixed: VTD BOOKED. Then P8 pre-arrival readiness: reminders at T-24h and T-2h with a licence upload link, yard prep, SA pre-assigned by capacity.
 - **Callbacks (P9).** No slot works, no answer, or busy: the task moves to Callbacks and resumes where the call stopped. After 3 attempts it closes as dropped. A missed TD shows in Today missed TD.
 - **The pitch decides, not a fixed path.** Each Next posts the step's answers to the journey's next-step API; the response names the next step and the stages to show. That is how the call branches to a TD or a deposit.
 
@@ -582,16 +552,18 @@ The rules that span several steps. Each step's own entry and exit conditions are
 
 Checking in is the arrival: there is no Mark arrived. The seat QR page and the staff form are the same form, so either way gives the same answers.
 
-1. **Mobile, purpose and OTP (one screen).** Mobile number with the market's dial code (+971, +61). Purpose of visit: buy or test drive, drop off a car, pick up a car, a booked service, sell my car, something else. Only buy or test drive goes on to a DA; the rest are routed to that desk. Send code → the code appears under the form → Verify. 3 tries; resend after 30 s. After 3 failures a receptionist checks ID by hand (Emirates ID in the UAE, photo ID in Australia) and finishes the check-in.
+1. **Mobile, purpose and OTP (one screen).** Mobile number with the market's dial code (+971, +61). Purpose of visit: buy or test drive, drop off a car, pick up a car, a booked service, sell my car, something else. Only buy or test drive goes on to an SA; the rest are routed to that desk. Send code → the code appears under the form → Verify. 3 tries; resend after 30 s. After 3 failures a receptionist checks ID by hand (Emirates ID in the UAE, photo ID in Australia) and finishes the check-in.
 2. **Existing order? Yes or No.**
    - **Yes, order found** (by the mobile): today's order shows with *Checked in*, at once. CHECKED IN.
    - **Yes, nothing found:** the page says nothing is booked on that mobile today and offers the details form.
    - **No:** the basic details form: phone (already verified), email, first and last name, post code (UAE: emirate and area), *Do you need financing after the test drive?*, *Where did you hear about us?* (market list), and the driving licence photos, front and back, optional. Check in creates the lead (dedupe on mobile) and the visit. CHECKED IN.
-3. **The last screen: the token with the DA.** Token number, seat and the DA's name (*Your sales associate (DA)*), on the phone and in the staff form.
+3. **The last screen: the token with the SA.** Token number, seat and the SA's name (*Your sales associate (SA)*), on the phone and in the staff form.
 
-**What one check-in fires:** a queue token, DA auto-assignment (S1), the Yardie's task for a booked car (S2), the token on the ground TV, and the token page link on WhatsApp.
+**What one check-in fires:** a queue token, SA auto-assignment (S1), the Yardie's task for a booked car (S2), the token on the ground TV, and the token page link on WhatsApp.
 
-**No recording question at check-in.** The DA asks for the recording consent at Start TD (T1 for a booking, O2 for a walk-in), when the recording would start.
+**The visit's UUID.** Check-in gives the visit a UUID. The SA's task finds the lead by it, with every order the lead has today (T1).
+
+**No recording question at check-in.** The SA asks for the recording consent at the key handover (O1), when the TD starts and the recording would.
 
 **Seat QR specifics:** the QR is the same on every seat, so the mobile and OTP prove who is checking in. The receptionist's Today list shows the check-in live, with each answer landing in a side panel. No answer for 3 min: the receptionist gets a nudge. *Finish it for them* opens the staff form with what was already filled. Each part autosaves.
 
@@ -611,49 +583,57 @@ The financing answer on the details form, plus the pre-approval status, picks on
 ### 6.6 The token and the ground TV (I2)
 
 - **One token per check-in:** hub, day, B for bookings or W for walk-ins, and a number (B-07, W-12). Bookings are served at their slot time, then tokens in order. Not the payment token (TOKEN PAID).
-- **The ground TV** shows token, first name and initial, status, DA, car and waiting time. A QR on the TV catches anyone who missed the one on their seat.
-- **Statuses:** Waiting for a DA, DA coming to you, With your DA, Car ready, On test drive. They change only on staff actions, never typed.
-- **The customer's token page** shows the same token, the DA, the car and live progress, and updates by itself.
-- **What moves them.** Booked: Yardie picks up the car → car parked at the hub → DA meets the customer, TD starts. Walk-in: DA meets the customer → slot booked, Yardie preps the car → car parked at the hub → DA comes back and starts the TD.
+- **The ground TV** shows token, first name and initial, status, SA, car and waiting time. A QR on the TV catches anyone who missed the one on their seat.
+- **Statuses:** Waiting for an SA, SA coming to you, With your SA, Car ready, On test drive. They change only on staff actions, never typed.
+- **The customer's token page** shows the same token, the SA, the car and live progress, and updates by itself.
+- **What moves them.** Booked: Yardie picks up the car → car parked at the hub → SA meets the customer, the SA's task opens → key handover, On test drive. Walk-in: SA meets the customer → cars picked, Yardie preps them → car parked at the hub → key handover, the TD starts.
 
-### 6.7 DA assignment (S1)
+### 6.7 SA assignment (S1)
 
-- **Automatic, at check-in.** That is why the last check-in screen can name the DA.
-- **Rule, in order:** free now (not on a drive or a break), under today's cap, a free slot for the next hour. Then, for a booking, the booking's pre-assigned DA first; for a walk-in, the best language match. Ties go to the fewest drives today.
-- **Every DA busy or at cap:** the receptionist picks the next free DA by hand. Still no DA after 10 min: the manager is alerted.
-- **The handshake comes after assignment,** at the customer's seat, never at check-in. Not met within 5 min: the receptionist and the manager are alerted, and the DA can be reassigned.
+- **Automatic, at check-in.** That is why the last check-in screen can name the SA.
+- **Rule, in order:** free now (not on a drive or a break), under today's cap, a free slot for the next hour. Then, for a booking, the booking's pre-assigned SA first; for a walk-in, the best language match. Ties go to the fewest drives today.
+- **Every SA busy or at cap:** the receptionist picks the next free SA by hand. Still no SA after 10 min: the manager is alerted.
+- **The SA meets the customer after assignment,** at their seat, never at check-in, and the SA's task opens (T1). Not met within 5 min: the receptionist and the manager are alerted, and the SA can be reassigned.
 
-### 6.8 The Yardie and the car (S2, O1)
+### 6.8 The Yardie and the car (S2, T3)
 
 - Cars wait in the yard, about 500 m from the hub. The Yardie works a mobile task list.
-- **Booked:** the car was prepped before the day (P8). Check-in calls it to the hub: Picked up, driving over → Parked at the hub. CAR AT HUB tells the DA and moves the TV.
-- **Walk-in:** once the DA books the current slot (T5), the Yardie preps the car (quick wash, wipe the inside, fuel at least half, tyre pressure), then brings it. At the hub, the DA is told to go back to the customer.
-- Prep finds a problem: the DA is told to pick another car.
+- **Booked:** the car was prepped before the day (P8). Check-in calls it to the hub: Picked up, driving over → Parked at the hub. CAR AT HUB tells the SA and moves the TV.
+- **Walk-in, or a car added on the day:** each car picked in Discover more cars (T3) is an order for now, and the Yardie preps it (quick wash, wipe the inside, fuel at least half, tyre pressure), then brings it. At the hub, the SA's section for that order shows Car ready.
+- Prep finds a problem: the SA is told to pick another car.
 
-### 6.9 On the road (T1/O2 to O7)
+### 6.9 The SA's task (T1 to N2, booked and walk-in)
 
-- **Start TD.** Booked: the handshake is the start (T1). The car was chosen on the call and is at the hub, so there is no car finding. Walk-in: the DA goes back to the customer once the car is at the hub (O2). Starting creates the TD record (car, plate, time, odometer, fuel, route).
-- **Recording consent, at Start TD.** The DA asks *can we record the drive?* and sets the toggle. Yes: live notes and transcription run from Start TD to End TD. No: the drive goes ahead and only the objection tags are kept.
-- **TD consent (O3).** One per car, signed on the DA's tablet: terms, signature and tick. Declines → the TD is cancelled. The signed PDF goes to Documents and to the customer on WhatsApp.
-- **DL verify (O4).** The last check before the car moves. Car finding does not need a licence; driving does.
-- **Walkaround (O5), drive (O6), end (O7).** The drive shows a LIVE badge, live transcription and one-tap objection tags. End records the odometer, duration and the customer's reaction.
+One Leadverse task for the whole visit. The lead is found by the check-in UUID, and every order the lead has today runs in it: a booking can carry two or three TDs. Five pages, each built from DLS components in the action area:
 
-### 6.10 Next step (N1 to N7)
+1. **T1 Interest.** Tabs, Check-in first: the check-in details (UUID, lead, token and seat, time and way, purpose, mobile, SA, today's TDs). Then Today's TD, Finance, Wishlist, Trade-in, Coupons (code, value, validity) and Notes.
+2. **T2 DL.** Once for the visit, before any drive: both sides (from the booking, the seat QR, or taken now), what was read off it, and three checks (name, expiry, photo). No valid licence: no drive today (N6).
+3. **T3 Cars.** Two tabs: today's orders, kept by default, or Discover more cars. A car picked in Discover joins the visit as an order for now; the Yardie preps it. About 95% of bookings go ahead with today's orders.
+4. **O1 Test drives.** One section per order, each with a stepper: Walkthrough → Key handover (TD consent for this car, recording consent, odometer and fuel; START_TEST_DRIVE) → TD done (COMPLETE_TEST_DRIVE) → Disposition → Checkout. The disposition is per car: Pay deposit, Needs time, Another car, Not interested.
+5. **N2 Checkout, one car.** A stepper inside the page: Delivery (the address and pick up or home delivery) → VAS → Discount (the customer's coupons, then any extra; a manager approves above the market's limit) → Sales promise → Payment mode (Cash, In-house finance, BYOF) → Pre-approval (In-house finance only: prefilled when on file, or send the link by SMS or email, or fill it now) → Deposit (bank transfer with the receipt uploaded, or a Stripe link confirmed by the webhook) → Booking confirmed. The order summary beside it moves with every choice. Another TD'd car is checked out the same way, back from O1.
 
-No visit ends without one. The DA records the decision at N1:
+**Walk-in:** the same task with no TD booked today: Today's TD is empty and Cars opens on Discover.
 
-| Decision | Goes to | Result |
+**Recording consent, at the key handover.** Yes: live notes and transcription run until TD done. No: the drive goes ahead and only the objection tags are kept.
+
+**Video TD** keeps its own steps: the walkaround on camera (O5), the wrap-up (O7), the debrief (N1) and the token by payment link (N2).
+
+### 6.10 Next step (O1, N2 to N7)
+
+No visit ends without one. At the hub, each TD'd car gets its disposition in its section on O1; on a video TD, the operator records it at N1:
+
+| Disposition | Goes to | Result |
 | --- | --- | --- |
-| Ready to buy | N2 Collect token | Payment by the gateway → TOKEN PAID → N3 handoff to delivery (RM assigned) |
+| Pay deposit | N2 Checkout (hub) or Collect token (video) | Deposit paid → BOOKING CONFIRMED (hub) or TOKEN PAID (video) → N3 handoff to delivery (RM assigned) |
 | Needs time | N4 Schedule follow-up | FOLLOW-UP SCHEDULED, then N5 follow-up call |
-| Wants another car (video TD: drive it at a hub) | N6 Book another TD | NEW TD BOOKED, restarts at Plan |
+| Another car | T3 Discover more cars (same visit), or N6 another day | One more order in the visit, or NEW TD BOOKED |
 | Not interested | N7 Close as dropped | DROPPED, with the reason |
 
-At N2, a customer who leaves before paying keeps a live payment link and gets a follow-up (N4). TOKEN PAID comes from the payment webhook only.
+A customer who leaves before paying keeps a live payment link and gets a follow-up (N4). A Stripe payment is confirmed by its webhook only; a bank transfer by the receipt, checked by finance.
 
 ### 6.11 Oversight (M1)
 
-The manager (DATL) sees a live funnel all day: one row per state (checked in, DA assigned, met, car at the hub, DL verified, and on), with time between states. Late steps are caught and reassigned.
+The manager (SATL) sees a live funnel all day: one row per state (checked in, SA assigned, met, DL verified, TD started, TD conducted, booking confirmed), with time between states. Late steps are caught and reassigned.
 
 ### 6.12 Example people, per market
 
@@ -663,9 +643,9 @@ The manager (DATL) sees a live funnel all day: one row per state (checked in, DA
 | Customer, Walk-in | Ahmed Saleh | Jack Thompson |
 | Customer, Video TD | Khalid Al Jaberi | Liam Walsh |
 | Staff, RECEPTIONIST | Kishor | Kishor |
-| Staff, COMMON_DA | Omar Hassan | Josh Miller |
-| Staff, VIRTUAL_DA | Sara Ibrahim | Priya Sharma |
-| Staff, DATL | Aaliya Patel | Aaliya Patel |
+| Staff, COMMON_SA | Omar Hassan | Josh Miller |
+| Staff, VIRTUAL_SA | Sara Ibrahim | Priya Sharma |
+| Staff, SATL | Aaliya Patel | Aaliya Patel |
 | Staff, Call centre | Reem Khalifa | Chloe Davis |
 | Staff, RM | Rania Haddad | Grace Lee |
 | Staff, PREP_USER | Bilal Raza | Tom Nguyen |
@@ -1439,7 +1419,7 @@ One hub visit for every hub car: pick the day and the slot.
 
 **Data it reads and writes**
 
-- Slot planner capacity (moving to the central Appointment Service): a DA and the cars free together
+- Slot planner capacity (moving to the central Appointment Service): an SA and the cars free together
 
 **Entry conditions**
 
@@ -1484,7 +1464,7 @@ One hub visit for every hub car: pick the day and the slot.
 | Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
 | Hub cars | CHIPS | Every car for a hub TD, in one visit |
 | Day | CHIPS | Today plus the next three days |
-| Slots | SLOT_GRID | Only slots with a free DA and every car free |
+| Slots | SLOT_GRID | Only slots with a free SA and every car free |
 | Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
 
 *Fields*
@@ -1887,7 +1867,7 @@ When the payment mode is In-house finance or BYOF, the agent can run a pre-appro
 
 **Purpose**
 
-Customer, car and DA are all ready before the slot starts.
+Customer, car and SA are all ready before the slot starts.
 
 **Trigger:** Order booked for the next 24 hours
 
@@ -1896,7 +1876,7 @@ Customer, car and DA are all ready before the slot starts.
 - Notification engine: reminders at T-24h and T-2h, with a DL upload link
 - Docs: DL uploaded by the customer
 - Yard task: the Yardie preps the car and parks it in the yard, ready to bring over
-- DA roster: pre-assigned by daily capacity
+- SA roster: pre-assigned by daily capacity
 
 **Entry conditions**
 
@@ -1932,7 +1912,7 @@ Customer, car and DA are all ready before the slot starts.
 
 - **Screen:** Test Drives › Upcoming
 - **Build:** Extend
-- **Pattern:** Test Drives queue with readiness columns: DL, car prepped by the Yardie, DA, reminder
+- **Pattern:** Test Drives queue with readiness columns: DL, car prepped by the Yardie, SA, reminder
 - **Route:** `/test-drives?view=upcoming`
 
 **Anatomy**
@@ -1943,7 +1923,7 @@ Customer, car and DA are all ready before the slot starts.
 | --- | --- | --- |
 | Open today's arrivals | BUTTON | Switches to the Today view (I1) |
 | Upcoming visits | TABLE | Visits in the next 24 hours |
-| Readiness | STATUS_ICONS | DL, car prep, DA, reminder. Amber means a task for someone |
+| Readiness | STATUS_ICONS | DL, car prep, SA, reminder. Amber means a task for someone |
 | Row action | ROW_ACTION | The fix for the first amber item |
 
 *Fields*
@@ -1952,7 +1932,7 @@ Customer, car and DA are all ready before the slot starts.
 | --- | --- | --- | --- | --- |
 | DL | Status | Read only | Docs | Uploaded, or link sent |
 | Car prep | Status | Read only | Prep task | Ready at a bay |
-| DA | Status | Read only | DA roster | Pre-assigned by capacity |
+| SA | Status | Read only | SA roster | Pre-assigned by capacity |
 | Reminder | Status | Read only | Notification engine | T-24h and T-2h sent |
 
 *Actions*
@@ -1961,7 +1941,7 @@ Customer, car and DA are all ready before the slot starts.
 | --- | --- | --- |
 | Raise prep | Proposed: prep task for the yard | Prep turns green when done |
 | Resend DL link | Notification engine | DL turns green on upload |
-| Assign DA | Assign DA modal | DA turns green |
+| Assign SA | Assign SA modal | SA turns green |
 
 *Screen states*
 
@@ -2048,7 +2028,7 @@ Bring the customer back: a callback at an agreed time, a retry after no answer, 
 
 - **Tracks:** Booked, Walk-in, Video TD
 - **Owner:** 
-  - *Booked and walk-in, by staff:* Receptionist or DA, filling the form with the customer
+  - *Booked and walk-in, by staff:* Receptionist or SA, filling the form with the customer
   - *Booked and walk-in, seat QR:* Customer, on their own phone, from the QR on the seat
   - *Video TD:* VTD operator
 - **Device:** 
@@ -2060,14 +2040,14 @@ Bring the customer back: a callback at an agreed time, a retry after no answer, 
 
 *Booked and walk-in:*
 
-Welcome and check-in are one gesture: greet the customer, seat them, and check them in on the spot. They scan the QR on their seat, or a receptionist or DA fills the same form for them. Checking in is the arrival: it starts the clock, issues a token for the ground TV, and tells the DA roster and the Yardie.
+Welcome and check-in are one gesture: greet the customer, seat them, and check them in on the spot. They scan the QR on their seat, or a receptionist or SA fills the same form for them. Checking in is the arrival: it starts the clock, issues a token for the ground TV, and tells the SA roster and the Yardie.
 
 *Video TD:*
 
 Admit the customer, welcome them on camera and check them in on the call, in one go.
 
 **Trigger:** 
-  - *Booked and walk-in, by staff:* A receptionist or DA starts the check-in with the customer
+  - *Booked and walk-in, by staff:* A receptionist or SA starts the check-in with the customer
   - *Booked and walk-in, seat QR:* Customer scans the QR on their seat
   - *Video TD:* Customer opens the video link
 
@@ -2090,7 +2070,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 
 - Mobile and purpose of visit first, then User auth: OTP
 - Existing order? No: the basic details form (email, first and last name, post code or area, financing after the TD, where they heard about us). This is Add lead
-- DA auto-assignment: the token shows the DA's name
+- SA auto-assignment: the token shows the SA's name
 
 *Walk-in, seat QR:*
 
@@ -2098,7 +2078,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 - Mobile and purpose of visit, then User auth: OTP
 - Existing order? No: the basic details form, the same as the staff one. This is Add lead
 - Licence (optional), at the end of the details form
-- DA auto-assignment: the token page shows the DA's name
+- SA auto-assignment: the token page shows the SA's name
 
 *Video TD:*
 
@@ -2128,15 +2108,15 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 
 | When | Goes to | State |
 | --- | --- | --- |
-| OTP verified, Yes to an existing order: today's order is found and checked in at once. A token is issued, a DA is assigned and the Yardie is told to bring the booked car | I2 Token on the ground TV | CHECKED IN |
+| OTP verified, Yes to an existing order: today's order is found and checked in at once. A token is issued, an SA is assigned and the Yardie is told to bring the booked car | I2 Token on the ground TV | CHECKED IN |
 | OTP fails 3 times: the receptionist checks Emirates ID, then finishes the check-in | I2 Token on the ground TV | CHECKED IN |
 
 *Booked, seat QR:*
 
 | When | Goes to | State |
 | --- | --- | --- |
-| Mobile verified, Yes to an existing order: today's order found and checked in at once, token issued with the DA's name | I2 Token on the ground TV | CHECKED IN |
-| Customer is stuck or has no phone: a receptionist or DA finishes it for them, and what was filled carries over | I1 Welcome and check-in (by staff) | — |
+| Mobile verified, Yes to an existing order: today's order found and checked in at once, token issued with the SA's name | I2 Token on the ground TV | CHECKED IN |
+| Customer is stuck or has no phone: a receptionist or SA finishes it for them, and what was filled carries over | I1 Welcome and check-in (by staff) | — |
 
 *Walk-in, by staff:*
 
@@ -2151,7 +2131,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | --- | --- | --- |
 | Customer submits the details form (no existing order) with purpose buy or test drive: lead and visit created, token issued | I2 Token on the ground TV | CHECKED IN |
 | Purpose is drop-off, pickup, service or selling: the page points them to that desk | End | — |
-| Customer is stuck or has no phone: a receptionist or DA finishes it for them | I1 Welcome and check-in (by staff) | — |
+| Customer is stuck or has no phone: a receptionist or SA finishes it for them | I1 Welcome and check-in (by staff) | — |
 
 *Video TD:*
 
@@ -2174,8 +2154,8 @@ Admit the customer, welcome them on camera and check them in on the call, in one
   - *Booked and walk-in, by staff; Video TD:* Extend
   - *Booked and walk-in, seat QR:* New
 - **Pattern:** 
-  - *Booked and walk-in, by staff:* The Today list, where Check in is the row action (there is no separate Mark arrived). One form for booked and walk-in. Step 1: mobile, purpose of visit, Send OTP and verify. Step 2: Existing order? Yes shows today's order, already checked in; No opens the basic details form, then Check in. Then the token, with the DA's name.
-  - *Booked and walk-in, seat QR:* A public, form-only page opened from the seat QR: no Leadverse, no login. The same steps as the staff form: mobile, purpose and OTP; Existing order? Yes: today's order, checked in at once; No: the details form, licence optional, then Check in. The last screen is the token with the DA's name; no recording question. The Today list shows the check-in live, with the answers in a side panel.
+  - *Booked and walk-in, by staff:* The Today list, where Check in is the row action (there is no separate Mark arrived). One form for booked and walk-in. Step 1: mobile, purpose of visit, Send OTP and verify. Step 2: Existing order? Yes shows today's order, already checked in; No opens the basic details form, then Check in. Then the token, with the SA's name.
+  - *Booked and walk-in, seat QR:* A public, form-only page opened from the seat QR: no Leadverse, no login. The same steps as the staff form: mobile, purpose and OTP; Existing order? Yes: today's order, checked in at once; No: the details form, licence optional, then Check in. The last screen is the token with the SA's name; no recording question. The Today list shows the check-in live, with the answers in a side panel.
   - *Video TD:* Video panel + OTP widget + recording consent
 - **Route:** 
   - *Booked:* `/test-drives?view=today&visit=BK-88213`
@@ -2191,7 +2171,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
   - *Video TD (UAE):* VTD work orders already move ASSIGNED, then CUSTOMER_JOINED_CALL.
 
 **What changed:** 
-  - *Booked and walk-in:* Arrival, welcome and check-in are now one step: checking in is the arrival, so there is no Mark arrived. The same form serves booked and walk-in customers, from the seat QR or filled by a receptionist or DA: mobile, purpose and OTP first, then Existing order? Yes checks today's order in at once; No opens the basic details form. It issues a token for the ground TV, and the last screen names the DA, auto-assigned at that moment. No recording question here: the DA asks at Start TD. No handshake here.
+  - *Booked and walk-in:* Arrival, welcome and check-in are now one step: checking in is the arrival, so there is no Mark arrived. The same form serves booked and walk-in customers, from the seat QR or filled by a receptionist or SA: mobile, purpose and OTP first, then Existing order? Yes checks today's order in at once; No opens the basic details form. It issues a token for the ground TV, and the last screen names the SA, auto-assigned at that moment. No recording question here: the SA asks at Start TD. No handshake here.
   - *Video TD:* Join, welcome and check-in are now one step on the call.
 
 **Anatomy**
@@ -2205,12 +2185,12 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Today's visits | TABLE | Bookings and walk-ins at this hub today, with each token. Check in is the row action; there is no Mark arrived |
 | Check in | ROW_ACTION | Opens the check-in form |
 | Step 1: mobile and purpose | MODAL_FORM | The same form the seat QR opens. Mobile number with the market's dial code, then the purpose of the visit |
-| Purpose of visit | CHIPS | Only buy or test drive goes on to a DA; the rest go to that desk |
+| Purpose of visit | CHIPS | Only buy or test drive goes on to an SA; the rest go to that desk |
 | OTP | OTP_INPUT | Appears under the form after Send OTP; Send OTP turns into Verify OTP |
 | Step 2: existing order? | YES_NO | Yes finds today's order by the mobile and checks it in at once. No opens the basic details form |
 | Today's order, checked in | INFO | Found by the mobile: order, slot and car, with the Checked in pill. Licence already on file |
 | Token | TOKEN_CARD | B for bookings, W for walk-ins, numbered in order; on the TV and on WhatsApp |
-| Their DA | INFO | The DA's name in the token card: auto-assigned the moment the customer checks in (the booking's pre-assigned DA first) |
+| Their SA | INFO | The SA's name in the token card: auto-assigned the moment the customer checks in (the booking's pre-assigned SA first) |
 | Finance next step | QR_CARD | Picked from the financing answer and pre-approval: the 2-minute pre-approval, a beat-your-lender check, or take a seat with the listing page |
 
 *Booked, seat QR:*
@@ -2221,11 +2201,11 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Live check-in | SIDE_PANEL | Who is checking in from which seat; each answer lands here as it is given |
 | Seat QR | QR_STICKER | One code per hub, on every seat; it opens the check-in page |
 | Mobile, purpose and OTP | PUBLIC_FORM | The QR is the same for everyone, so the mobile proves who is checking in. Send code, then the code and Verify |
-| Purpose of visit | OPTION_CARDS | Only buy or test drive goes on to a DA |
+| Purpose of visit | OPTION_CARDS | Only buy or test drive goes on to an SA |
 | Existing order? | YES_NO | Yes: today's order, checked in at once. No: the basic details form |
 | Your order, checked in | PUBLIC_PAGE | Checked in, today's order and the token, as soon as they say Yes |
 | Your token | TOKEN_PAGE | Token, live status and car: the same page as I2 |
-| Your DA | INFO | The DA's name in the token card, auto-assigned at check-in |
+| Your SA | INFO | The SA's name in the token card, auto-assigned at check-in |
 | Finance next step | QR_CARD | Pre-approved, or no finance: take a seat, with the listing page. Might need finance: the 2-minute pre-approval. Own loan: a beat-your-lender check |
 
 *Walk-in, by staff:*
@@ -2235,14 +2215,14 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Today's visits | TABLE | The new walk-in sits at the top |
 | Check in | ROW_ACTION | Opens the form for a new walk-in |
 | Step 1: mobile and purpose | MODAL_FORM | Mobile number with the market's dial code, then the purpose of the visit |
-| Purpose of visit | CHIPS | Only buy or test drive goes on to a DA |
+| Purpose of visit | CHIPS | Only buy or test drive goes on to an SA |
 | OTP | OTP_INPUT | Appears after Send OTP; Send OTP turns into Verify OTP |
 | Step 2: existing order? | YES_NO | No for a walk-in: the basic details form. Yes with nothing found falls back to it |
 | Basic details | MODAL_FORM | Phone (verified), email, first and last name, post code or area: this is Add lead |
 | Financing after the TD | RADIO | I might need finance from CARS24, I don't need finance, I have already arranged my own loan |
 | Where did you hear about us? | SELECT | The market's list: radio, billboards, YouTube, social media, Google, news and more |
-| Checked in | SUCCESS | Where to sit, and who their DA is |
-| Their DA | INFO | The DA's name in the token card: auto-assigned the moment the walk-in checks in |
+| Checked in | SUCCESS | Where to sit, and who their SA is |
+| Their SA | INFO | The SA's name in the token card: auto-assigned the moment the walk-in checks in |
 | Token | TOKEN_CARD | W for walk-ins, numbered in order |
 | Finance next step | QR_CARD | Not pre-approved and might need finance: the 2-minute pre-approval, with a QR |
 
@@ -2254,13 +2234,13 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Live check-in | SIDE_PANEL | Purpose, order answer, details and the rest land here as they are given |
 | Seat QR | QR_STICKER | The same code on every seat |
 | Mobile, purpose and OTP | PUBLIC_FORM | Send code, then the code and Verify |
-| Purpose of visit | OPTION_CARDS | Only buy or test drive goes on to a DA |
+| Purpose of visit | OPTION_CARDS | Only buy or test drive goes on to an SA |
 | Existing order? | YES_NO | No for a walk-in. Yes with nothing found says so and offers the details form |
 | Tell us about you | PUBLIC_FORM | Phone (verified), email, first and last name, post code or area, and the licence photos (optional): this creates the lead |
 | Financing after the TD | RADIO | Picks the next step on the token page |
 | Where did you hear about us? | SELECT | The market's list |
 | Your token | TOKEN_PAGE | The same page as I2 |
-| Your DA | INFO | The DA's name in the token card, auto-assigned at check-in |
+| Your SA | INFO | The SA's name in the token card, auto-assigned at check-in |
 | Finance next step | QR_CARD | Might need finance and not pre-approved: the 2-minute pre-approval. Own loan: beat-your-lender. No finance: take a seat |
 
 *Video TD:*
@@ -2281,29 +2261,29 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
 | Mobile number | Phone | Yes | Typed, with the dial code | Today's order is looked up by it |
-| Purpose of visit | Chips | Yes | Asked | Only buy or test drive continues to a DA |
+| Purpose of visit | Chips | Yes | Asked | Only buy or test drive continues to an SA |
 | OTP | 6 digits | Yes | User auth | 3 tries; resend after 30 s |
 | Existing order | Yes or no | Yes | Asked | Yes: today's order by the mobile; none found falls back to the details form |
 | Token | Text | Read only | Token service, at check-in | Hub queue, in order |
-| DA | Text | Read only | DA auto-assignment (S1), at check-in | Shown with the token |
+| SA | Text | Read only | SA auto-assignment (S1), at check-in | Shown with the token |
 
 *Booked, seat QR:*
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
 | Mobile number | Phone | Yes | Typed, with the dial code | Today's order is looked up by it |
-| Purpose of visit | Option cards | Yes | Customer | Only buy or test drive continues to a DA |
+| Purpose of visit | Option cards | Yes | Customer | Only buy or test drive continues to an SA |
 | OTP | 6 digits | Yes | SMS, autofilled | 3 tries |
 | Existing order | Yes or no | Yes | Customer | Yes: today's order by the mobile |
 | Token | Text | Read only | Token service | Shown on check-in, and on the TV |
-| DA | Text | Read only | DA auto-assignment (S1), at check-in | Shown with the token |
+| SA | Text | Read only | SA auto-assignment (S1), at check-in | Shown with the token |
 
 *Walk-in, by staff:*
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
 | Mobile number | Phone | Yes | Typed, with the dial code | Checked for an existing lead and order |
-| Purpose of visit | Chips | Yes | Asked | Only buy or test drive continues to a DA |
+| Purpose of visit | Chips | Yes | Asked | Only buy or test drive continues to an SA |
 | OTP | 6 digits | Yes | User auth | 3 tries |
 | Existing order | Yes or no | Yes | Asked | — |
 | Email | Email | Yes | Typed | Valid format |
@@ -2313,14 +2293,14 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Financing after the TD | Radio | No | Asked | Might need finance from CARS24, don't need finance, own loan arranged |
 | Where did you hear about us? | Select | No | Asked | Market list |
 | Token | Text | Read only | Token service | Hub queue, in order |
-| DA | Text | Read only | DA auto-assignment (S1), at check-in | Shown with the token |
+| SA | Text | Read only | SA auto-assignment (S1), at check-in | Shown with the token |
 
 *Walk-in, seat QR:*
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
 | Mobile number | Phone | Yes | Typed, with the dial code | Checked for an existing lead and order |
-| Purpose of visit | Option cards | Yes | Customer | Only buy or test drive continues to a DA |
+| Purpose of visit | Option cards | Yes | Customer | Only buy or test drive continues to an SA |
 | OTP | 6 digits | Yes | SMS, autofilled | 3 tries |
 | Existing order | Yes or no | Yes | Customer | — |
 | Email | Email | Yes | Customer | Valid format |
@@ -2329,9 +2309,9 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Post code or area | Text | Yes | Customer | The market's address field |
 | Financing after the TD | Radio | No | Customer | Might need finance from CARS24, don't need finance, own loan arranged |
 | Where did you hear about us? | Select | No | Customer | Market list |
-| Licence front and back | Image | No | Phone camera, saved to Docs | Or shown to the DA at the car |
+| Licence front and back | Image | No | Phone camera, saved to Docs | Or shown to the SA at the car |
 | Token | Text | Read only | Token service | — |
-| DA | Text | Read only | DA auto-assignment (S1), at check-in | Shown with the token |
+| SA | Text | Read only | SA auto-assignment (S1), at check-in | Shown with the token |
 
 *Video TD:*
 
@@ -2349,7 +2329,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Check in | Opens the form | Step 1 |
 | Send OTP | User auth: OTP to the mobile typed | The OTP appears; Verify OTP replaces Send OTP |
 | Verify OTP | User auth verify | Step 2: existing order? |
-| Yes | Today's order found by the mobile. Proposed: visit.checked_in with channel = staff; token issued; DA auto-assignment and the Yardie's task start. DAP today: POST /customer-check-in/{customerId} | CHECKED IN, at once; I2 |
+| Yes | Today's order found by the mobile. Proposed: visit.checked_in with channel = staff; token issued; SA auto-assignment and the Yardie's task start. DAP today: POST /customer-check-in/{customerId} | CHECKED IN, at once; I2 |
 | No | Opens the basic details form | Details, then Check in |
 
 *Booked, seat QR:*
@@ -2359,7 +2339,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Scan the seat QR | Opens the hub's check-in page. Proposed: checkin.started | Mobile step |
 | Send code | User auth: OTP to the mobile | The code appears |
 | Verify and continue | User auth verify | Existing order? |
-| Yes | Today's order found by the mobile. Proposed: visit.checked_in with channel = qr; token issued; DA auto-assigned | CHECKED IN, at once |
+| Yes | Today's order found by the mobile. Proposed: visit.checked_in with channel = qr; token issued; SA auto-assigned | CHECKED IN, at once |
 | No | Opens the basic details form | Details, then Check in |
 | See my token | Opens the live token page | Token page |
 | Finish it for them | Opens the staff form with what the customer already filled | I1 by staff |
@@ -2372,7 +2352,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Send OTP | User auth: OTP to the mobile typed | The OTP appears |
 | Verify OTP | User auth verify | Existing order? |
 | No | Opens the basic details form | Details |
-| Check in (details) | Lead service: create the lead (dedupe on mobile); visit created; token issued; DA auto-assigned | CHECKED IN; I2 |
+| Check in (details) | Lead service: create the lead (dedupe on mobile); visit created; token issued; SA auto-assigned | CHECKED IN; I2 |
 
 *Walk-in, seat QR:*
 
@@ -2381,7 +2361,7 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | Scan the seat QR | Opens the hub's check-in page | Mobile step |
 | Send code, then Verify and continue | User auth: OTP and verify | Existing order? |
 | No | Opens the details form | Tell us about you |
-| Check in (details) | Lead service: create the lead (dedupe on mobile); visit created. Proposed: visit.checked_in with channel = qr; token issued; DA auto-assigned | CHECKED IN; I2 |
+| Check in (details) | Lead service: create the lead (dedupe on mobile); visit created. Proposed: visit.checked_in with channel = qr; token issued; SA auto-assigned | CHECKED IN; I2 |
 | Finish it for them | Opens the staff form with what was filled | I1 by staff |
 
 *Video TD:*
@@ -2398,8 +2378,8 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 | --- | --- |
 | Expected | Booked for today, not checked in |
 | Wrong OTP | Tries left shown; after 3, an Emirates ID check |
-| Checked in | Order shown with the Checked in pill; token and DA on the TV and WhatsApp |
-| Every DA busy | The token card says a DA is being assigned until the receptionist picks one (S1) |
+| Checked in | Order shown with the Checked in pill; token and SA on the TV and WhatsApp |
+| Every SA busy | The token card says an SA is being assigned until the receptionist picks one (S1) |
 
 *Booked, seat QR:*
 
@@ -2441,14 +2421,14 @@ Admit the customer, welcome them on camera and check them in on the call, in one
 
 **Purpose**
 
-Hospital logic. Every check-in gets a token. The ground TV and the customer's phone show where each token is: who the DA is, where the car is, what happens next. Nobody types a status. Each one comes from a staff action: the system assigns a DA, the Yardie moves the car, the DA meets the customer and starts the drive.
+Hospital logic. Every check-in gets a token. The ground TV and the customer's phone show where each token is: who the SA is, where the car is, what happens next. Nobody types a status. Each one comes from a staff action: the system assigns an SA, the Yardie moves the car, the SA meets the customer and starts the drive.
 
 **Trigger:** CHECKED IN (I1)
 
 **Data it reads and writes**
 
 - Token: one queue per hub and day, B for bookings and W for walk-ins, numbered in order
-- State events from the DA, the Yardie and the system
+- State events from the SA, the Yardie and the system
 - WhatsApp: the token and a live tracker link, for customers checked in by staff
 
 **Entry conditions**
@@ -2460,13 +2440,13 @@ Hospital logic. Every check-in gets a token. The ground TV and the customer's ph
 
 | When | Goes to | State |
 | --- | --- | --- |
-| A DA is assigned, automatically | S1 Assign DA | — |
+| An SA is assigned, automatically | S1 Assign SA | — |
 
 **Screen**
 
 - **Screen:** Ground TV + the customer's token page
 - **Build:** New
-- **Pattern:** A full-screen hub board (token, name, status, DA, car, waiting) and the same token on the customer's phone. Both are read-only and live; they change when staff act
+- **Pattern:** A full-screen hub board (token, name, status, SA, car, waiting) and the same token on the customer's phone. Both are read-only and live; they change when staff act
 - **Route:** `/test-drives/board?view=tv`
 - **Customer's phone:** 
   - *Booked and walk-in (UAE):* `cars24.ae/t/7Kq2Xw`
@@ -2483,11 +2463,11 @@ Hospital logic. Every check-in gets a token. The ground TV and the customer's ph
 | Part | Widget | What it does |
 | --- | --- | --- |
 | Ground TV | HUB_BOARD | Full-screen board for everyone in the hub; read-only |
-| This customer's token | BOARD_ROW | Status, DA, car and wait time. Each changes only when staff act |
+| This customer's token | BOARD_ROW | Status, SA, car and wait time. Each changes only when staff act |
 | Check-in QR | QR | For anyone who missed the one on their seat |
-| What the statuses mean | LEGEND | Waiting, DA coming, with your DA, car ready, on test drive |
+| What the statuses mean | LEGEND | Waiting, SA coming, with your SA, car ready, on test drive |
 | Token page | TOKEN_PAGE | The same token on the customer's phone, with their car. Opened from the check-in, or the WhatsApp link |
-| Your DA | INFO | Named from check-in, when the DA is auto-assigned |
+| Your SA | INFO | Named from check-in, when the SA is auto-assigned |
 | Finance next step | QR_CARD | From the financing answer at check-in and the pre-approval status |
 
 *Fields*
@@ -2496,8 +2476,8 @@ Hospital logic. Every check-in gets a token. The ground TV and the customer's ph
 | --- | --- | --- | --- | --- |
 | Token | Text | Read only | Token service | B for bookings, W for walk-ins, in order per hub and day |
 | Name | Text | Read only | Visit | First name and initial only |
-| Status | Chip | Read only | State events | Waiting, DA coming, with your DA, car ready, on test drive, wrapping up |
-| DA | Text | Read only | Auto-assignment (S1), at check-in | First name |
+| Status | Chip | Read only | State events | Waiting, SA coming, with your SA, car ready, on test drive, wrapping up |
+| SA | Text | Read only | Auto-assignment (S1), at check-in | First name |
 | Car | Text | Read only | Yard tasks (S2, O1) | In the yard, being prepped, on its way, at the hub, on the road |
 | Waiting | Minutes | Read only | Since check-in | Until the handshake; amber past 5 min |
 
@@ -2517,15 +2497,15 @@ Hospital logic. Every check-in gets a token. The ground TV and the customer's ph
 
 ### Phase S · Set up
 
-#### S1 · Assign DA
+#### S1 · Assign SA
 
 - **Tracks:** Booked, Walk-in
-- **Owner:** System. The receptionist steps in only when every DA is busy
+- **Owner:** System. The receptionist steps in only when every SA is busy
 - **Device:** Leadverse web
 
 **Purpose**
 
-Give the customer one DA, automatically, the moment they check in. The rule picks a DA who is free now and has room in today's slots. Only when every DA is busy or at their cap does a person assign one.
+Give the customer one SA, automatically, the moment they check in. The rule picks an SA who is free now and has room in today's slots. Only when every SA is busy or at their cap does a person assign one.
 
 **Trigger:** CHECKED IN
 
@@ -2533,15 +2513,15 @@ Give the customer one DA, automatically, the moment they check in. The rule pick
 
 *Booked:*
 
-- Pre-assigned DA from P8, if still free
-- DA roster: live status and today's slots
-- Daily TD capacity per DA
+- Pre-assigned SA from P8, if still free
+- SA roster: live status and today's slots
+- Daily TD capacity per SA
 - Token order: bookings at their slot time first, then tokens in order
 
 *Walk-in:*
 
-- DA roster: live status and today's slots
-- Daily TD capacity per DA
+- SA roster: live status and today's slots
+- Daily TD capacity per SA
 - Language match
 - Token order
 
@@ -2556,32 +2536,32 @@ Give the customer one DA, automatically, the moment they check in. The rule pick
 
 | When | Goes to | State |
 | --- | --- | --- |
-| A DA is free: assigned automatically, pushed to the DA, shown on the TV. Meanwhile the Yardie brings the car | S2 Car to the hub | DA ASSIGNED |
-| Every DA is busy or at their cap: the receptionist picks the next free DA by hand | S2 Car to the hub | DA ASSIGNED |
-| Still no DA after 10 min: manager alerted | M1 Live funnel | — |
+| An SA is free: assigned automatically, pushed to the SA, shown on the TV. Meanwhile the Yardie brings the car | S2 Car to the hub | SA ASSIGNED |
+| Every SA is busy or at their cap: the receptionist picks the next free SA by hand | S2 Car to the hub | SA ASSIGNED |
+| Still no SA after 10 min: manager alerted | M1 Live funnel | — |
 
 *Walk-in:*
 
 | When | Goes to | State |
 | --- | --- | --- |
-| A DA is free: assigned automatically, pushed to the DA, shown on the TV | T1 Handshake | DA ASSIGNED |
-| Every DA is busy or at their cap: the receptionist picks the next free DA by hand | T1 Handshake | DA ASSIGNED |
-| Still no DA after 10 min: manager alerted | M1 Live funnel | — |
+| An SA is free: assigned automatically, pushed to the SA, shown on the TV | T1 Interest and check-in | SA ASSIGNED |
+| Every SA is busy or at their cap: the receptionist picks the next free SA by hand | T1 Interest and check-in | SA ASSIGNED |
+| Still no SA after 10 min: manager alerted | M1 Live funnel | — |
 
-**State reached:** DA ASSIGNED
+**State reached:** SA ASSIGNED
 
 **Screen**
 
-- **Screen:** Visit › DA assignment
+- **Screen:** Visit › SA assignment
 - **Build:** Extend
-- **Pattern:** Auto-assignment card with the reason. When every DA is busy, a pick list (ManualAssignmentModal) with today's load and the queue position
+- **Pattern:** Auto-assignment card with the reason. When every SA is busy, a pick list (ManualAssignmentModal) with today's load and the queue position
 - **Route:** 
   - *Booked:* `/test-drives/BK-88213?stage=assign-da`
   - *Walk-in:* `/test-drives/VS-2041?stage=assign-da`
 
-**DAP today:** Manual assignment with BI-advisory ranking. Nothing blocks a DA who is at capacity.
+**DAP today:** Manual assignment with BI-advisory ranking. Nothing blocks an SA who is at capacity.
 
-**What changed:** Now automatic, by availability and today's slots, straight after check-in. Manual only when every DA is busy. DL verify no longer comes first.
+**What changed:** Now automatic, by availability and today's slots, straight after check-in. Manual only when every SA is busy. DL verify no longer comes first.
 
 **Anatomy**
 
@@ -2590,13 +2570,13 @@ Give the customer one DA, automatically, the moment they check in. The rule pick
 | Part | Widget | What it does |
 | --- | --- | --- |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | Car finding shows Assigning DA |
-| State | SEGMENTED | Prototype only: the automatic case and the every-DA-busy case |
-| Auto-assigned DA | ASSIGNMENT_CARD | Who, when and why; Change DA reopens the pick list |
+| Stage bar | STAGE_STEPPER | Car finding shows Assigning SA |
+| State | SEGMENTED | Prototype only: the automatic case and the every-SA-busy case |
+| Auto-assigned SA | ASSIGNMENT_CARD | Who, when and why; Change SA reopens the pick list |
 | The rule | INFO_LIST | Free now, under today's cap, a free slot for the next hour, then pre-assignment or language |
-| TV and push | INFO | The TV and the DA's tablet update on assignment |
-| Every DA busy | ALERT | Queue position and the expected wait |
-| Pick a DA | ASSIGN_LIST | ManualAssignmentModal; DAs at their cap or on a break can't be picked |
+| TV and push | INFO | The TV and the SA's tablet update on assignment |
+| Every SA busy | ALERT | Queue position and the expected wait |
+| Pick an SA | ASSIGN_LIST | ManualAssignmentModal; SAs at their cap or on a break can't be picked |
 | CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
 | Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
 
@@ -2604,24 +2584,24 @@ Give the customer one DA, automatically, the moment they check in. The rule pick
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| DA | Single select | Yes | The rule, or the receptionist when every DA is busy | At-cap and on-break DAs disabled |
-| Daily load | Count | Read only | DA roster | For example 6/10 today |
+| SA | Single select | Yes | The rule, or the receptionist when every SA is busy | At-cap and on-break SAs disabled |
+| Daily load | Count | Read only | SA roster | For example 6/10 today |
 | Queue position | Number | Read only | Token order | Bookings at their slot time first, then tokens in order |
 
 *Actions*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
-| Auto-assign (system) | Proposed: on visit.checked_in, pick by the rule; Leadverse assign-direct; push to the DA | DA ASSIGNED |
-| Pick a DA, when every DA is busy | Leadverse: POST .../tasks/{taskId}/assign-direct. DAP today: PUT work-order/assign-da | DA ASSIGNED |
-| Change DA | Reopens the pick list | DA ASSIGNED |
+| Auto-assign (system) | Proposed: on visit.checked_in, pick by the rule; Leadverse assign-direct; push to the SA | SA ASSIGNED |
+| Pick an SA, when every SA is busy | Leadverse: POST .../tasks/{taskId}/assign-direct. DAP today: PUT work-order/assign-da | SA ASSIGNED |
+| Change SA | Reopens the pick list | SA ASSIGNED |
 
 *Screen states*
 
 | State | Meaning |
 | --- | --- |
 | Auto-assigned | Nobody had to do anything |
-| Every DA busy | The token waits in line; the receptionist can pick the next free DA |
+| Every SA busy | The token waits in line; the receptionist can pick the next free SA |
 | Nobody in 10 min | Manager alerted (M1) |
 
 #### S2 · Car to the hub
@@ -2632,7 +2612,7 @@ Give the customer one DA, automatically, the moment they check in. The rule pick
 
 **Purpose**
 
-The booked car was prepped before the day and waits in the yard, about 500 m away. The moment the customer checks in, the Yardie gets a task to bring it to the hub. Once it is parked, the DA meets the customer, and that handshake starts the TD.
+The booked car was prepped before the day and waits in the yard, about 500 m away. The moment the customer checks in, the Yardie gets a task to bring it to the hub. Once it is parked, the SA meets the customer and the SA's task opens; the key handover starts the TD.
 
 **Trigger:** CHECKED IN (booked)
 
@@ -2640,7 +2620,7 @@ The booked car was prepped before the day and waits in the yard, about 500 m awa
 
 - Yard task: car, plate, yard spot, target bay
 - Prep done before the day (P8)
-- Token and DA, for the TV and the push
+- Token and SA, for the TV and the push
 
 **Entry conditions**
 
@@ -2651,8 +2631,8 @@ The booked car was prepped before the day and waits in the yard, about 500 m awa
 
 | When | Goes to | State |
 | --- | --- | --- |
-| Car parked at the hub: the DA is told and the TV shows Car ready. The DA goes to the customer: the handshake starts the TD | T1 Handshake and Start TD | CAR AT HUB |
-| The car can't be used (damage, flat battery): the DA offers another car or another day | N6 Book another TD | — |
+| Car parked at the hub: the SA is told and the TV shows Car ready. The SA meets the customer: the SA's task opens | T1 Interest and check-in | CAR AT HUB |
+| The car can't be used (damage, flat battery): the SA offers another car or another day | N6 Book another TD | — |
 
 **State reached:** CAR AT HUB
 
@@ -2660,7 +2640,7 @@ The booked car was prepped before the day and waits in the yard, about 500 m awa
 
 - **Screen:** Yard tasks (Yardie's phone) + ground TV
 - **Build:** New
-- **Pattern:** A Leadverse mobile task list for the Yardie: Picked up, then At the hub. Each tap updates the TV's car column and notifies the DA
+- **Pattern:** A Leadverse mobile task list for the Yardie: Picked up, then At the hub. Each tap updates the TV's car column and notifies the SA
 - **Route:** `/yard/tasks`
 
 **DAP today:** DAP has a prep user role for getting cars ready. Bringing a car from the yard, and its arrival at the hub, are not tracked.
@@ -2675,7 +2655,7 @@ The booked car was prepped before the day and waits in the yard, about 500 m awa
 | --- | --- | --- |
 | Ground TV | HUB_BOARD | Its car column follows the Yardie's taps |
 | This customer's token | BOARD_ROW | Car: in the yard, on its way, at the hub |
-| Yard task | TASK_CARD | Bring to the hub: car, plate, from the yard spot to a bay, with the token and the DA |
+| Yard task | TASK_CARD | Bring to the hub: car, plate, from the yard spot to a bay, with the token and the SA |
 
 *Fields*
 
@@ -2686,14 +2666,14 @@ The booked car was prepped before the day and waits in the yard, about 500 m awa
 | From | Yard spot | Read only | Yard map | — |
 | To | Bay | Read only | Hub bays | A free bay |
 | Picked up | Time | Yes | Yardie's tap | — |
-| At the hub | Time | Yes | Yardie's tap | Tells the DA and updates the TV |
+| At the hub | Time | Yes | Yardie's tap | Tells the SA and updates the TV |
 
 *Actions*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
 | Picked up, driving over | Proposed: yard.car_picked_up | TV: on its way |
-| Parked at the hub | Proposed: yard.car_at_hub; push to the DA | CAR AT HUB |
+| Parked at the hub | Proposed: yard.car_at_hub; push to the SA | CAR AT HUB |
 
 *Screen states*
 
@@ -2701,206 +2681,170 @@ The booked car was prepped before the day and waits in the yard, about 500 m awa
 | --- | --- |
 | Waiting for the Yardie | The task sits in To do |
 | On its way | About 3 min from the yard |
-| At the hub | The bay is shown to the DA and on the TV |
-| Can't be used | The DA is told to offer another car |
+| At the hub | The bay is shown to the SA and on the TV |
+| Can't be used | The SA is told to offer another car |
 
 ### Phase T · Tailor
 
-#### T1 · Handshake and Start TD / Handshake
+#### T1 · Interest and check-in
 
 - **Tracks:** Booked, Walk-in
-- **Owner:** DA
-- **Device:** Leadverse on the DA's tablet
+- **Owner:** SA
+- **Device:** Leadverse on the SA's tablet
 
 **Purpose**
 
 *Booked:*
 
-For a booking, the handshake is the start of the test drive. The car was chosen on the call and is already at the hub, so there is no car finding. The DA meets the customer at their seat, walks them to the car and taps Start TD: this creates the TD record and turns the recording on. The TD consent and the licence check follow.
+The SA's task opens on the customer, found by the check-in UUID. Check-in is the first tab; today's test drives, finance, wishlist, trade-in, coupons and notes sit in the others, so the SA meets the customer knowing everything.
 
 *Walk-in:*
 
-Only after a DA is assigned: the DA walks to the customer's seat, introduces themself and takes over. There is no handshake at check-in. Car finding starts here.
+The SA's task opens on the customer, found by the check-in UUID. Check-in is the first tab; finance, wishlist, trade-in, coupons and notes sit in the others. A walk-in has no test drive booked today.
 
-**Trigger:** 
-  - *Booked:* DA ASSIGNED and CAR AT HUB, both pushed to the DA's tablet
-  - *Walk-in:* DA ASSIGNED push on the DA's tablet
+**Trigger:** SA ASSIGNED (S1)
 
 **Data it reads and writes**
 
 *Booked:*
 
-- Visit context: token, seat, booking, language
-- Car and bay from the Yardie's task (S2)
-- Test-drive service: START_TEST_DRIVE
-- Odometer and fuel, entered by the DA
-- Recording consent, asked by the DA at the start
+- Check-in: UUID, token, seat, time, way (staff or seat QR), purpose
+- Lead: found by the check-in UUID
+- OMS: today's TD orders for the lead
+- Finance service: payment mode and pre-approval
+- Consumer app: wishlist
+- Trade-in on the lead
+- Coupons: code, value and validity
+- Notes from the booking call and the AI summary
 
 *Walk-in:*
 
-- Visit context: token, seat, language
-- Finance answer from check-in
+- Check-in: UUID, token, seat, time, way, purpose, the finance answer
+- Lead: created or matched at check-in by the UUID
+- Finance service: pre-approval, if any
+- Coupons: code, value and validity
+- Notes from check-in
 
 **Entry conditions**
 
-*Booked:*
-
-- DA ASSIGNED
-- CAR AT HUB
-- Car not in another active TD
-
-*Walk-in:*
-
-- DA ASSIGNED
-- DA status is Available
+- SA ASSIGNED
+- Check-in UUID matched to a lead
 
 **Exits**
 
-*Booked:*
-
 | When | Goes to | State |
 | --- | --- | --- |
-| DA meets the customer and taps Start TD: TD record created, recording on; the TV shows On test drive | O3 TD consent sign-off | TD STARTED |
-| Not met within 5 min: receptionist and manager alerted, DA reassigned | S1 Assign DA | — |
+| SA meets the customer: on to the licence | T2 Upload and verify the DL | MET CUSTOMER |
+| Not met within 5 min: receptionist and manager alerted, SA reassigned | S1 Assign SA | — |
 
-*Walk-in:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| DA taps Met customer; the TV shows them together | T2 Needs and cars | MET CUSTOMER |
-| Not met within 5 min: receptionist and manager alerted, DA reassigned | S1 Assign DA | — |
-
-**State reached:** 
-  - *Booked:* TD STARTED
-  - *Walk-in:* MET CUSTOMER
+**State reached:** MET CUSTOMER
 
 **Screen**
 
-- **Screen:** 
-  - *Booked:* Test drive › Handshake and start
-  - *Walk-in:* Test Drives › My queue (DA)
-- **Build:** Extend
-- **Pattern:** 
-  - *Booked:* The visit page: the waiting customer and the car at the hub, then the start form (odometer, fuel, route, recording). One tap is the handshake and the start
-  - *Walk-in:* DA's My queue with a waiting card (token, seat, car status) and a Met customer action
+- **Screen:** SA task › Interest
+- **Build:** New
+- **Pattern:** The visit page with tabs (NotchTabs): Check-in first, then Today's TD, Finance, Wishlist, Trade-in, Coupons and Notes. DLS components, little text
 - **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=test-drive&step=start`
-  - *Walk-in:* `/test-drives?view=my-queue`
+  - *Booked:* `/tasks/sa/BK-88213?page=interest`
+  - *Walk-in:* `/tasks/sa/VS-2041?page=interest`
 
-**DAP today:** 
-  - *Booked:* Hub work orders have MET_CUSTOMER; Start Test Drive sends START_TEST_DRIVE. Here one tap does both.
-  - *Walk-in:* Hub work orders already have MET_CUSTOMER (ASSIGNED, then MET_CUSTOMER).
+**DAP today:** DAP opens the SA's work order per booking; the customer's other TDs, finance and wishlist are not on it.
 
-**What changed:** 
-  - *Booked:* For a booking, the handshake is the start of the TD. No car finding: the car was chosen on the call and is already at the hub. Consent, licence and walkaround follow.
-  - *Walk-in:* Always after DA assignment, at the customer's seat. Never at check-in.
+**What changed:** One SA task per visit, found by the check-in UUID, with every TD of the day in it. Check-in is the first tab.
 
 **Anatomy**
 
 *Parts of the screen*
 
-*Booked:*
-
 | Part | Widget | What it does |
 | --- | --- | --- |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | TD live starts here: Handshake, starting |
-| Waiting customer | CARD | Who, which seat and token, and the booked car parked at the hub by the Yardie |
-| Car and driver | KEY_VALUES | The TD record's subject |
-| Odometer and fuel | DYNAMIC_FORM | Start reading |
-| Route | CHIPS | City or highway loop |
-| Recording consent | TOGGLE | Asked by the DA as the TD starts; switches AI notes and transcription on or off for the drive |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
+| Stage bar | STAGE_STEPPER | The SA's task: Check-in, SA, Interest, DL, Cars, Test drives, Checkout |
+| Tabs | @cspl/notch-tabs | Check-in first, then Today's TD, Finance, Wishlist, Trade-in, Coupons, Notes |
+| Checked in | @cspl/fetched-info-card | UUID, lead ID, token and seat, time and way, purpose, mobile, the SA, today's TDs |
+| CarGPT | CARGPT_PANEL | Folded to a strip: the line to open with |
 | Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Walk-in:*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Waiting customer | CARD | Who, which seat and token, walk-in, AI context |
-| I've met the customer | BUTTON | The handshake, at the customer's seat |
-| Later today | TABLE | The DA's other visits |
-| The rule | INFO | Only after assignment, never at check-in. 5 minutes, then the receptionist and the manager are alerted |
 
 *Fields*
 
-*Booked:*
-
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Odometer at start | Number (km) | Yes | Typed or photo | Not lower than the last reading |
-| Fuel | Single select | Yes | DA | 1/4, 1/2, 3/4, full |
-| Route | Single select | No | DA | City or highway loop |
-| Recording consent | Toggle | Yes | Asked by the DA at Start TD | Off if the customer says no; then only the tags are kept |
-
-*Walk-in:*
-
-| Field | Type | Required | Source | Rule |
-| --- | --- | --- | --- | --- |
-| Waiting | Timer | Read only | Since DA assigned | Red at 5 min |
+| Check-in UUID | Text | Read only | Check-in | Finds the lead |
+| Lead ID | Text | Read only | Lead, by the UUID | — |
+| Token and seat | Text | Read only | Check-in | — |
+| Checked in | Time and way | Read only | Check-in | By staff or from the seat QR |
+| Mobile | Phone | Read only | Check-in | OTP verified |
+| Today's TDs | Table | Read only | OMS | Order, car, slot, where the car is; empty for a walk-in |
+| Finance | Info card | Read only | Finance service | Payment mode, pre-approval, amount, repayment, validity, credit score |
+| Wishlist | Car cards | Read only | Consumer app | Price drops and today's TDs tagged |
+| Trade-in | Info card | No | Lead | Opted and the car; Add a trade-in |
+| Coupons | @cspl/coupon | Read only | Offers | Code, value and validity |
+| Notes | Text | No | Booking call, check-in, the SA | Add a note |
 
 *Actions*
 
-*Booked:*
-
 | Action | Calls / event | Result |
 | --- | --- | --- |
-| Met: start TD and recording | DAP today: MET_CUSTOMER, then START_TEST_DRIVE, in one tap. Proposed: recording and live transcription start; the TV shows On test drive | TD STARTED; O3 |
-
-*Walk-in:*
-
-| Action | Calls / event | Result |
-| --- | --- | --- |
-| I've met the customer | DAP today: work order to MET_CUSTOMER; the TV shows them together | MET CUSTOMER; T2 |
+| A tab | None | Stays here |
+| Save note | Lead notes | Stays here |
+| Next: the licence | Task: MET_CUSTOMER | T2 |
 
 *Screen states*
 
-*Booked:*
-
 | State | Meaning |
 | --- | --- |
-| Car not at the hub | Start disabled until CAR AT HUB |
-| Late | Not met within 5 min: the receptionist and the manager are alerted |
-| Customer said no to recording | The drive starts without it |
+| Booked | Today's TD lists the visit's orders |
+| Walk-in | Today's TD and the wishlist are empty states (@cspl/no-data-found) |
 
-*Walk-in:*
+#### T2 · Upload and verify the DL / Needs
 
-| State | Meaning |
-| --- | --- |
-| Waiting | Card with a running timer |
-| Late | At 5 min the receptionist and the manager are alerted |
-
-#### T2 · Needs and cars / Needs
-
-- **Tracks:** Walk-in, Video TD
+- **Tracks:** Booked, Walk-in, Video TD
 - **Owner:** 
-  - *Walk-in:* DA
+  - *Booked and walk-in:* SA
   - *Video TD:* VTD operator
 - **Device:** 
-  - *Walk-in:* Leadverse on the DA's tablet
+  - *Booked and walk-in:* Leadverse on the SA's tablet
   - *Video TD:* Leadverse web with a video panel
 
 **Purpose**
 
-*Walk-in:*
+*Booked and walk-in:*
 
-Find the car together, the same way as Discovery on the call: stepper pills for who it's for, budget, body type, fuel and gearbox, and must-haves, then the cars that match. Pick one or two to drive.
+Check the driving licence once, for every drive of the visit. The photos come from before the visit or the seat QR, or the SA takes them now; the details are read off the licence and the SA ticks the checks.
 
 *Video TD:*
 
 Understand what the customer needs before showing any car.
 
 **Trigger:** 
-  - *Walk-in:* Met customer
+  - *Booked and walk-in:* MET CUSTOMER
   - *Video TD:* Checked in on the call
 
 **Data it reads and writes**
 
-*Walk-in:*
+*Booked, by staff:*
 
-- Asked in conversation. Nothing to prefill
-- Listing service: live stock at this hub, not reserved
-- Recommendation model (BI)
+- Docs: the licence uploaded before the visit (P8)
+- OCR: name, number, expiry, state
+- The ID document name for the match
+
+*Booked, seat QR:*
+
+- Docs: the licence uploaded before the visit (P8), confirmed on the seat QR form
+- OCR: name, number, expiry, state
+- The ID document name for the match
+
+*Walk-in, by staff:*
+
+- The licence photographed now by the SA, front and back
+- OCR: name, number, expiry, state
+- Home-country licence if needed
+
+*Walk-in, seat QR:*
+
+- Docs: the licence photos from the seat QR form, if added
+- OCR: name, number, expiry, state
+- Home-country licence if needed
 
 *Video TD:*
 
@@ -2908,7 +2852,7 @@ Understand what the customer needs before showing any car.
 
 **Entry conditions**
 
-*Walk-in:*
+*Booked and walk-in:*
 
 - MET CUSTOMER
 
@@ -2918,12 +2862,12 @@ Understand what the customer needs before showing any car.
 
 **Exits**
 
-*Walk-in:*
+*Booked and walk-in:*
 
 | When | Goes to | State |
 | --- | --- | --- |
-| One or two cars picked from the matches | T4 Quality promise | — |
-| Nothing fits today: shortlist shared | N4 Schedule follow-up | FOLLOW-UP SCHEDULED |
+| Licence valid, name matches, not expired | T3 Today's orders or more cars | DL VERIFIED |
+| No valid licence: cars can be shown, no drive today; book one for later | N6 Book another TD | — |
 
 *Video TD:*
 
@@ -2931,41 +2875,45 @@ Understand what the customer needs before showing any car.
 | --- | --- | --- |
 | At least budget and body type captured | T3 Recommend and compare | — |
 
+**State reached:** 
+  - *Booked and walk-in:* DL VERIFIED
+
 **Screen**
 
 - **Screen:** 
-  - *Walk-in:* Car finding › Needs and cars
+  - *Booked and walk-in:* SA task › DL
   - *Video TD:* Car finding › Needs
 - **Build:** New
 - **Pattern:** 
-  - *Walk-in:* Stepper pills, one filter each, ending in the matching cars with select and a link to each car's page. The same component as P3 Discovery
+  - *Booked and walk-in:* FileUploadCard for the front and back, the details read off the licence (FetchedInfoCard) and the checks as checkboxes
   - *Video TD:* Journey stage Car finding, step Needs: DYNAMIC_FORM with chips
 - **Route:** 
-  - *Walk-in:* `/test-drives/VS-2041?stage=car-finding&step=needs`
+  - *Booked:* `/tasks/sa/BK-88213?page=dl`
+  - *Walk-in:* `/tasks/sa/VS-2041?page=dl`
   - *Video TD:* `/test-drives/BK-88190?stage=video&step=needs`
 
-**DAP today:** No needs capture in DAP. A walk-in's car is picked at the desk.
+**DAP today:** 
+  - *Booked and walk-in:* DAP uploads the licence inside the SA's test-drive checkout form, after the TD has started, once per drive.
+  - *Video TD:* No needs capture in DAP.
 
 **What changed:** 
-  - *Walk-in:* Needs are now stepper pills, like Discovery on the call, and end in the matching cars: recommend and compare are part of this step.
+  - *Booked and walk-in:* Once per visit, before any drive, right after meeting the customer. Not once per car.
 
 **Anatomy**
 
 *Parts of the screen*
 
-*Walk-in:*
+*Booked and walk-in:*
 
 | Part | Widget | What it does |
 | --- | --- | --- |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
 | Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
-| Source tag | TAG | Captured in conversation: nothing to prefill for a walk-in |
-| Stepper pills | STEPPER_PILLS | Who it's for, budget, body type, fuel and gearbox, must-haves, matches. The same component as P3 Discovery |
-| Filter step | CHIPS | One question per pill, with Next |
-| Matching cars | CAR_LIST | Live stock at this hub that fits, with a match score, select and a link to the car's page |
-| Compare | COMPARE_MODAL | Side by side for the matches |
+| Licence front and back | @cspl/file-upload-card | From the booking, the seat QR, or taken now |
+| Read from the licence | @cspl/fetched-info-card | Name, number, expiry, issuer, once both sides are in |
+| Checks | @cspl/checkbox | Name matches, not expired, photo matches |
 | CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
+| Footer actions | SHELL_CTAS | Verified: the cars stays off until both sides are in and all three checks are ticked |
 
 *Video TD:*
 
@@ -2979,18 +2927,13 @@ Understand what the customer needs before showing any car.
 
 *Fields*
 
-*Walk-in:*
+*Booked and walk-in:*
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Who it's for | Single select | No | Asked | — |
-| Mostly for | Multi select | No | Asked | — |
-| Budget | Single select | Yes | Asked | AED bands |
-| Paying by | Single select | No | Asked | Cash, finance, not sure |
-| Body type | Multi select | Yes | Asked | — |
-| Fuel and gearbox | Single select | No | Asked | — |
-| Must-haves | Multi select | No | Asked | — |
-| Cars picked | Multi select | Yes | Matches | One or two, live stock at this hub |
+| Licence front and back | File | Yes | [object Object] | JPG, PNG or PDF |
+| Name, licence no., expiry, issuer | Text | Read only | OCR | — |
+| Checks | Tick | Yes, all three | SA | Name against the booking or the ID, expiry, the photo |
 
 *Video TD:*
 
@@ -3006,15 +2949,13 @@ Understand what the customer needs before showing any car.
 
 *Actions*
 
-*Walk-in:*
+*Booked and walk-in:*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
-| Next (in each pill) | Recommendation model with the filters so far | The next pill |
-| Car page | Opens the car on the consumer website, in a new tab | Stays here |
-| Compare | Compare modal | Stays here |
-| Next: why this car | Hold the picked cars | T4 |
-| Nothing fits: share shortlist | Notification engine | N4 |
+| Use a sample (upload) | Docs: the licence on the lead | Stays here |
+| Verified: the cars | Lead: DL VERIFIED, once for the visit | T3 |
+| No valid licence | None: no drive today | N6 |
 
 *Video TD:*
 
@@ -3024,12 +2965,12 @@ Understand what the customer needs before showing any car.
 
 *Screen states*
 
-*Walk-in:*
+*Booked and walk-in:*
 
 | State | Meaning |
 | --- | --- |
-| No match | Loosen a filter |
-| Car busy | A car in another TD shows when it is free |
+| To verify | Badge To verify |
+| Verified | Badge Verified; Next on |
 
 *Video TD:*
 
@@ -3038,19 +2979,52 @@ Understand what the customer needs before showing any car.
 | Prefilled | Starts from the booking |
 | Missing | Show matching cars stays disabled until budget and body type are set |
 
-#### T3 · Recommend and compare
+#### T3 · Today's orders or more cars / Recommend and compare
 
-- **Tracks:** Video TD
-- **Owner:** VTD operator, sharing their screen
-- **Device:** Leadverse web with a video panel
+- **Tracks:** Booked, Walk-in, Video TD
+- **Owner:** 
+  - *Booked and walk-in:* SA
+  - *Video TD:* VTD operator, sharing their screen
+- **Device:** 
+  - *Booked and walk-in:* Leadverse on the SA's tablet
+  - *Video TD:* Leadverse web with a video panel
 
 **Purpose**
 
+*Booked:*
+
+Two tabs: today's orders, and more cars to discover. Most bookings go ahead with today's orders; a car found here joins the visit as one more order.
+
+*Walk-in:*
+
+Two tabs: today's orders, empty for a walk-in, and more cars to discover. Each car picked becomes an order for the current slot, and the Yardie gets a prep request.
+
+*Video TD:*
+
 Show the cars that fit, side by side, over screen share.
 
-**Trigger:** Needs captured
+**Trigger:** 
+  - *Booked and walk-in:* DL VERIFIED
+  - *Video TD:* Needs captured
 
 **Data it reads and writes**
+
+*Booked:*
+
+- OMS: today's TD orders for the lead
+- Yard: where each car is (at the hub, in the yard)
+- Listing: live stock at this hub, not reserved
+- Wishlist and the needs from the call
+
+*Walk-in:*
+
+- Listing: live stock at this hub, not reserved
+- Recommendation model (BI)
+- Slot planner: the current slot
+- OMS: create an order per car picked
+- Yard task: prep and bring each car
+
+*Video TD:*
 
 - Listing service: live stock, not reserved
 - Recommendation model (BI)
@@ -3058,27 +3032,86 @@ Show the cars that fit, side by side, over screen share.
 
 **Entry conditions**
 
+*Booked:*
+
+- DL VERIFIED
+- At least one TD order today
+
+*Walk-in:*
+
+- DL VERIFIED
+
+*Video TD:*
+
 - Needs captured, or the booked car is known
 
 **Exits**
+
+*Booked:*
+
+| When | Goes to | State |
+| --- | --- | --- |
+| Today's orders kept, any new car added as an order | O1 Conduct the test drives | ORDERS CONFIRMED |
+| Nothing fits today: shortlist shared | N4 Schedule follow-up | FOLLOW-UP SCHEDULED |
+
+*Walk-in:*
+
+| When | Goes to | State |
+| --- | --- | --- |
+| Cars picked: an order each for the current slot, prep requested | O1 Conduct the test drives | ORDER BOOKED |
+| Nothing fits today: shortlist shared | N4 Schedule follow-up | FOLLOW-UP SCHEDULED |
+
+*Video TD:*
 
 | When | Goes to | State |
 | --- | --- | --- |
 | A car chosen to see on camera | T4 Quality promise | — |
 | Nothing fits today: shortlist shared | N4 Schedule follow-up | FOLLOW-UP SCHEDULED |
 
+**State reached:** 
+  - *Booked:* ORDERS CONFIRMED
+  - *Walk-in:* ORDER BOOKED
+
 **Screen**
 
-- **Screen:** Car finding › Cars
-- **Build:** Extend
-- **Pattern:** Car rows with order ID and match reason, like the TD Journey booked list
-- **Route:** `/test-drives/BK-88190?stage=video&step=cars`
+- **Screen:** 
+  - *Booked and walk-in:* SA task › Cars
+  - *Video TD:* Car finding › Cars
+- **Build:** 
+  - *Booked and walk-in:* New
+  - *Video TD:* Extend
+- **Pattern:** 
+  - *Booked and walk-in:* SegmentTabs: Today's orders and Discover more cars. Each car a CarContextCard with a checkbox; picking one in Discover creates its order
+  - *Video TD:* Car rows with order ID and match reason, like the TD Journey booked list
+- **Route:** 
+  - *Booked:* `/tasks/sa/BK-88213?page=cars`
+  - *Walk-in:* `/tasks/sa/VS-2041?page=cars`
+  - *Video TD:* `/test-drives/BK-88190?stage=video&step=cars`
 
-**DAP today:** DAP's compare-car tool, used at the desk.
+**DAP today:** 
+  - *Booked and walk-in:* A walk-in's car is picked and booked at the desk before the SA sees them. A booking shows one car.
+  - *Video TD:* DAP's compare-car tool, used at the desk.
+
+**What changed:** 
+  - *Booked and walk-in:* Today's orders and more cars in one place. A booked customer keeps their cars; a new car joins the same visit as one more order.
 
 **Anatomy**
 
 *Parts of the screen*
+
+*Booked and walk-in:*
+
+| Part | Widget | What it does |
+| --- | --- | --- |
+| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
+| Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
+| Today's orders or more cars | @cspl/segment-tabs | Today's orders first for a booking, Discover first for a walk-in |
+| Today's orders | @cspl/car-context-card + @cspl/checkbox | Kept by default |
+| Discover more cars | @cspl/chip + @cspl/car-context-card | The needs as filter chips, then live stock with a match score; ticking a car adds it to the visit |
+| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
+| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
+
+*Video TD:*
 
 | Part | Widget | What it does |
 | --- | --- | --- |
@@ -3090,12 +3123,32 @@ Show the cars that fit, side by side, over screen share.
 
 *Fields*
 
+*Booked and walk-in:*
+
+| Field | Type | Required | Source | Rule |
+| --- | --- | --- | --- | --- |
+| Today's orders | Multi select | Yes, at least one car | OMS | Kept by default |
+| Cars to add | Multi select | No | Listing: live stock at this hub | Each becomes an order for now |
+| Filters | Chips | No | Needs from the call or asked | — |
+
+*Video TD:*
+
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
 | To see | Tick | Yes | Operator | One car on camera at a time |
 | Match | Percent | Read only | Recommendation model | With the reason |
 
 *Actions*
+
+*Booked and walk-in:*
+
+| Action | Calls / event | Result |
+| --- | --- | --- |
+| Tick a car in Discover | OMS: create the order for the current slot (booking-initiate, booking-confirm); Yard: prep and bring | Stays here |
+| Next: the test drives | None | O1 |
+| Nothing fits: share shortlist | Notification engine | N4 |
+
+*Video TD:*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
@@ -3105,19 +3158,25 @@ Show the cars that fit, side by side, over screen share.
 
 *Screen states*
 
+*Booked and walk-in:*
+
+| State | Meaning |
+| --- | --- |
+| Booked | Today's orders first, both kept |
+| Walk-in | Discover first; each pick is an order booked now |
+| Car busy | A car in another TD shows when it is free |
+
+*Video TD:*
+
 | State | Meaning |
 | --- | --- |
 | Booked car pinned | Booked tag on the booked car |
 
 #### T4 · Quality promise
 
-- **Tracks:** Walk-in, Video TD
-- **Owner:** 
-  - *Walk-in:* DA, with the customer
-  - *Video TD:* VTD operator, sharing their screen
-- **Device:** 
-  - *Walk-in:* Leadverse on the DA's tablet
-  - *Video TD:* Leadverse web with a video panel
+- **Tracks:** Video TD
+- **Owner:** VTD operator, sharing their screen
+- **Device:** Leadverse web with a video panel
 
 **Purpose**
 
@@ -3138,15 +3197,6 @@ Give the customer reasons to trust this car before the drive.
 
 **Exits**
 
-*Walk-in:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Customer wants to drive now | T5 Book now and request prep | — |
-| Wants to think: shortlist shared | N4 Schedule follow-up | FOLLOW-UP SCHEDULED |
-
-*Video TD:*
-
 | When | Goes to | State |
 | --- | --- | --- |
 | Customer wants to see the car on video now | T5 Confirm cars | — |
@@ -3156,35 +3206,12 @@ Give the customer reasons to trust this car before the drive.
 
 - **Screen:** Car finding › Quality promise
 - **Build:** New
-- **Pattern:** 
-  - *Walk-in:* The visit layout: lead pane, the promise in the middle column (the car, then inspection, warranty and return, finance in three columns), CarGPT on the right
-  - *Video TD:* Shared on screen: info cards
-- **Route:** 
-  - *Walk-in:* `/test-drives/VS-2041?stage=car-finding&step=promise`
-  - *Video TD:* `/test-drives/BK-88190?stage=video&step=promise`
-
-**What changed:** 
-  - *Walk-in:* Now in the visit layout, in the middle column, instead of a separate customer screen.
+- **Pattern:** Shared on screen: info cards
+- **Route:** `/test-drives/BK-88190?stage=video&step=promise`
 
 **Anatomy**
 
 *Parts of the screen*
-
-*Walk-in:*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
-| The car | CAR_HEADER | Title, price, odometer, body, where it will be, and the inspection score |
-| Inspected | INFO_COLUMN | This car's own inspection, check by check, with the full report |
-| Warranty and return | INFO_COLUMN | Warranty, return window, service history, fixed price |
-| Finance | INFO_COLUMN | A monthly estimate, how they pay, and the pre-approval status |
-| Turn to the customer | INFO | The DA shows the tablet and talks it through |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Video TD:*
 
 | Part | Widget | What it does |
 | --- | --- | --- |
@@ -3193,148 +3220,50 @@ Give the customer reasons to trust this car before the drive.
 | Why CARS24 | INFO_CARDS | Inspected, warranty, return window, finance |
 | Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
 
-*Fields*
-
-*Walk-in:*
-
-| Field | Type | Required | Source | Rule |
-| --- | --- | --- | --- | --- |
-| Monthly estimate | Money | Read only | Finance calculator | Example only |
-| Pre-approval | Status | Read only | Finance service | From check-in |
-
 *Actions*
-
-*Walk-in:*
-
-| Action | Calls / event | Result |
-| --- | --- | --- |
-| Drive it now: book the slot | None | T5 |
-| Wants to think: share shortlist | Notification engine | N4 |
-| Full report | Opens the inspection report | Stays here |
-
-*Video TD:*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
 | Show the car on camera | None | T5 |
 | Wants to think | None | N4 |
 
-*Screen states*
+#### T5 · Confirm cars
 
-*Walk-in:*
-
-| State | Meaning |
-| --- | --- |
-| Marks noted | Shown as a note, not hidden |
-| Not pre-approved | Shows the 2-minute pre-approval |
-
-#### T5 · Book now and request prep / Confirm cars
-
-- **Tracks:** Walk-in, Video TD
-- **Owner:** 
-  - *Walk-in:* DA
-  - *Video TD:* VTD operator
-- **Device:** 
-  - *Walk-in:* Leadverse on the DA's tablet
-  - *Video TD:* Leadverse web with a video panel
+- **Tracks:** Video TD
+- **Owner:** VTD operator
+- **Device:** Leadverse web with a video panel
 
 **Purpose**
 
-*Walk-in:*
-
-Book the current slot for the chosen car. That creates the order, booked for a TD, and sends the Yardie a prep request. The customer waits on their token until the car is at the hub.
-
-*Video TD:*
-
 Confirm which car goes on camera.
 
-**Trigger:** 
-  - *Walk-in:* Customer wants to drive now
-  - *Video TD:* Customer picks the car to see
+**Trigger:** Customer picks the car to see
 
 **Data it reads and writes**
-
-*Walk-in:*
-
-- Slot planner: today's slots at this hub; the current one is picked
-- OMS: create the order (car + customer), booked for a TD
-- Yard task: prep the car and bring it to a bay
-- Listing: hold the car for the TD window
-
-*Video TD:*
 
 - OMS order
 - Yard helper task: car on camera
 
 **Entry conditions**
 
-*Walk-in:*
-
-- Car chosen
-- Customer wants to drive now
-- The current slot has room
-
-*Video TD:*
-
 - Car chosen
 
 **Exits**
-
-*Walk-in:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Current slot booked, order created, prep requested; the customer waits on their token until the car is at the hub | O1 Yard prep and bring | ORDER BOOKED |
-| Car is in another TD: pick again | T2 Needs and cars | — |
-| No room in the current slot: book a later one today | N6 Book another TD | — |
-
-*Video TD:*
 
 | When | Goes to | State |
 | --- | --- | --- |
 | Car confirmed, helper has it on camera | O5 Walkaround | — |
 
-**State reached:** 
-  - *Walk-in:* ORDER BOOKED
-
 **Screen**
 
-- **Screen:** 
-  - *Walk-in:* Car finding › Book now
-  - *Video TD:* Car finding › Confirm
-- **Build:** 
-  - *Walk-in:* New
-  - *Video TD:* Extend
-- **Pattern:** 
-  - *Walk-in:* Three blocks, one tap: the current slot, the new order booked for a TD, and the yard prep request. Reuses booking-initiate and booking-confirm
-  - *Video TD:* Journey step with the car on camera
-- **Route:** 
-  - *Walk-in:* `/test-drives/VS-2041?stage=car-finding&step=book`
-  - *Video TD:* `/test-drives/BK-88190?stage=video&step=confirm`
-
-**DAP today:** 
-  - *Walk-in:* booking-initiate, then booking-confirm on OMS, done by the receptionist before check-in.
-
-**What changed:** 
-  - *Walk-in:* One tap books the current slot, creates the order for the TD and requests the prep. No licence check here: it is at O4, after Start TD and the consent.
+- **Screen:** Car finding › Confirm
+- **Build:** Extend
+- **Pattern:** Journey step with the car on camera
+- **Route:** `/test-drives/BK-88190?stage=video&step=confirm`
 
 **Anatomy**
 
 *Parts of the screen*
-
-*Walk-in:*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | Car finding shows Booking the slot |
-| The current slot | SLOT_PICKER | Today's slots at this hub; past ones greyed, the current one picked |
-| The order | CAR_ROW | The new order ID on the car, booked for a TD |
-| Prep request | TASK_CARD | To the Yardie: from the yard spot to a bay, with the prep checklist |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Video TD:*
 
 | Part | Widget | What it does |
 | --- | --- | --- |
@@ -3343,250 +3272,65 @@ Confirm which car goes on camera.
 | Car on camera | KEY_VALUES | Car, studio, yard helper, order |
 | Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
 
-*Fields*
-
-*Walk-in:*
-
-| Field | Type | Required | Source | Rule |
-| --- | --- | --- | --- | --- |
-| Slot | Time | Yes | Slot planner | The current one by default; another slot today if it is full |
-| Car | Car | Read only | Picked in T2 | — |
-| Prep checklist | Ticks | Read only | Yard task template | Wash, inside wipe, fuel at least half, tyres |
-
 *Actions*
-
-*Walk-in:*
-
-| Action | Calls / event | Result |
-| --- | --- | --- |
-| Book, create order, request prep | Slot planner: book the slot. OMS booking-initiate, then booking-confirm. Proposed: yard.prep_requested to the Yardie | ORDER BOOKED; O1 |
-| Car is in another TD: pick again | None | T2 |
-| No room now: book later today | Slot planner | N6 |
-
-*Video TD:*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
 | Start the walkaround | None | O5 |
 
-*Screen states*
-
-*Walk-in:*
-
-| State | Meaning |
-| --- | --- |
-| Current slot full | The next free slot today is picked instead |
-| Yard busy | The ETA from the Yardie shows on the prep request |
-
 ### Phase O · On the road
 
-#### O1 · Yard prep and bring
-
-- **Tracks:** Walk-in
-- **Owner:** Yardie
-- **Device:** Ground TV + the customer's phone
-
-**Purpose**
-
-A walk-in's car was not expected, so it needs a quick prep first: a wash, a wipe inside, fuel and tyres. Then the Yardie brings it from the yard to the hub. Meanwhile the customer waits on their token, with the car's ETA on the TV and their phone.
-
-**Trigger:** Prep requested with the booking (T5)
-
-**Data it reads and writes**
-
-- Yard task: prep checklist, car, plate, yard spot, target bay
-- Order from T5
-- Token and DA, for the TV, the token page and the push
-
-**Entry conditions**
-
-- ORDER BOOKED for the current slot
-- Car held for today
-
-**Exits**
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Prepped and parked at the hub: the DA is told to go back to the customer; the TV shows Car ready | O2 Start TD | CAR AT HUB |
-| Prep finds a problem: the DA is told to pick another car | T2 Needs and cars | — |
-
-**State reached:** CAR AT HUB
-
-**Screen**
-
-- **Screen:** Yard tasks (Yardie's phone) + ground TV
-- **Build:** New
-- **Pattern:** The Yardie's task list: a prep checklist, then Picked up and At the hub. Each tap updates the TV's car column and wait time, and notifies the DA
-- **Route:** `/yard/tasks`
-
-**What changed:** New persona step: once a walk-in's car is chosen, the Yardie preps it and brings it to the hub while the customer waits on their token.
-
-**Anatomy**
-
-*Parts of the screen*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Ground TV | HUB_BOARD | Its car column follows the Yardie's taps |
-| This customer's token | BOARD_ROW | Car: being prepped, prepped, on its way, at the hub |
-| Yard task | TASK_CARD | Prep and bring: a quick checklist, then the drive over. The customer waits on their token meanwhile |
-
-*Fields*
-
-| Field | Type | Required | Source | Rule |
-| --- | --- | --- | --- | --- |
-| Checklist | Ticks | Yes | Yardie | Wash, inside wipe, fuel at least half, tyres |
-| Prep done | Time | Yes | Yardie's tap | — |
-| Picked up | Time | Yes | Yardie's tap | — |
-| At the hub | Time | Yes | Yardie's tap | Tells the DA and updates the TV |
-
-*Actions*
-
-| Action | Calls / event | Result |
-| --- | --- | --- |
-| Prep done | Proposed: yard.prep_done | TV: prepped |
-| Picked up, driving over | Proposed: yard.car_picked_up | TV and token page: car in about 3 min |
-| Parked at the hub | Proposed: yard.car_at_hub; the DA is told to go back to the customer | CAR AT HUB; O2 |
-
-*Screen states*
-
-| State | Meaning |
-| --- | --- |
-| Prep found a problem | The DA is told to pick another car (T3) |
-| Late | Past 15 min: the DA sees the ETA and can swap |
-
-#### O2 · Start TD
-
-- **Tracks:** Walk-in
-- **Owner:** DA
-- **Device:** Leadverse on the DA's tablet
-
-**Purpose**
-
-The car is at the hub, so the DA goes back to the customer, meets them again and starts the test drive. Starting it creates the TD record and turns the recording on. (A booking starts at the handshake, T1.)
-
-**Trigger:** CAR AT HUB push: the car is ready and the customer is waiting on their token
-
-**Data it reads and writes**
-
-- Test-drive service: START_TEST_DRIVE
-- Car and bay from the yard task
-- Odometer and fuel, entered by the DA
-- Recording consent, asked by the DA at the start
-
-**Entry conditions**
-
-- CAR AT HUB
-- Car not in another active TD
-
-**Exits**
-
-| When | Goes to | State |
-| --- | --- | --- |
-| TD record created and the recording on; the TV shows On test drive | O3 TD consent sign-off | TD STARTED |
-
-**State reached:** TD STARTED
-
-**Screen**
-
-- **Screen:** Test drive › Start
-- **Build:** Extend
-- **Pattern:** The waiting customer and the ready car, then the start form: odometer, fuel, route, recording
-- **Route:** `/test-drives/BK-89004?stage=test-drive&step=start`
-
-**DAP today:** Start Test Drive sends START_TEST_DRIVE. DAP has no recording.
-
-**What changed:** Start TD is now the moment the DA meets the customer at the car and starts the recording. It comes before the consent and the licence check.
-
-**Anatomy**
-
-*Parts of the screen*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | TD live starts here: Starting, recording |
-| Back to the customer | CARD | The car reached the hub, so the DA was told to go back: who, which seat and token, where the car is |
-| Car and driver | KEY_VALUES | The TD record's subject |
-| Odometer and fuel | DYNAMIC_FORM | Start reading |
-| Route | CHIPS | City or highway loop |
-| Recording consent | TOGGLE | Asked by the DA as the TD starts; switches AI notes and transcription on or off for the drive |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Fields*
-
-| Field | Type | Required | Source | Rule |
-| --- | --- | --- | --- | --- |
-| Odometer at start | Number (km) | Yes | Typed or photo | Not lower than the last reading |
-| Fuel | Single select | Yes | DA | 1/4, 1/2, 3/4, full |
-| Route | Single select | No | DA | City or highway loop |
-| Recording consent | Toggle | Yes | Asked by the DA at Start TD | Off if the customer says no; then only the tags are kept |
-
-*Actions*
-
-| Action | Calls / event | Result |
-| --- | --- | --- |
-| Start TD and recording | DAP today: test-drive-status START_TEST_DRIVE. Proposed: recording and live transcription start; the TV shows On test drive | TD STARTED; O3 |
-
-*Screen states*
-
-| State | Meaning |
-| --- | --- |
-| Car not at the hub | Start disabled until CAR AT HUB |
-| Car busy | A car in another active TD blocks the start |
-| Customer said no to recording | The drive starts without it |
-
-#### O3 · TD consent sign-off
+#### O1 · Conduct the test drives
 
 - **Tracks:** Booked, Walk-in
-- **Owner:** Customer, on the DA's tablet
-- **Device:** Leadverse on the DA's tablet
+- **Owner:** SA, with the Yardie bringing each car
+- **Device:** Leadverse on the SA's tablet
 
 **Purpose**
 
-The customer signs the TD consent for this car, right after the drive is started and before the car moves. The DA hands over the tablet; the consent sits in the middle of the visit page.
+Every order of the visit has its own section with a stepper: walkthrough, key handover (the TD starts: consent and recording), TD done, then the disposition. A customer who wants to pay a deposit goes to the checkout for that car. A second or third order runs the same way, below the first.
 
-**Trigger:** TD STARTED
+**Trigger:** 
+  - *Booked:* ORDERS CONFIRMED
+  - *Walk-in:* ORDER BOOKED
 
 **Data it reads and writes**
 
-*Booked:*
-
-- TD record from the handshake (T1): car, plate, start time, odometer
-- E-sign: signature pad, signed PDF saved to Docs
-
-*Walk-in:*
-
-- TD record from Start TD (O2): car, plate, start time, odometer
-- E-sign: signature pad, signed PDF saved to Docs
+- OMS: the visit's orders, one section each
+- Yard: car ready and its bay
+- Test-drive service: START_TEST_DRIVE at the key handover, COMPLETE_TEST_DRIVE at TD done
+- E-sign: TD consent per car; recording consent, asked at the key handover
+- Odometer at the start
+- Disposition per order
 
 **Entry conditions**
 
-- TD STARTED
-- Customer at the car
+- The visit's orders confirmed
+- DL VERIFIED
 
 **Exits**
 
 | When | Goes to | State |
 | --- | --- | --- |
-| Signed: on to the licence check | O4 DL verify | TD CONSENT SIGNED |
-| Customer refuses: TD cancelled, reason logged | N1 Debrief and decision | — |
+| Disposition Pay deposit on an order: Start checkout for that car | N2 Checkout | TD CONDUCTED |
+| Needs time: date agreed | N4 Schedule follow-up | FOLLOW-UP SCHEDULED |
+| Wants another car: discover more in the same task | T3 Today's orders or more cars | — |
+| Not interested | N7 Close as dropped | DROPPED |
 
-**State reached:** TD CONSENT SIGNED
+**State reached:** TD CONDUCTED
 
 **Screen**
 
-- **Screen:** Test drive › Consent
+- **Screen:** SA task › Test drives
 - **Build:** New
-- **Pattern:** The visit layout with the consent in the middle column: the TD details, then the terms and the signature pad side by side. E-sign as an IFRAME_RENDERER micro-app (documentQcIframeBridge is the precedent)
+- **Pattern:** One SectionCard per order with a Stepper: Walkthrough, Key handover, TD done, Disposition, Checkout. The current step's controls under it
 - **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=test-drive&step=consent`
-  - *Walk-in:* `/test-drives/BK-89004?stage=test-drive&step=consent`
+  - *Booked:* `/tasks/sa/BK-88213?page=test-drives`
+  - *Walk-in:* `/tasks/sa/VS-2041?page=test-drives`
 
-**DAP today:** The declaration e-sign unlocks after Start Test Drive but is only enforced at Mark Test Drive Complete, so today a customer can drive before signing. Here it gates the drive. VTD needs none.
+**DAP today:** One work order per booking: Start Test Drive, the declaration, Mark Test Drive Complete and the checkout form, booking by booking.
 
-**What changed:** Signed right after Start TD, then the licence. One consent per car. Now in the middle column of the visit page, not a separate customer screen.
+**What changed:** Every TD of the visit in one page, a section per order. The key handover starts the TD; the disposition is per car.
 
 **Anatomy**
 
@@ -3595,165 +3339,55 @@ The customer signs the TD consent for this car, right after the drive is started
 | Part | Widget | What it does |
 | --- | --- | --- |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | TD live shows Consent |
-| Hand over | TAG | The customer signs on the DA's tablet |
-| TD details | KEY_VALUES | Driver, car and plate, start time and odometer, the DA |
-| Terms | TERMS | What the customer agrees to; example terms for the prototype |
-| Signature | SIGNATURE_PAD | Signed with a finger, next to the terms |
-| I agree | CHECKBOX | Required with the signature |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | Next (Signed: check the licence) stays disabled until signed and ticked. Customer declines is under the arrow |
+| Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
+| The visit's TDs | @cspl/section-card | One card per order: the order, the car, the slot and the bay, and its status |
+| TD stepper | @cspl/stepper | Walkthrough, Key handover, TD done, Disposition, Checkout; the time under each step done |
+| CarGPT | CARGPT_PANEL | Folded to a strip |
+| Footer actions | SHELL_CTAS | Next is the checkout of the order with Pay deposit; follow-up, another day and more cars are under the arrow |
 
 *Fields*
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Signature | Drawing | Yes | Customer | Not empty |
-| I agree | Checkbox | Yes | Customer | — |
+| Walkthrough zones | @cspl/chip | No | SA | Exterior, interior, engine bay, boot |
+| TD consent | @cspl/checkbox | Yes | Customer, e-sign | One per car; the key handover stays off until it is ticked |
+| Recording consent | @cspl/checkbox | No | Customer, asked by the SA | No means AI notes off |
+| Odometer and fuel | @cspl/text-input | Yes | SA | At the key handover |
+| Disposition | @cspl/choice-tile | Yes, per car | SA | Pay deposit, Needs time, Another car, Not interested |
 
 *Actions*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
-| Signed: check the licence | Proposed: e-sign service saves the signed PDF to Docs; td.consent_signed event | TD CONSENT SIGNED; O4 |
-| Customer declines: cancel the TD | DAP today: CANCEL_TEST_DRIVE with a reason | N1 |
+| Walkthrough done | None | Stays here |
+| Hand over the key: start TD | Test-drive service: START_TEST_DRIVE; recording on if agreed | TD STARTED |
+| TD done | Test-drive service: COMPLETE_TEST_DRIVE | TD CONDUCTED |
+| Start checkout (Pay deposit) | None | N2, for that order |
+| Needs time | Follow-up task | N4 |
+| Another car | None | T3 |
+| Not interested | Disposition with a reason | N7 |
 
 *Screen states*
 
 | State | Meaning |
 | --- | --- |
-| Unsigned | Next disabled |
-| Signed | On to the licence check; the PDF goes to Documents and to the customer |
-
-#### O4 · DL verify
-
-- **Tracks:** Booked, Walk-in
-- **Owner:** DA
-- **Device:** Leadverse on the DA's tablet
-
-**Purpose**
-
-Check the driving licence after the consent, before the car moves. Car finding and starting the TD don't need a licence; driving does.
-
-**Trigger:** TD consent signed
-
-**Data it reads and writes**
-
-*Booked, by staff:*
-
-- Docs: DL uploaded before the visit (P8)
-- OCR: name, number, expiry
-- Emirates ID name for the match
-
-*Booked, seat QR:*
-
-- Docs: DL uploaded before the visit (P8), confirmed on the seat QR form
-- OCR: name, number, expiry
-- Emirates ID name for the match
-
-*Walk-in, by staff:*
-
-- DL scanned now by the DA, front and back
-- OCR: name, number, expiry
-- Home-country DL if needed
-
-*Walk-in, seat QR:*
-
-- Docs: DL photos taken on the seat QR form, if added
-- OCR: name, number, expiry
-- Home-country DL if needed
-
-**Entry conditions**
-
-- TD CONSENT SIGNED
-
-**Exits**
-
-| When | Goes to | State |
-| --- | --- | --- |
-| DL valid, name matches, not expired | O5 Walkaround | DL VERIFIED |
-| No valid DL: the TD is cancelled before the car moves; book a drive for later | N6 Book another TD | — |
-| Name or photo mismatch: the DA checks Emirates ID by hand | O5 Walkaround | — |
-
-**State reached:** DL VERIFIED
-
-**Screen**
-
-- **Screen:** Test drive › DL verify
-- **Build:** New
-- **Pattern:** Licence images (from the visit or scanned now) + OCR result + checks, on the DA's tablet
-- **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=test-drive&step=dl-verify`
-  - *Walk-in:* `/test-drives/BK-89004?stage=test-drive&step=dl-verify`
-
-**DAP today:** DAP uploads the DL inside the DA's test-drive checkout form, after the TD has started.
-
-**What changed:** Now after Start TD and the consent, as the last check before the car moves. Done by the DA, at the car.
-
-**Anatomy**
-
-*Parts of the screen*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | TD live shows DL check |
-| Licence images | UPLOAD | From before the visit, from the seat QR form, or scanned now |
-| Read from the licence | OCR_RESULT | Name, number, expiry, issuer |
-| Checks | CHECKLIST | Name match and expiry are automatic; the photo match is the DA's |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Fields*
-
-| Field | Type | Required | Source | Rule |
-| --- | --- | --- | --- | --- |
-| DL front | Image | Yes | Pre-visit upload, seat QR form, or scan | JPG or PNG under 5 MB |
-| DL back | Image | Yes | Same | — |
-| Licence number | Text | Read only | OCR | Editable if OCR fails |
-| Expiry | Date | Read only | OCR | Must be after today |
-| Name match | Check | Yes | OCR against the Emirates ID | Fuzzy match |
-| Photo match | Check | Yes | DA | — |
-| Home-country DL | Text | No | Typed | For visitors; acceptance is an open decision |
-
-*Actions*
-
-| Action | Calls / event | Result |
-| --- | --- | --- |
-| Verified: on to the walkaround | Proposed: dl.verified event; licence saved to Docs | DL VERIFIED; O5 |
-| No valid DL: cancel the drive | DAP today: CANCEL_TEST_DRIVE with the reason; book a drive for later | N6 |
-
-*Screen states*
-
-| State | Meaning |
-| --- | --- |
-| Uploaded before the visit | Images and OCR prefilled; one tap to verify |
-| OCR failed | Fields become editable |
-| Expired | Verify disabled; the drive is cancelled and rebooked |
+| Car ready | The Yardie has the car at its bay |
+| On test drive | Badge On the road since the key handover |
+| TD done | Disposition open |
+| In checkout | Continue checkout |
+| Booking confirmed | The order's last step is done |
 
 #### O5 · Walkaround
 
-- **Tracks:** Booked, Walk-in, Video TD
-- **Owner:** 
-  - *Booked and walk-in:* DA
-  - *Video TD:* VTD operator, with a yard helper on camera
-- **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
-  - *Video TD:* Leadverse web with a video panel
+- **Tracks:** Video TD
+- **Owner:** VTD operator, with a yard helper on camera
+- **Device:** Leadverse web with a video panel
 
 **Purpose**
 
-*Booked and walk-in:*
-
-Show the car zone by zone before driving off. The recording is already on.
-
-*Video TD:*
-
 Walk the customer round the car on video, then play a drive clip.
 
-**Trigger:** 
-  - *Booked and walk-in:* DL verified
-  - *Video TD:* Car on camera
+**Trigger:** Car on camera
 
 **Data it reads and writes**
 
@@ -3763,31 +3397,9 @@ Walk the customer round the car on video, then play a drive clip.
 
 **Entry conditions**
 
-*Booked and walk-in:*
-
-- DL VERIFIED
-
-*Video TD:*
-
 - Car on camera
 
 **Exits**
-
-*Booked:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Zones covered | O6 Drive | — |
-| Customer goes off the car: end this TD and talk it through | O7 End TD | — |
-
-*Walk-in:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Zones covered | O6 Drive | — |
-| Customer goes off the car: end this TD, find another | T2 Needs and cars | — |
-
-*Video TD:*
 
 | When | Goes to | State |
 | --- | --- | --- |
@@ -3795,33 +3407,14 @@ Walk the customer round the car on video, then play a drive clip.
 
 **Screen**
 
-- **Screen:** 
-  - *Booked and walk-in:* Test drive › Walkaround
-  - *Video TD:* VTD console › Live walkaround
+- **Screen:** VTD console › Live walkaround
 - **Build:** New
-- **Pattern:** 
-  - *Booked and walk-in:* Zone checklist with talking points
-  - *Video TD:* Video panel (IFRAME_RENDERER) + zone checklist
-- **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=test-drive&step=walkaround`
-  - *Walk-in:* `/test-drives/BK-89004?stage=test-drive&step=walkaround`
-  - *Video TD:* `/test-drives/BK-88190?stage=video&step=walkaround`
+- **Pattern:** Video panel (IFRAME_RENDERER) + zone checklist
+- **Route:** `/test-drives/BK-88190?stage=video&step=walkaround`
 
 **Anatomy**
 
 *Parts of the screen*
-
-*Booked and walk-in:*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
-| Walkaround zones | CHECKLIST | Exterior, interior, bonnet, boot, with talking points |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Video TD:*
 
 | Part | Widget | What it does |
 | --- | --- | --- |
@@ -3834,7 +3427,7 @@ Walk the customer round the car on video, then play a drive clip.
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Zones covered | Checklist | No | DA | Exterior, interior, bonnet, boot |
+| Zones covered | Checklist | No | SA | Exterior, interior, bonnet, boot |
 
 *Actions*
 
@@ -3850,181 +3443,47 @@ Walk the customer round the car on video, then play a drive clip.
 | --- | --- |
 | Covered | Zones turn green |
 
-#### O6 · Drive
+#### O7 · End TD
 
-- **Tracks:** Booked, Walk-in
-- **Owner:** DA
-- **Device:** Leadverse on the DA's tablet
+- **Tracks:** Video TD
+- **Owner:** VTD operator
+- **Device:** Leadverse web with a video panel
 
 **Purpose**
 
-Let the car sell itself while the DA answers questions.
+Close the video session.
 
 **Trigger:** Walkaround done
 
 **Data it reads and writes**
-
-- AI context engine: live notes from the recording
-- Co-pilot: feature prompts for this car
-- One-tap objection tags
-
-**Entry conditions**
-
-- TD STARTED
-- TD CONSENT SIGNED
-- DL VERIFIED
-
-**Exits**
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Back at the hub | O7 End TD | — |
-
-**Screen**
-
-- **Screen:** Test drive › On the drive
-- **Build:** New
-- **Pattern:** Car row with a LIVE badge, live note and transcription with a timer, one-tap objection tags
-- **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=test-drive&step=drive`
-  - *Walk-in:* `/test-drives/BK-89004?stage=test-drive&step=drive`
-
-**Anatomy**
-
-*Parts of the screen*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
-| Live car | CAR_ROW | LIVE badge, as in the TD Journey file |
-| Live note and transcription | LIVE_TRANSCRIPTION | Timer and the conversation, time-stamped, since Start TD |
-| Objection tags | TAG_BUTTONS | One tap each, stamped into the transcript |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Fields*
-
-| Field | Type | Required | Source | Rule |
-| --- | --- | --- | --- | --- |
-| Objection tags | Multi select | No | DA | Price, mileage, condition, features, finance, other |
-
-*Actions*
-
-| Action | Calls / event | Result |
-| --- | --- | --- |
-| Back at the hub: end drive | None | O7 |
-| Report an incident | Proposed: incident flow | Outside this journey |
-
-*Screen states*
-
-| State | Meaning |
-| --- | --- |
-| Transcription off | If recording consent was no, only the tags are saved |
-
-#### O7 · End TD
-
-- **Tracks:** Booked, Walk-in, Video TD
-- **Owner:** 
-  - *Booked and walk-in:* DA
-  - *Video TD:* VTD operator
-- **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
-  - *Video TD:* Leadverse web with a video panel
-
-**Purpose**
-
-*Booked and walk-in:*
-
-Close the drive and stop the recording, then another car or the debrief.
-
-*Video TD:*
-
-Close the video session.
-
-**Trigger:** 
-  - *Booked and walk-in:* Car back at the hub
-  - *Video TD:* Walkaround done
-
-**Data it reads and writes**
-
-*Booked and walk-in:*
-
-- Test-drive service: end time and odometer
-- Customer's quick reaction
-
-*Video TD:*
 
 - Video provider: session end
 - Customer's quick reaction
 
 **Entry conditions**
 
-*Booked and walk-in:*
-
-- Car back at the hub
-
-*Video TD:*
-
 - Video walkaround done
 
 **Exits**
-
-*Booked:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Another car on the booking is at the hub: start it here, then its own consent. The licence is already verified | O3 TD consent sign-off | TD CONDUCTED |
-| Done driving | N1 Debrief and decision | TD CONDUCTED |
-
-*Walk-in:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Another car is queued: start its TD, with its own consent. The licence is already verified | O2 Start TD | TD CONDUCTED |
-| Done driving | N1 Debrief and decision | TD CONDUCTED |
-
-*Video TD:*
 
 | When | Goes to | State |
 | --- | --- | --- |
 | Call wrapped up | N1 Debrief and decision | VTD CONDUCTED |
 
-**State reached:** 
-  - *Booked and walk-in:* TD CONDUCTED
-  - *Video TD:* VTD CONDUCTED
+**State reached:** VTD CONDUCTED
 
 **Screen**
 
 - **Screen:** Test drive › End
 - **Build:** Extend
 - **Pattern:** Car row turns TD done; the stage bar shows 1/2 done when a second car is queued. Maps to Mark Test Drive Complete
-- **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=test-drive&step=end`
-  - *Walk-in:* `/test-drives/BK-89004?stage=test-drive&step=end`
-  - *Video TD:* `/test-drives/BK-88190?stage=video&step=end`
+- **Route:** `/test-drives/BK-88190?stage=video&step=end`
 
-**DAP today:** 
-  - *Booked and walk-in:* Mark Test Drive Complete sends COMPLETE_TEST_DRIVE with the checkout form.
-  - *Video TD:* A VTD is complete once its slot is marked COMPLETED.
+**DAP today:** A VTD is complete once its slot is marked COMPLETED.
 
 **Anatomy**
 
 *Parts of the screen*
-
-*Booked and walk-in:*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
-| Done car | CAR_ROW | TD done badge |
-| End reading | DYNAMIC_FORM | Odometer and duration |
-| Customer's reaction | CHIPS | — |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Video TD:*
 
 | Part | Widget | What it does |
 | --- | --- | --- |
@@ -4058,21 +3517,15 @@ Close the video session.
 
 #### N1 · Debrief and decision
 
-- **Tracks:** Booked, Walk-in, Video TD
-- **Owner:** 
-  - *Booked and walk-in:* DA
-  - *Video TD:* VTD operator
-- **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
-  - *Video TD:* Leadverse web with a video panel
+- **Tracks:** Video TD
+- **Owner:** VTD operator
+- **Device:** Leadverse web with a video panel
 
 **Purpose**
 
 Agree what happens next. No visit ends without a next step.
 
-**Trigger:** 
-  - *Booked and walk-in:* TD CONDUCTED, or a visit with no drive
-  - *Video TD:* VTD CONDUCTED
+**Trigger:** VTD CONDUCTED
 
 **Data it reads and writes**
 
@@ -4082,26 +3535,9 @@ Agree what happens next. No visit ends without a next step.
 
 **Entry conditions**
 
-*Booked and walk-in:*
-
-- TD CONDUCTED, consent refused, or no drive today
-
-*Video TD:*
-
 - VTD CONDUCTED
 
 **Exits**
-
-*Booked and walk-in:*
-
-| When | Goes to | State |
-| --- | --- | --- |
-| Ready to buy | N2 Collect token | — |
-| Needs time | N4 Schedule follow-up | FOLLOW-UP SCHEDULED |
-| Wants another car | N6 Book another TD | NEW TD BOOKED |
-| Not interested | N7 Close as dropped | DROPPED |
-
-*Video TD:*
 
 | When | Goes to | State |
 | --- | --- | --- |
@@ -4115,32 +3551,13 @@ Agree what happens next. No visit ends without a next step.
 - **Screen:** Next step › Debrief
 - **Build:** Extend
 - **Pattern:** Disposition form from the TD Journey file: outcome, primary objection, agent notes; prefilled by CarGPT
-- **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=next-step&step=debrief`
-  - *Walk-in:* `/test-drives/BK-89004?stage=next-step&step=debrief`
-  - *Video TD:* `/test-drives/BK-88190?stage=next-step&step=debrief`
+- **Route:** `/test-drives/BK-88190?stage=next-step&step=debrief`
 
 **DAP today:** The checkout form (payment mode, salary, EMI) and the checkout popup with a drop-off category.
 
 **Anatomy**
 
 *Parts of the screen*
-
-*Booked and walk-in:*
-
-| Part | Widget | What it does |
-| --- | --- | --- |
-| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
-| Outcome | ACCORDION_RADIO | From the TD Journey disposition form |
-| Primary objection | ACCORDION_SELECT | Suggested by CarGPT |
-| Agent notes | TEXTAREA | Drafted by CarGPT from the transcript |
-| Finance pre-check | DYNAMIC_FORM | Salary and existing EMI |
-| What happens next | DECISION_CARDS | Each card is an exit |
-| CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
-
-*Video TD:*
 
 | Part | Widget | What it does |
 | --- | --- | --- |
@@ -4156,12 +3573,12 @@ Agree what happens next. No visit ends without a next step.
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Outcome | Single select | Yes | DA | Conducted and interested, conducted and not interested, not conducted |
+| Outcome | Single select | Yes | SA | Conducted and interested, conducted and not interested, not conducted |
 | Primary objection | Single select | No | CarGPT suggestion | Price, mileage, condition, features, finance, other |
 | Agent notes | Text | No | CarGPT draft | Editable |
 | Monthly salary | Currency | No | Asked | For the finance pre-check |
 | Existing EMI | Currency | No | Asked | — |
-| Next step | Single select | Yes | DA | Ready to buy, needs time, another car, not interested |
+| Next step | Single select | Yes | SA | Ready to buy, needs time, another car, not interested |
 
 *Actions*
 
@@ -4173,32 +3590,46 @@ Agree what happens next. No visit ends without a next step.
 
 | State | Meaning |
 | --- | --- |
-| AI draft | Fields tagged AI until the DA edits them |
+| AI draft | Fields tagged AI until the SA edits them |
 | Not conducted | Reason required |
 
-#### N2 · Collect token
+#### N2 · Checkout / Collect token
 
 - **Tracks:** Booked, Walk-in, Video TD
 - **Owner:** 
-  - *Booked and walk-in:* DA
+  - *Booked and walk-in:* SA
   - *Video TD:* VTD operator
 - **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
+  - *Booked and walk-in:* Leadverse on the SA's tablet
   - *Video TD:* Leadverse web with a video panel
 
 **Purpose**
 
 *Booked and walk-in:*
 
-Take the token while the customer is still here.
+Check out one car, start to end, with a stepper inside the page: the address and the delivery mode, VAS, a discount, the sales promise, the payment mode, the pre-approval for In-house finance, the deposit, then the booking confirmation. Another TD'd car is checked out the same way, from the test drives page.
 
 *Video TD:*
 
 Send a payment link while the customer is still on the call.
 
-**Trigger:** Decision: ready to buy
+**Trigger:** 
+  - *Booked and walk-in:* Disposition Pay deposit on an order (O1)
+  - *Video TD:* Decision: ready to buy
 
 **Data it reads and writes**
+
+*Booked and walk-in:*
+
+- OMS: the order, price and price breakup
+- Customer address
+- VAS catalogue
+- Coupons and discount rules (approval above a limit)
+- Sales promise checklist
+- Finance service: pre-approval, prefilled when it exists, or the link to send
+- Payments: bank transfer (receipt upload) or Stripe (link, confirmed by webhook)
+
+*Video TD:*
 
 - Payment service: Noon, DAPI, CBD UAE
 - OMS: token amount for this order
@@ -4206,29 +3637,57 @@ Send a payment link while the customer is still on the call.
 
 **Entry conditions**
 
+*Booked and walk-in:*
+
+- Disposition Pay deposit
+- Car still available
+
+*Video TD:*
+
 - Ready to buy
 - Car still available
 
 **Exits**
+
+*Booked and walk-in:*
+
+| When | Goes to | State |
+| --- | --- | --- |
+| Deposit paid: the booking is confirmed | N3 Handoff to delivery | BOOKING CONFIRMED |
+| Another TD'd car to check out: back to the test drives | O1 Conduct the test drives | — |
+| Customer leaves before paying: the link stays live, follow-up set | N4 Schedule follow-up | — |
+
+*Video TD:*
 
 | When | Goes to | State |
 | --- | --- | --- |
 | Gateway confirms the payment | N3 Handoff to delivery | TOKEN PAID |
 | Customer leaves before paying: link stays live, follow-up set | N4 Schedule follow-up | — |
 
-**State reached:** TOKEN PAID
+**State reached:** 
+  - *Booked and walk-in:* BOOKING CONFIRMED
+  - *Video TD:* TOKEN PAID
 
 **Screen**
 
-- **Screen:** Next step › Token
+- **Screen:** 
+  - *Booked and walk-in:* SA task › Checkout
+  - *Video TD:* Next step › Token
 - **Build:** New
-- **Pattern:** QR, bank transfer or payment link. Status comes from the gateway, with no manual Mark as paid
+- **Pattern:** 
+  - *Booked and walk-in:* One car's checkout: a Stepper (Delivery, VAS, Discount, Sales promise, Payment mode, Pre-approval, Deposit, Confirmed), the step's DLS controls, and the order summary beside them
+  - *Video TD:* QR, bank transfer or payment link. Status comes from the gateway, with no manual Mark as paid
 - **Route:** 
-  - *Booked:* `/test-drives/BK-88213?stage=next-step&step=token`
-  - *Walk-in:* `/test-drives/BK-89004?stage=next-step&step=token`
+  - *Booked:* `/tasks/sa/BK-88213?page=checkout`
+  - *Walk-in:* `/tasks/sa/VS-2041?page=checkout`
   - *Video TD:* `/test-drives/BK-88190?stage=next-step&step=token`
 
-**DAP today:** Read-only. The customer pays in the consumer app and DAP shows TOKEN_PAYMENT_SUCCESS.
+**DAP today:** 
+  - *Booked and walk-in:* Read-only. The customer pays the token in the consumer app and DAP shows TOKEN_PAYMENT_SUCCESS; VAS, discount and delivery are set later by the RM.
+  - *Video TD:* Read-only. The customer pays in the consumer app and DAP shows TOKEN_PAYMENT_SUCCESS.
+
+**What changed:** 
+  - *Booked and walk-in:* The SA checks out the car in the visit: delivery, VAS, discount, promise, payment mode, pre-approval and the deposit, then the booking is confirmed. One car at a time.
 
 **Anatomy**
 
@@ -4240,11 +3699,11 @@ Send a payment link while the customer is still on the call.
 | --- | --- | --- |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
 | Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
-| Payment method | SEGMENTED | QR, bank transfer or payment link |
-| QR code | QR | Customer scans with their banking app |
-| Gateway status | STATUS | Changes by itself on the webhook |
+| Checkout stepper | @cspl/stepper | Delivery, VAS, Discount, Promise, Payment, Pre-approval (In-house finance only), Deposit, Confirmed |
+| The step | @cspl/section-card | Address (@cspl/address-card) and delivery (@cspl/choice-tile); VAS (@cspl/checkbox); coupons (@cspl/coupon) and a discount (@cspl/text-input, @cspl/dropdown); the sales promise; the payment mode; the pre-approval (@cspl/fetched-info-card, or send the link); the deposit (@cspl/payment-method-tile: bank transfer with the receipt, or Stripe) |
+| Order summary | @cspl/payment-details-card | Price, delivery, VAS, discount, total, deposit paid, outstanding; moves with every choice |
 | CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
+| Footer actions | SHELL_CTAS | Hand off to delivery stays off until the booking is confirmed |
 
 *Video TD:*
 
@@ -4259,12 +3718,49 @@ Send a payment link while the customer is still on the call.
 
 *Fields*
 
+*Booked and walk-in:*
+
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Method | Single select | Yes | DA | QR, bank transfer, payment link |
+| Address | Address card | Yes | Lead | Change for another address |
+| Delivery mode | Single select | Yes | SA | Pick up at the hub, or home delivery (a fee) |
+| VAS | Multi select | No | VAS catalogue | With prices |
+| Coupon | Single select | No | Offers | Valid coupons only |
+| Extra discount | Money | No | SA | A manager approves above the limit |
+| Reason | Single select | With a discount | SA | Price match, loyalty, manager's discretion |
+| Sales promise | Multi select and text | No | SA | Tyres, paint and dents, service, brakes, anything else |
+| Payment mode | Single select | Yes | Lead, confirmed | Cash, In-house finance, BYOF |
+| Pre-approval | Info card or link | In-house finance only | Finance service | Prefilled when on file; else send the link by SMS or email, or fill it now |
+| Deposit method | Single select | Yes | SA | Bank transfer or Stripe |
+| Receipt | File | Bank transfer | Customer, uploaded by the SA | Saved to Documents |
+| Stripe link | Channels | Stripe | SA | SMS, email, WhatsApp; paid by the Stripe webhook |
+
+*Video TD:*
+
+| Field | Type | Required | Source | Rule |
+| --- | --- | --- | --- | --- |
+| Method | Single select | Yes | SA | QR, bank transfer, payment link |
 | Amount | Currency | Read only | OMS | Token amount for the order |
 
 *Actions*
+
+*Booked and walk-in:*
+
+| Action | Calls / event | Result |
+| --- | --- | --- |
+| Continue, Back | None | Stays here |
+| Apply a coupon | Offers: apply to the order | Stays here |
+| Send the pre-approval link | Notification engine | Stays here |
+| Run pre-approval | Finance service | Stays here |
+| Share the Stripe link | Stripe: payment link | Waiting for Stripe |
+| Stripe confirms | Stripe webhook; OMS: deposit paid | Paid |
+| Upload the receipt | Docs; finance checks it | Paid |
+| Confirm the booking | OMS: deposit recorded, booking confirmed; Listing: car reserved | BOOKING CONFIRMED |
+| Hand off to delivery | Delivery tasks | N3 |
+| Check out another car | None | O1 |
+| Pays later | The link stays live; follow-up | N4 |
+
+*Video TD:*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
@@ -4273,6 +3769,18 @@ Send a payment link while the customer is still on the call.
 | Pays later | Link stays live | N4 |
 
 *Screen states*
+
+*Booked and walk-in:*
+
+| State | Meaning |
+| --- | --- |
+| Step n of 8 | The stepper and the badge |
+| Pre-approval not needed | Skipped for Cash and BYOF |
+| Waiting for Stripe | No manual Mark as paid |
+| Paid | Confirm the booking turns on |
+| Booking confirmed | Hand off to delivery turns on |
+
+*Video TD:*
 
 | State | Meaning |
 | --- | --- |
@@ -4285,14 +3793,16 @@ Send a payment link while the customer is still on the call.
 - **Tracks:** Booked, Walk-in, Video TD
 - **Owner:** System, then RM
 - **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
+  - *Booked and walk-in:* Leadverse on the SA's tablet
   - *Video TD:* Leadverse web with a video panel
 
 **Purpose**
 
 Start the delivery journey with nothing lost.
 
-**Trigger:** TOKEN PAID, or CAR RESERVED with a deposit taken on the call (P7d)
+**Trigger:** 
+  - *Booked and walk-in:* BOOKING CONFIRMED at the checkout, or CAR RESERVED with a deposit taken on the call (P7d)
+  - *Video TD:* TOKEN PAID, or CAR RESERVED with a deposit taken on the call (P7d)
 
 **Data it reads and writes**
 
@@ -4301,6 +3811,12 @@ Start the delivery journey with nothing lost.
 - Docs: the deposit confirmation, when the deposit was taken on the call
 
 **Entry conditions**
+
+*Booked and walk-in:*
+
+- BOOKING CONFIRMED, or a deposit confirmed and the car reserved
+
+*Video TD:*
 
 - TOKEN PAID, or a deposit confirmed and the car reserved
 
@@ -4330,7 +3846,7 @@ Start the delivery journey with nothing lost.
 | --- | --- | --- |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
 | Stage bar | STAGE_STEPPER | Every stage done |
-| Token paid | STATUS_CHIP | — |
+| Booking confirmed | STATUS_CHIP | — |
 | Delivery tasks | TIMELINE | Created in existing Order personas |
 | Footer actions | SHELL_CTAS | The standard two: Previous, and Next for the main exit. The arrow next to Next holds every other exit, including the customer dropping off (to the disposition) |
 
@@ -4360,10 +3876,10 @@ Start the delivery journey with nothing lost.
 
 - **Tracks:** Booked, Walk-in, Video TD (a branch off the main path)
 - **Owner:** 
-  - *Booked and walk-in:* DA
+  - *Booked and walk-in:* SA
   - *Video TD:* VTD operator
 - **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
+  - *Booked and walk-in:* Leadverse on the SA's tablet
   - *Video TD:* Leadverse web with a video panel
 
 **Purpose**
@@ -4436,7 +3952,7 @@ Agree a date and send the shortlist before the customer leaves.
 | Time | Part of day | Yes | Agreed | — |
 | Channel | Call or WhatsApp | Yes | Asked | — |
 | Shortlist | Multi select | No | Cars from T3 | Sent on WhatsApp |
-| Note for the RM | Text | No | DA | — |
+| Note for the RM | Text | No | SA | — |
 
 *Actions*
 
@@ -4473,6 +3989,16 @@ Call on the agreed date and move the customer forward.
 - FOLLOW-UP SCHEDULED date reached
 
 **Exits**
+
+*Booked and walk-in:*
+
+| When | Goes to | State |
+| --- | --- | --- |
+| Ready to buy: send a payment link | N2 Checkout | — |
+| Wants another drive | N6 Book another TD | — |
+| No answer after 3 attempts, or not interested | N7 Close as dropped | DROPPED |
+
+*Video TD:*
 
 | When | Goes to | State |
 | --- | --- | --- |
@@ -4525,10 +4051,10 @@ Call on the agreed date and move the customer forward.
 
 - **Tracks:** Booked, Walk-in, Video TD (a branch off the main path)
 - **Owner:** 
-  - *Booked and walk-in:* DA or RM
+  - *Booked and walk-in:* SA or RM
   - *Video TD:* VTD operator
 - **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
+  - *Booked and walk-in:* Leadverse on the SA's tablet
   - *Video TD:* Leadverse web with a video panel
 
 **Purpose**
@@ -4599,7 +4125,7 @@ Turn the video viewing into a hub test drive.
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
 | Day | Date | Yes | Slot planner | — |
-| Slot | Time | Yes | Slot planner | Free DA and car |
+| Slot | Time | Yes | Slot planner | Free SA and car |
 
 *Actions*
 
@@ -4616,9 +4142,9 @@ Turn the video viewing into a hub test drive.
 #### N7 · Close as dropped
 
 - **Tracks:** Booked, Walk-in, Video TD (a branch off the main path)
-- **Owner:** DA or RM
+- **Owner:** SA or RM
 - **Device:** 
-  - *Booked and walk-in:* Leadverse on the DA's tablet
+  - *Booked and walk-in:* Leadverse on the SA's tablet
   - *Video TD:* Leadverse web with a video panel
 
 **Purpose**
@@ -4687,7 +4213,7 @@ Record why the customer said no.
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Reason | Single select | Yes | DA or RM | Mechanical, non-mechanical, pricing, assortment, no response, other |
+| Reason | Single select | Yes | SA or RM | Mechanical, non-mechanical, pricing, assortment, no response, other |
 | Detail | Single select | No | — | — |
 | Note | Text | No | — | — |
 | Stay in touch | Toggle | Yes | Asked | Marketing consent |
@@ -4709,7 +4235,7 @@ Record why the customer said no.
 #### M1 · Live funnel
 
 - **Tracks:** Booked, Walk-in, Video TD
-- **Owner:** Manager (DATL)
+- **Owner:** Manager (SATL)
 - **Device:** Leadverse web
 
 **Purpose**
@@ -4732,7 +4258,7 @@ See every visit by state, and step in when a step runs late.
 
 | When | Goes to | State |
 | --- | --- | --- |
-| Customer waiting more than 5 min for a DA: reassign | S1 Assign DA | — |
+| Customer waiting more than 5 min for an SA: reassign | S1 Assign SA | — |
 
 *Video TD:*
 
@@ -4770,7 +4296,7 @@ See every visit by state, and step in when a step runs late.
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
-| Reassign DA | Assign DA modal | S3 |
+| Reassign SA | Assign SA modal | S3 |
 
 *Screen states*
 
@@ -4784,7 +4310,7 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 
 | Setting | UAE | India | Australia |
 | --- | --- | --- | --- |
-| Check-in default | By staff: a receptionist or DA fills the form with the customer | By staff | Seat QR: the customer checks in on their own phone |
+| Check-in default | By staff: a receptionist or SA fills the form with the customer | By staff | Seat QR: the customer checks in on their own phone |
 | The other way | Seat QR, for any visit | Seat QR, for any visit | By staff, for any visit |
 | Proof of mobile | OTP, both ways | Same | Same |
 | Token and live tracker sent on | WhatsApp | WhatsApp | WhatsApp, or SMS (to decide) |
@@ -4832,18 +4358,35 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 
 Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.
 
+#### The SA's task: one visit, every TD, one car's checkout at a time
+
+> **Feedback:** “One lead can have two or three TDs. Check the customer in by the UUID, then the SA runs every TD in one task: Interest with Check-in as the first tab, the DL, today's orders or more cars, a section per order with a stepper, then a checkout per car. DLS components, little text. Call the role SA, sales associate”
+
+- **Before:** Handshake → Consent → DL → Walkaround → Drive → End → Debrief → Token, one car after another
+- **After:** *T1 Interest* → *T2 DL* → *T3 Cars* → *O1 Test drives, a section per order* → *N2 Checkout, one car*
+
+**Found by the check-in UUID.** Check-in gives the visit a UUID; the SA's task opens on the lead it belongs to, with every order the lead has today. A booking can carry two or three TDs; they all run in this one task.
+
+**Five pages.** Interest: tabs, Check-in first, then Today's TD, Finance, Wishlist, Trade-in, Coupons and Notes. DL: both sides, what was read off it and three checks, once for the visit. Cars: today's orders, or Discover more cars, where a car picked joins the visit as an order. Test drives: a section per order with a stepper (walkthrough, key handover, TD done, disposition, checkout); the key handover starts the TD, with the TD consent and the recording consent. Checkout: one car, a stepper inside (delivery, VAS, discount, sales promise, payment mode, the pre-approval for In-house finance, the deposit by bank transfer or Stripe, confirmed) and the order summary beside it. Another TD'd car is checked out the same way, from the test drives page.
+
+**Walk-in, the same.** No test drive booked today, so Today's TD is empty and Cars opens on Discover; each car picked is an order for now, and the Yardie preps it.
+
+**On the DLS, little text.** Each page's action area is Turbo UI: NotchTabs, FetchedInfoCard, Coupon, FileUploadCard, Checkbox, SegmentTabs, CarContextCard, SectionCard, Stepper, ChoiceTile, AddressCard, PaymentTile and PaymentDetailsCard. The Leadverse shell (stage bar, lead pane, footer, CarGPT) stays.
+
+*See:* T1 Interest · T2 DL · T3 Cars, walk-in · O1 Test drives · N2 Checkout · N2 Checkout, walk-in
+
 #### Check-in asks for the mobile first, then whether there is an order
 
 > **Feedback:** “Check-in: first the mobile number, then the purpose of visit, then send and verify the OTP. Next: do you have an existing order? Yes: today's order shows and check-in is marked. No: the basic details form”
 
 - **Before:** Mobile and OTP → (walk-in: name, email, purpose) → About today (accompanied by, finance, area) → Consent → Token
-- **After:** *Mobile, purpose, OTP* → *Existing order?* → Yes: *today's order, checked in* → Token with the DA. No: *basic details*, licence optional → Token with the DA
+- **After:** *Mobile, purpose, OTP* → *Existing order?* → Yes: *today's order, checked in* → Token with the SA. No: *basic details*, licence optional → Token with the SA
 
-**Step 1, one screen.** The mobile number with the market's dial code (+61, +971), then What brings you in today. Send code shows the code under the form and turns into Verify. Only buy or test drive goes on to a DA.
+**Step 1, one screen.** The mobile number with the market's dial code (+61, +971), then What brings you in today. Send code shows the code under the form and turns into Verify. Only buy or test drive goes on to an SA.
 
 **Step 2, existing order?** Yes finds today's order by the mobile and checks the customer in on the spot: the order shows with Checked in and the token, and the receptionist's row turns green. If nothing is booked on that mobile, the page says so and offers the details form. No opens the basic details form, as on the website: phone (already verified), email, first and last name, post code (or emirate and area), Do you need financing after the test drive, and Where did you hear about us. That creates the lead.
 
-**No consent screen, and the DA on the token.** Check-in no longer asks to record: the DA asks at Start TD (T1, O2), when the recording would start. The optional licence photos sit at the end of the details form. The DA is auto-assigned the moment the customer checks in, so the last screen, on the phone and in the staff form, shows the token with the DA's name. Accompanied by is no longer asked. The staff form follows the same two steps, so either way of checking in gives the same answers.
+**No consent screen, and the SA on the token.** Check-in no longer asks to record: the SA asks at Start TD (T1, O2), when the recording would start. The optional licence photos sit at the end of the details form. The SA is auto-assigned the moment the customer checks in, so the last screen, on the phone and in the staff form, shows the token with the SA's name. Accompanied by is no longer asked. The staff form follows the same two steps, so either way of checking in gives the same answers.
 
 *See:* I1 Seat QR, booked: Yes · I1 Seat QR, walk-in: No · I1 By staff · I1 By staff, walk-in
 
@@ -4905,15 +4448,17 @@ Notes on the PISTON board, how the calling team works, the Leadverse TD Journey 
 - **Walk-in, before:** T2 Needs (a form) → T3 Recommend and compare → T4 Promise (customer screen) → T5 Create order
 - **Walk-in, after:** *T2 Needs and cars (stepper pills)* → *T4 Quality promise (middle column)* → *T5 Book now: slot, order, prep*
 
-**Booked: the handshake is the start.** The car was chosen on the call and the Yardie has it at the hub, so there is no car finding. The DA meets the customer at their seat and one tap creates the TD record and turns the recording on. The consent, the licence and the walkaround follow. On the TV and the token page the customer goes from Car ready to On test drive.
+**Booked: the handshake is the start.** The car was chosen on the call and the Yardie has it at the hub, so there is no car finding. The SA meets the customer at their seat and one tap creates the TD record and turns the recording on. The consent, the licence and the walkaround follow. On the TV and the token page the customer goes from Car ready to On test drive.
 
 **Walk-in: needs as pills.** The same stepper as Discovery on the call: who it's for, budget, body type, fuel and gearbox, must-haves, then the matching cars with a link to each car's page and a compare. Recommend and compare are now part of this step.
 
-**The promise and the consent sit in the middle.** Both are on the visit page now, not a separate customer screen: lead pane on the left, CarGPT on the right. The promise shows the car, then three columns: inspected, warranty and return, finance. The consent shows the TD details, then the terms and the signature pad side by side; the DA hands the tablet over to sign.
+**The promise and the consent sit in the middle.** Both are on the visit page now, not a separate customer screen: lead pane on the left, CarGPT on the right. The promise shows the car, then three columns: inspected, warranty and return, finance. The consent shows the TD details, then the terms and the signature pad side by side; the SA hands the tablet over to sign.
 
 **Walk-in: book the current slot.** One tap books the slot the customer is in, creates the order for the TD and sends the Yardie the prep request. The customer waits on their token until the car is at the hub.
 
-*See:* T1 Handshake and Start TD · O3 Consent · T2 Needs and cars · T4 Quality promise · T5 Book now
+**Since then:** the SA's task (first card) runs every TD of the visit in one page; the key handover starts the TD, and a walk-in picks cars in Discover.
+
+*See:* O1 Key handover and consent · T3 Discover more cars · T4 Quality promise (video TD)
 
 #### The call starts from what the customer already wants
 
@@ -4934,37 +4479,37 @@ Notes on the PISTON board, how the calling team works, the Leadverse TD Journey 
 
 *See:* P1 Queue tabs · P2 Order exists · P2 Cars of interest, no order · P3 Discovery · P4 TD type, mixed · P6 Video slot · I1 Finance question on the seat QR
 
-#### The test drive starts when the DA and the customer meet at the car
+#### The test drive starts when the SA and the customer meet at the car
 
-> **Feedback:** “Start TD is when the DA meets the customer and starts the recording. Then the consent, then the DL. A walk-in waits on their token until the Yardie brings the car, and the DA meets them again”
+> **Feedback:** “Start TD is when the SA meets the customer and starts the recording. Then the consent, then the DL. A walk-in waits on their token until the Yardie brings the car, and the SA meets them again”
 
 - **Before:** O2 Walk to the car → O3 Walkaround → O4 DL verify → O5 Start TD → O6 Consent → O7 Drive → O8 End
 - **After:** *Start TD, recording on* (O2; T1 for a booking) → *O3 Consent* → *O4 DL verify* → O5 Walkaround → O6 Drive → O7 End
 
-**Start TD is the meeting at the car.** Starting the TD creates the TD record and turns the recording on. The DA asks for the recording consent right there, not at check-in. The customer signs the TD consent next, then the DA checks the licence, the last check before the car moves. Live notes and transcription now cover the drive, not the wait.
+**Start TD is the meeting at the car.** Starting the TD creates the TD record and turns the recording on. The SA asks for the recording consent right there, not at check-in. The customer signs the TD consent next, then the SA checks the licence, the last check before the car moves. Live notes and transcription now cover the drive, not the wait.
 
-**A walk-in's journey.** Check-in, a DA assigned, car finding. Then the customer waits on their token while the Yardie preps the car; the TV and their phone show the car's ETA. When it reaches the hub, the DA is told, goes back to the customer, and starts the TD together.
+**A walk-in's journey.** Check-in, an SA assigned, car finding. Then the customer waits on their token while the Yardie preps the car; the TV and their phone show the car's ETA. When it reaches the hub, the SA is told, goes back to the customer, and starts the TD together.
 
-*See:* O2 Start TD (walk-in) · O3 Consent · O4 DL verify · I2 Waiting on the token (walk-in) · O1 Yardie preps the car
+*See:* O1 Key handover: start TD and consent · T2 DL verify, once per visit · I2 Waiting on the token (walk-in)
 
 #### One gesture at the door, a token for everyone, and a Yardie for the cars
 
-> **Feedback:** “Check-in and welcome in the same gesture. A token on the ground TV, moved by the Yardie and the DA. DA assigned automatically, handshake after it. DL check just before the drive”
+> **Feedback:** “Check-in and welcome in the same gesture. A token on the ground TV, moved by the Yardie and the SA. SA assigned automatically, handshake after it. DL check just before the drive”
 
-- **Before:** I1 Mark arrived → I2 Welcome → S1 Check-in → S2 DL verify → S3 Assign DA → T1 Handshake → … → O3 Start TD
-- **After:** *I1 Welcome and check-in* → *I2 Token on the TV* → *S1 DA auto-assigned* → *S2 Yardie brings the car* → T1 Handshake → … → *O1 Yardie preps* → O2 Start TD → O3 Consent → *O4 DL verify*
+- **Before:** I1 Mark arrived → I2 Welcome → S1 Check-in → S2 DL verify → S3 Assign SA → T1 Handshake → … → O3 Start TD
+- **After:** *I1 Welcome and check-in* → *I2 Token on the TV* → *S1 SA auto-assigned* → *S2 Yardie brings the car* → T1 Handshake → … → *O1 Yardie preps* → O2 Start TD → O3 Consent → *O4 DL verify*
 
-**One gesture.** Checking in is the arrival, so there is no Mark arrived. The customer sits down and scans the QR on their seat, or a receptionist or DA fills the same form with them. Booked and walk-in customers use the same form; a walk-in's also creates the lead.
+**One gesture.** Checking in is the arrival, so there is no Mark arrived. The customer sits down and scans the QR on their seat, or a receptionist or SA fills the same form with them. Booked and walk-in customers use the same form; a walk-in's also creates the lead.
 
-**Hospital logic.** Every check-in gets a token: B for bookings, W for walk-ins, in order. The ground TV and the customer's own phone show each token's status, DA and car. Nobody types a status: each change comes from a staff action. The system assigns a DA, the Yardie moves the car, the DA meets the customer and starts the drive.
+**Hospital logic.** Every check-in gets a token: B for bookings, W for walk-ins, in order. The ground TV and the customer's own phone show each token's status, SA and car. Nobody types a status: each change comes from a staff action. The system assigns an SA, the Yardie moves the car, the SA meets the customer and starts the drive.
 
-**DA, then the handshake.** The DA is assigned automatically, by who is free now and has room in today's slots. A person assigns one only when every DA is busy. The handshake happens after that, at the customer's seat, never at check-in.
+**SA, then the handshake.** The SA is assigned automatically, by who is free now and has room in today's slots. A person assigns one only when every SA is busy. The handshake happens after that, at the customer's seat, never at check-in.
 
-**The Yardie.** Cars wait in the yard, about 500 m away. A booked car is prepped before the day and called to the hub the moment the customer checks in. A walk-in's car is prepped (a quick clean, fuel, tyres) once the DA and the customer choose it, then brought over. Each tap updates the TV's car column and tells the DA.
+**The Yardie.** Cars wait in the yard, about 500 m away. A booked car is prepped before the day and called to the hub the moment the customer checks in. A walk-in's car is prepped (a quick clean, fuel, tyres) once the SA and the customer choose it, then brought over. Each tap updates the TV's car column and tells the SA.
 
-**DL verify, before the car moves.** The DA checks the licence at the car, after Start TD and the consent. Car finding doesn't need one; driving does.
+**DL verify, before the car moves.** The SA checks the licence at the car, after Start TD and the consent. Car finding doesn't need one; driving does.
 
-*See:* I1 Seat QR check-in (Australia) · I1 Check-in by staff (UAE) · I2 Token on the TV · S1 DA auto-assigned · S2 Yardie brings the car · O1 Yardie preps a walk-in's car · O4 DL verify
+*See:* I1 Seat QR check-in (Australia) · I1 Check-in by staff (UAE) · I2 Token on the TV · S1 SA auto-assigned · S2 Yardie brings the car · O1 Yardie preps a walk-in's car · O4 DL verify
 
 #### Two ways to check in, one form, any market
 
@@ -4975,7 +4520,7 @@ Notes on the PISTON board, how the calling team works, the Leadverse TD Journey 
 
 **Seat QR.** The customer scans the QR on their seat and gets a form-only page on their own phone: no Leadverse, no login. The code is the same on every seat, so a mobile number and OTP say who is checking in, and today's booking is found from it. Each answer lands on the receptionist's Today list as it is given. If the customer gets stuck, staff finish it for them and keep what was filled. This first shipped as a link sent at Mark arrived; with arrival and check-in now one gesture, the seat QR replaces that link.
 
-**By staff.** A receptionist or DA fills the same form with the customer. Both ways write the same check-in and issue the same token.
+**By staff.** A receptionist or SA fills the same form with the customer. Both ways write the same check-in and issue the same token.
 
 **The market sets the default, not the product.** Australia defaults to the seat QR, because customers there already check themselves in with a form. The UAE and India default to staff. Either way works for any visit, in any market.
 
@@ -4989,7 +4534,7 @@ White by default. Every screen uses that file's layout: an icon rail, a lead pan
 
 From its flows: check-in as a form with an OTP step and a purpose-of-visit question, DL verify as its own step (now right before the drive), a LIVE badge and live transcription during the drive, the disposition form, and the Add cars drawer.
 
-*See:* I1 Check-in · O4 DL verify · O6 TD live · N1 Disposition
+*See:* I1 Check-in · T2 DL verify · O1 Test drives · N2 Checkout
 
 #### Every screen, taken apart
 
@@ -5021,24 +4566,24 @@ No lead, no call: every enquiry with a mobile number lands as a TD booking call 
 
 Consent is about one drive in one car, so it needs the car, plate and start odometer that exist only once the TD starts. It is signed once per car; a VTD needs none. DAP already unlocks the declaration only after Start Test Drive but checks it at Mark Test Drive Complete, so today a customer can drive before signing. O3 makes it a gate before the car moves.
 
-*See:* I1 Check-in · O2 Start TD · O3 Consent
+*See:* I1 Check-in · O1 Consent at the key handover
 
 #### One owner, from the handshake
 
 > **Feedback:** “Handshake ke baad car finding journey”
 
-- **Before:** Front desk finds the car, the DA meets the customer at the yard. Booked customers only reconfirm.
-- **After:** S1 Assign DA → *T1 Handshake* → *T2 Needs and cars → T4 Promise → T5 Book now* (walk-in)
+- **Before:** Front desk finds the car, the SA meets the customer at the yard. Booked customers only reconfirm.
+- **After:** S1 Assign SA → *T1 Handshake* → *T2 Needs and cars → T4 Promise → T5 Book now* (walk-in)
 
-The DA meets the customer at their seat. For a walk-in, car finding starts there. A booked customer chose the car on the call, so for them the handshake starts the drive (reworked in the first card). The handshake is a real state: DAP hub work orders already have MET_CUSTOMER.
+The SA meets the customer at their seat. For a walk-in, car finding starts there. A booked customer chose the car on the call, so for them the handshake starts the drive (reworked in the first card). The handshake is a real state: DAP hub work orders already have MET_CUSTOMER.
 
-*See:* S1 Assign DA · T1 Handshake · T2 Needs and cars
+*See:* S1 Assign SA · T1 Handshake · T2 Needs and cars
 
 #### Every step, one level deeper
 
 > **Feedback:** “Ek level depth: source, screen, entry, exit”
 
-37 steps, each with its source, screen, entry conditions and exit conditions, per track. The same four are given for each flow and each phase.
+33 steps, each with its source, screen, entry conditions and exit conditions, per track. The same four are given for each flow and each phase.
 
 ### Configured per market, built once
 
@@ -5046,7 +4591,7 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 
 | Setting | UAE | India | Australia |
 | --- | --- | --- | --- |
-| **Check-in default** | By staff: a receptionist or DA fills the form with the customer | By staff | Seat QR: the customer checks in on their own phone |
+| **Check-in default** | By staff: a receptionist or SA fills the form with the customer | By staff | Seat QR: the customer checks in on their own phone |
 | **The other way** | Seat QR, for any visit | Seat QR, for any visit | By staff, for any visit |
 | **Proof of mobile** | OTP, both ways | Same | Same |
 | **Token and live tracker sent on** | WhatsApp | WhatsApp | WhatsApp, or SMS (to decide) |
@@ -5074,13 +4619,13 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 | Who | Console today | PISTON screens | Effect |
 | --- | --- | --- | --- |
 | **Calling agent** | Not in the Console | P1 Queue (tabs) → P2 Orders and interest → P3 Discovery if unsure → P4 TD type per car → P5 Hub slot / P6 Video slot → P7 Book | A new persona in Tasks (b2c-lead-td-booking-by-cc). An order exists, or the call creates one per car; one call can book a hub TD and a video TD. |
-| **Receptionist**, walk-in | Customer details → Select car → Order created → Check-in → Assign DA | I1 Check-in (the form creates the lead) → S1 DA assigned automatically | Car choice and the order move to the DA, after the handshake. The receptionist assigns a DA only when every DA is busy. |
-| **Receptionist**, booked | Check-in → Assign DA | I1 Check-in, or the customer does it from the seat QR → S1 automatic | No Mark arrived: check-in is the arrival. No licence check at the desk. |
-| **Customer** | Not in the Console | Seat QR → Mobile, purpose and OTP → Existing order? → Yes: checked in, or No: your details → Token page, with the DA | A public page outside Leadverse, then a live token page with the same status as the TV. |
-| **Yardie** | Not in the Console | S2 Bring the booked car → O1 Prep and bring a walk-in's car | A new persona with a mobile task list. Each tap updates the TV and tells the DA. |
-| **Everyone in the hub** | Not in the Console | I2 Ground TV | Tokens with status, DA and car, moved only by staff actions. |
-| **DA** | Conduct TD → Select VAS → Confirm VAS → Payment → Token paid | Booked: T1 Handshake and Start TD → O3 Consent → O4 DL → O5–O7 → N1–N3. Walk-in: T1 Handshake → T2 Needs and cars → T4 Promise → T5 Book now → O2 Start TD → O3 Consent → O4 DL → O5–O7 → N1–N3 | The DA's journey starts at the handshake; for a booking, the handshake starts the TD. For a walk-in, the DA books the current slot, then comes back when the car reaches the hub. VAS moves into the delivery journey. |
-| **Manager** | Oversight table | M1 Live funnel | Each state becomes a funnel row, with time between states: checked in, DA assigned, met, car at the hub, DL verified, and on. |
+| **Receptionist**, walk-in | Customer details → Select car → Order created → Check-in → Assign SA | I1 Check-in (the form creates the lead) → S1 SA assigned automatically | Car choice and the order move to the SA, after the handshake. The receptionist assigns an SA only when every SA is busy. |
+| **Receptionist**, booked | Check-in → Assign SA | I1 Check-in, or the customer does it from the seat QR → S1 automatic | No Mark arrived: check-in is the arrival. No licence check at the desk. |
+| **Customer** | Not in the Console | Seat QR → Mobile, purpose and OTP → Existing order? → Yes: checked in, or No: your details → Token page, with the SA | A public page outside Leadverse, then a live token page with the same status as the TV. |
+| **Yardie** | Not in the Console | S2 Bring the booked car → O1 Prep and bring a walk-in's car | A new persona with a mobile task list. Each tap updates the TV and tells the SA. |
+| **Everyone in the hub** | Not in the Console | I2 Ground TV | Tokens with status, SA and car, moved only by staff actions. |
+| **SA** | Conduct TD → Select VAS → Confirm VAS → Payment → Token paid | One task per visit: T1 Interest (Check-in tab first) → T2 DL → T3 Today's orders or Discover → O1 Test drives, a section per order → N2 Checkout, one car at a time → N3 | The lead is found by the check-in UUID, with every TD of the day in the same task. The SA checks out each car: delivery, VAS, discount, sales promise, payment mode, pre-approval and the deposit. A walk-in is the same, with no TD booked today. |
+| **Manager** | Oversight table | M1 Live funnel | Each state becomes a funnel row, with time between states: checked in, SA assigned, met, car at the hub, DL verified, and on. |
 
 ### New in the data model
 
@@ -5089,8 +4634,8 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 - **A pre-approval on the lead.** The payment mode (Cash, In-house finance, BYOF), trade-in opted, and the latest pre-approval (partial: cohort and rate range; full: the amount, repayment and expiry) live on the lead, so the call, the hub and delivery read the same one. The question sets are market config from the finance service.
 - **A journey driven by the next-step API.** Each Next posts the step's answers; the response names the next step (a journey page by slug, as Leadverse's journey engine already renders) and the stage list. The booking call branches to a TD or a deposit this way.
 - **A queue token.** One per check-in: hub, day, B or W, and a number. Its status on the TV and the phone is derived from state events, never typed. Not to be confused with the payment token (TOKEN PAID).
-- **A yard task.** Bring, or prep and bring: the car, from a yard spot, to a bay, with picked-up and at-hub times. It moves the TV's car column and pushes the DA.
-- **New states.** CHECKED IN (now also the arrival), DA ASSIGNED, CAR AT HUB, DL VERIFIED and TD CONSENT SIGNED. MET CUSTOMER already exists for DAP hub work orders.
+- **A yard task.** Bring, or prep and bring: the car, from a yard spot, to a bay, with picked-up and at-hub times. It moves the TV's car column and pushes the SA.
+- **New states.** CHECKED IN (now also the arrival), SA ASSIGNED, CAR AT HUB, DL VERIFIED and TD CONSENT SIGNED. MET CUSTOMER already exists for DAP hub work orders.
 - **How a check-in happened.** Staff or seat QR. The QR page autosaves each part, so staff can take over without retyping.
 - **Payment from the gateway.** TOKEN PAID comes from the payment webhook. The Console's Mark as paid button is a prototype shortcut only.
 
@@ -5098,8 +4643,8 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 
 - **Checking a deposit by hand.** The agent checks the customer's screenshot and reserves the car; the at-hub token (N2) waits for the payment gateway instead. Keep the screenshot as the proof, or have finance confirm the bank credit (or a payment link) before the car is reserved? And who releases the car if the money never arrives?
 - **Where the listing comes from.** The call's listing, car page and compare should show exactly what the website shows. Call the consumer listing and car page services from Leadverse, or build the screens from the shared DLS components with their own BFF?
-- **One discovery at the hub too.** The walk-in's car finding (T2) still uses the stepper pills. Use the same listing, car page and compare on the DA's tablet?
-- **A booked customer who wants another car.** A booking has no car finding: the handshake starts the drive. If they change their mind on the day, is that a new order (N6), or can the DA add a car at the handshake?
+- **One discovery at the hub too.** Discover more cars (T3) lists live stock with filter chips. Use the same listing, car page and compare as the call on the SA's tablet?
+- **A booked customer who wants another car.** Discover more cars in the SA's task adds the car to the same visit as one more order, for now. Confirm the slot planner allows a same-day order on top of the booking, and whether the hub's cap counts it.
 - **A walk-in into the current slot.** The walk-in is booked into the slot they are in. When it is full, book the next one today, or let the hub go over its cap?
 - **Orders without an email.** An order needs a mobile and an email, so a mobile-only enquiry stays a contact with appointment IDs until the call adds the email. Confirm OMS keeps that rule, and whether a missing email should block the TD booking.
 - **One call, two bookings.** A mixed call books a hub TD and a video TD at once, with one order per car. Confirm the slot planner holds both from one task, and who owns the video one.
@@ -5107,18 +4652,18 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 - **Finance links after check-in.** The pre-approval and listing pages, and the pre-approval status, come from consumer web. Confirm the URLs, and whether "own loan" customers should also see pre-approval when they are already pre-approved.
 - **Token order.** B for bookings, served at their slot time, and W for walk-ins, in arrival order, on one board. Or one queue for everyone?
 - **Names on the TV.** The board shows the token with a first name and initial. The TV is in a public room: is the token alone enough?
-- **The auto-assignment rule.** Free now, under today's cap, a free slot for the next hour, then the booking's DA or the best language. When every DA is busy, does the receptionist or the manager pick?
+- **The auto-assignment rule.** Free now, under today's cap, a free slot for the next hour, then the booking's SA or the best language. When every SA is busy, does the receptionist or the manager pick?
 - **The Yardie's device.** A Leadverse mobile view, or a separate app. The yard is about 500 m away, so it must work on mobile data.
 - **No licence, found late.** With the licence checked after Start TD and the consent, a customer without one finds out at the car, and the started TD is cancelled. Ask one question at check-in (Do you have your licence with you?) and still verify at O4?
-- **The S phase name.** Check-in moved into Introduce, so S now covers the DA and the car. These screens call it Set up. Keep that, or rename?
+- **The S phase name.** Check-in moved into Introduce, so S now covers the SA and the car. These screens call it Set up. Keep that, or rename?
 - **An I'm here link.** Booked customers could also check in from a link in the day-of reminder, skipping the OTP. Add it next to the seat QR?
 - **Where the customer pages live.** Consumer web (cars24.ae, cars24.com.au) or public pages from Leadverse's form renderer. Either way the seat QR page must render the staff form's schema, so the two never drift apart.
 - **Token updates in Australia.** The token and its tracker link go out on WhatsApp. If WhatsApp reaches too few customers in Australia, send them by SMS there.
-- **Licence on the phone.** Optional on the seat QR page, because the DA can scan it at the car. Australia may want it required for walk-ins.
+- **Licence on the phone.** Optional on the seat QR page, because the SA can scan it at the car. Australia may want it required for walk-ins.
 - **Video TD check-in.** Still an OTP on the call, now in the same step as the welcome. Its join link is already personal, so these questions could move to the page before the call.
 - **VAS before the token?** The Console sells VAS before payment, following the earlier rule. PISTON leaves VAS to the delivery journey so nothing sits between ready to buy and the token. Pick one.
-- **The DA's device.** These screens assume a tablet for the DA on the floor. Leadverse is desktop-first today.
-- **Recording consent.** Asked by the DA at Start TD (T1 for a booking, O2 for a walk-in), not at check-in; the recording runs from Start TD to End TD. The screens assume a customer can say no and still get the full visit, with AI notes off. Confirm a spoken yes, set on the DA's tablet, is enough, or whether the customer should tick it on the TD consent (O3).
+- **The SA's device.** These screens assume a tablet for the SA on the floor. Leadverse is desktop-first today.
+- **Recording consent.** Asked by the SA at Start TD (T1 for a booking, O2 for a walk-in), not at check-in; the recording runs from Start TD to End TD. The screens assume a customer can say no and still get the full visit, with AI notes off. Confirm a spoken yes, set on the SA's tablet, is enough, or whether the customer should tick it on the TD consent (O3).
 - **An order before the car is final.** P3 creates the order with the lead's car of interest, and P6 can change the car. Confirm OMS allows that, or create the order at P6 when the lead has no car yet.
 - **Gender and pincode at check-in.** The TD Journey file asks for both. The screens use emirate and area instead of a pincode and leave gender out. Add gender back only if something uses it.
 - **Credit score.** The file shows a CIBIL score, which is Indian. The screens show an AECB score for the UAE. Confirm Leadverse can read it.

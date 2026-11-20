@@ -23,17 +23,21 @@ The journey is built once and configured per market. Switch **UAE** or **Austral
 On the ground:
 
 - **Check-in asks "Do you need financing after the test drive?"** and the token page shows the next step with a QR: the 2-minute pre-approval, a check against the customer's own lender, or take a seat and browse the cars.
-- **Welcome and check-in are one gesture (I1).** Checking in is the arrival; there is no separate Mark arrived. The customer scans the **QR on their seat** and fills a form-only page on their own phone, or a **receptionist or DA** fills the same form with them. Booked and walk-in customers use the same form. Australia defaults to the seat QR; the UAE (and India) default to staff.
-- **The check-in form asks for the mobile first.** Step 1: mobile number, purpose of visit, then send and verify the OTP. Step 2: Do you have an existing order? **Yes** shows today's order and checks the customer in at once. **No** opens the basic details form (email, first and last name, post code or area, financing after the TD, where they heard about us), which creates the lead, with the licence photos optional at the end. There is no recording question at check-in: the DA asks at Start TD. The last screen is the token with the DA's name, on the phone and in the staff form: the DA is auto-assigned the moment the customer checks in.
-- **A token on the ground TV (I2).** Hospital logic: every check-in gets a token (B for bookings, W for walk-ins). The TV and the customer's phone show each token's status, DA and car, and change only when staff act. Use **Play the staff actions** on I2 to watch both update.
-- **DA assigned automatically (S1)**, by availability and today's slots; staff assign by hand only when every DA is busy. The **handshake (T1)** comes after that, at the customer's seat.
-- **A booking starts at the handshake.** The car was chosen on the call and the Yardie has it at the hub, so there is no car finding: the DA's handshake is Start TD (recording on). Then the consent, the licence and the walkaround.
-- **A walk-in finds the car with the DA (T2)** through the same stepper pills as Discovery on the call, ending in the matching cars. Then the **quality promise (T4)** and **Book now (T5)**: one tap books the current slot, creates the order for the TD and sends the Yardie the prep request.
-- **The promise and the consent sit in the middle column** of the visit page, with the lead pane on the left and CarGPT on the right. The DA hands the tablet over for the customer to sign.
-- **The Yardie.** Cars wait in a yard about 500 m away. A booked car is prepped before the day and brought over when the customer checks in (S2). A walk-in's car is prepped once its slot is booked, then brought over (O1). Each tap updates the TV.
-- **Start TD is when the DA meets the customer**, asks for the recording consent and turns the recording on: at the handshake for a booking (T1), at the car for a walk-in (O2). Then the TD consent (O3), the licence check (O4), the walkaround, the drive and the end. A walk-in waits on their token while the Yardie preps the car; the DA comes back when it reaches the hub.
+- **Welcome and check-in are one gesture (I1).** Checking in is the arrival; there is no separate Mark arrived. The customer scans the **QR on their seat** and fills a form-only page on their own phone, or a **receptionist or SA** fills the same form with them. Booked and walk-in customers use the same form. Australia defaults to the seat QR; the UAE (and India) default to staff.
+- **The check-in form asks for the mobile first.** Step 1: mobile number, purpose of visit, then send and verify the OTP. Step 2: Do you have an existing order? **Yes** shows today's order and checks the customer in at once. **No** opens the basic details form (email, first and last name, post code or area, financing after the TD, where they heard about us), which creates the lead, with the licence photos optional at the end. There is no recording question at check-in: the SA asks at Start TD. The last screen is the token with the SA's name, on the phone and in the staff form: the SA is auto-assigned the moment the customer checks in.
+- **A token on the ground TV (I2).** Hospital logic: every check-in gets a token (B for bookings, W for walk-ins). The TV and the customer's phone show each token's status, SA and car, and change only when staff act. Use **Play the staff actions** on I2 to watch both update.
+- **SA assigned automatically (S1)**, by availability and today's slots; staff assign by hand only when every SA is busy. The SA (sales associate) then meets the customer at their seat.
+- **The SA's task: one task per visit (T1 to N2, booked and walk-in).** The lead is found by the check-in UUID, with every order it has today; a booking can carry two or three TDs and they all run in this task. Five pages, each built from DLS components:
+  - **T1 Interest:** tabs, Check-in first, then Today's TD, Finance, Wishlist, Trade-in, Coupons (with validity) and Notes.
+  - **T2 DL:** both sides, what was read off the licence and three checks, once for the visit.
+  - **T3 Cars:** today's orders, or Discover more cars; a car picked joins the visit as an order for now.
+  - **O1 Test drives:** a section per order with a stepper: walkthrough, key handover (TD consent, recording consent; the TD starts), TD done, disposition, checkout.
+  - **N2 Checkout:** one car, a stepper inside: delivery, VAS, discount, sales promise, payment mode, the pre-approval for In-house finance (prefilled, or send the link), the deposit (bank transfer with the receipt, or a Stripe link), booking confirmed. Another TD'd car is checked out the same way.
+- **A walk-in is the same,** with no TD booked today: Today's TD is empty and Cars opens on Discover.
+- **The Yardie.** Cars wait in a yard about 500 m away. A booked car is prepped before the day and brought over when the customer checks in (S2). A car picked on the day is prepped, then brought over. Each tap updates the TV.
+- **Video TD** keeps its own steps: needs, cars, the promise and the walkaround on camera, then the debrief and the token by payment link.
 
-Steps with two devices (I1 by seat QR, I2, S2, O1) show them side by side. **Screen only** shows them larger. The *What changed* view lists what is set per market and the decisions still open.
+Steps with two devices (I1 by seat QR, I2, S2) show them side by side. **Screen only** shows them larger. The *What changed* view lists what is set per market and the decisions still open.
 
 No build step. Plain HTML, CSS and JavaScript. All people, cars and numbers are mock data.
 
@@ -56,13 +60,13 @@ Deep links: `#booked-I1`, `#booked-P3a`, `#walkin-T2`, `#vtd-O5`, `#blueprint`, 
 ## Files
 
 - `index.html`: the page.
-- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 36 steps, plus mock people and cars per market and the copy layer for Australia.
+- `piston-data.js`: the spec. Tracks, markets, check-in ways, flows, phases and the 33 steps, plus mock people and cars per market and the copy layer for Australia.
 - `piston-anatomy.js`: parts, fields, actions and states for every screen.
 - `PISTON-spec.md`: the whole spec as one Markdown file (flows, phases, journey maps, states, core logic, every step with its anatomy, markets, what changed). Built from the spec files by `node tools/gen-spec-md.js . PISTON-spec.md`; rerun it after a spec change.
 - `piston-screens.js`: one Leadverse screen per step, the ground TV board, and the phone screens: the seat QR check-in, the customer's token page and the Yardie's task list.
 - `piston.js`: the viewer.
 - `piston.css`: the viewer and the TD Journey components.
-- `dls.js`, `dls.css`, `fonts/turbo-ui-icons.woff2`: Turbo UI, the CARS24 DLS ([CSPL-CARS24/turbo-ui](https://github.com/CSPL-CARS24/turbo-ui)), as plain markup. Each helper in `dls.js` mirrors one `@cspl/*` component (SectionCard, DataTable, Badge, PaymentDetailsCard, Chip, FileUploadCard, CarContextCard, Dropdown, LinkButton) with its tokens in `dls.css` and the DLS icon font. A call step's action area (between the stage bar and the footer) opts in with `dls: true` on `callTask`; the Leadverse shell around it is unchanged. P7d (the deposit) is the first on it, with the order's Payments and Price breakup tables.
+- `dls.js`, `dls.css`, `fonts/turbo-ui-icons.woff2`: Turbo UI, the CARS24 DLS ([CSPL-CARS24/turbo-ui](https://github.com/CSPL-CARS24/turbo-ui)), as plain markup. Each helper in `dls.js` mirrors one `@cspl/*` component (SectionCard, DataTable, Badge, PaymentDetailsCard, Chip, FileUploadCard, CarContextCard, Dropdown, LinkButton, NotchTabs, SegmentTabs, FetchedInfoCard, Stepper, ChoiceTile, Checkbox, TextInput, Coupon, AddressCard, PaymentTile, NoDataFound, Button) with its tokens in `dls.css` and the DLS icon font. A screen's action area (between the stage bar and the footer) opts in with `dls: true` on `callTask` or `visit`; the Leadverse shell around it is unchanged. On it: P7d (the deposit, with the order's Payments and Price breakup tables) and the SA's task (T1, T2, T3, O1, N2). `tools/dls-icons.js` writes the icon rules from the turbo-ui checkout.
 - `style.css`: shared Leadverse tokens and base styles, also used by the Test Drive Console.
 - `theme.js`: the Light / Dark toggle.
 - `artifact-entry.html`: the same page without the document wrapper, for publishing as a Claude artifact.
