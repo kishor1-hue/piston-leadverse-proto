@@ -39,7 +39,7 @@ const STAFF_AV = marketTable({ receptionist: "K", da: "OH", operator: "SI", mana
 
 const PILL = {
   P1: ["grey", "New lead"], P2: ["violet", "Booking initiated"], P3: ["violet", "Booking initiated"], P3a: ["violet", "Booking initiated"], P3b: ["violet", "Booking initiated"], P4: ["violet", "Booking initiated"], P5: ["violet", "Booking initiated"],
-  P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P7d: ["amber", "Deposit pending"], P7f: ["violet", "Booking initiated"], P8: ["violet", "TD booked"], P9: ["amber", "Callback due"],
+  P6: ["violet", "Booking initiated"], P7: ["violet", "Booking initiated"], P7d: ["amber", "Deposit pending"], P7f: ["violet", "Booking initiated"], P8: ["violet", "TD booked"], P8r: ["violet", "TD today"], P9: ["amber", "Callback due"],
   I1: ["red", "Not checked-in"], I2: ["green", "Checked in"], S1: ["green", "Checked in"], S2: ["violet", "SA assigned"],
   T1: ["violet", "With SA"], T2: ["violet", "With SA"], T3: ["violet", "With SA"], O1: ["red", "TD live"],
   N2: ["amber", "Checkout"], N3: ["green", "Booking confirmed"], N4: ["amber", "Follow-up set"], N5: ["amber", "Follow-up due"],
@@ -499,7 +499,7 @@ function priceBreakup(cid) {
 const PRE_ITEM = (id) => ["Run a finance pre-approval", "P7f", "", "landmark", false, `data-from="${id}" data-needs="[data-paymode].fin" title="For In-house finance or BYOF"`];
 // wide: the cars need the room (discovery), so CarGPT folds to a strip that opens its tips on a click.
 // dls: the action area (the content between the stages and the footer) is built on Turbo UI, the CARS24 DLS (dls.js)
-function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev, steps, dls }) {
+function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, cards, leadOpts, cur, wide, prev, steps, dls, crumb }) {
   const p = PEOPLE[t];
   const callbar = `<div class="v2-call" data-part="call"><span class="cb">${ic("phone-call")}</span><div><b>On call with ${first(t)}</b><small>${p.phone} &middot; ${secs}</small></div><span class="v2-recpill"><i></i>Recording</span>
     <div class="v2-call-r"><span>${ic("mic-off")}</span><span>${ic("pause")}</span><span class="end">${ic("phone-off")}</span></div></div>`;
@@ -508,7 +508,7 @@ function callTask(t, idx, id, { title, desc, right, body, hint, buttons, secs, c
     <section class="v2-center">${callbar}${callStages(t, idx, cur, steps)}<div class="v2-content${wide ? " scrolls" : ""}${dls ? " dls" : ""}">${head2(title, desc, right)}${body}</div>${foot(t, id, hint, id === "P7f" ? buttons : [PRE_ITEM(id), ...buttons], prev)}</section>
     ${wide ? gptMini(cards || []) : gpt("cc", { cards: cards || [], transcribing: `call &middot; ${secs}` })}
   </div>`;
-  return shell({ active: "tasks", who: "cc", crumb: crumbOf("Tasks", "TD booking call", `${p.name} - ${CALL_TASK[t]}`), body: content });
+  return shell({ active: "tasks", who: "cc", crumb: crumb || crumbOf("Tasks", "TD booking call", `${p.name} - ${CALL_TASK[t]}`), body: content });
 }
 
 // the pre-approval (P7f) opens from any of these and goes back: the stage it keeps, how to name it, its stage list
@@ -743,6 +743,27 @@ function saCheckoutPage(t) {
     footer: foot(t, "N2", "Exit: deposit paid, booking confirmed", [["Pays later: keep the link live", "N4", "", "clock"], ["Back to the test drives", "O1", "", "arrow-left"], ["Hand off to delivery", "N3", "primary", "arrow-right", true, co.confirmed ? "" : "disabled"]]),
     gptOpts: { cards: [["Say this", "message-square", `<p>&ldquo;The deposit holds the ${carShort(o.car)} for you while we finish the paperwork.&rdquo;</p>`]] } });
 }
+
+// ================================================================== the TD reminder call (P8r)
+// The same-day reminder, the calling journey's last stage. One page: today's TDs, then what the customer said as three
+// tiles (Coming, Reschedule, Cancel); the one picked opens only its few inputs, and the footer's main button follows it.
+// State per market and track; mountTdr (piston.js) changes it and draws the screen again
+const TDR = {};
+const TDR_STEPS = [...CALL_STEPS, "Reminder"];
+const TDR_DAYS = [["today", "Today", "20 Nov"], ["sat", "Sat", "21 Nov"], ["sun", "Sun", "22 Nov"], ["mon", "Mon", "23 Nov"], ["tue", "Tue", "24 Nov"], ["wed", "Wed", "25 Nov"]];
+const TDR_OUT = { confirm: ["Coming", "success", "Confirm the TD", "I1", "check"], resched: ["Rescheduling", "warning", "Reschedule", "P8", "calendar"], cancel: ["Cancelling", "error", "Cancel the TD", "N7", "circle-x"] };
+const tdrToday = (t) => t === "vtd" ? [{ id: PEOPLE.vtd.id, car: PEOPLE.vtd.car, slot: "3:00 PM" }] : SA_DAY[t].orders;
+function tdrState(t) {
+  const k = ctxKey(t);
+  if (!TDR[k]) TDR[k] = { out: null, interest: null, arrive: "On time", pay: P360[t].pay, trade: P360[t].tradeIn === "yes", sent: ["WhatsApp"], tds: tdrToday(t).map(o => o.id), day: null, time: null, rReason: null, cReason: null, note: "", alerts: true };
+  return TDR[k];
+}
+// the open slots: the call is late morning, so today's earlier slots are past; the booked one and full ones are off
+function tdrTimes(day) {
+  const off = { today: { "10:00 AM": "Past", "11:30 AM": "Past", "2:30 PM": "Booked", "5:30 PM": "Full" }, sat: { "11:30 AM": "Full", "4:00 PM": "Full" }, sun: { "10:00 AM": "Full" } }[day] || {};
+  return ["10:00 AM", "11:30 AM", "1:00 PM", "2:30 PM", "4:00 PM", "5:30 PM"].map(x => ({ value: x, label: x, sub: off[x] || "", disabled: !!off[x] }));
+}
+const tdrOk = (st) => st.out === "confirm" ? !!st.interest : st.out === "resched" ? !!(st.tds.length && st.day && st.time) : st.out === "cancel" ? !!(st.tds.length && st.cReason) : false;
 
 // ================================================================== screens
 const SCREENS = {
@@ -1071,6 +1092,46 @@ const SCREENS = {
       tabs: [["Today &middot; 6"], ["Upcoming &middot; 14", true], ["Hub &middot; 11"], ["Virtual &middot; 3"]],
       table: table(["Customer", "Slot", "Car", "Type", "DL &middot; Car &middot; SA &middot; Reminder", ""], rows.map(([trk, nm, id, slot, car, type, r, [act, aic]]) => ({ hl: trk === t,
         cells: [cust(nm, id), slot, car, pill("grey", type), `<div class="v2-ready" ${trk === t ? `data-part="readiness"` : ""}>${cell(r[0], "file-text")}${cell(r[1], "wrench")}${cell(r[2], "user-x")}${cell(r[3], "bell")}</div>`, `<button class="v2-btn sm" ${trk === t ? `data-part="row-action"` : ""}>${ic(aic)}${act}</button>`] })), "table") });
+  },
+
+  // the TD reminder call: confirm, reschedule or cancel on one page
+  P8r: (t) => {
+    const st = tdrState(t), p = PEOPLE[t], fn = first(t), tds = tdrToday(t), video = t === "vtd", cc = PSTAFF.cc.name.split(" ")[0];
+    const chipRow = (key, opts, on) => `<div class="tu-chips">${opts.map(v => TU.chip(v, { active: on === v, attrs: `data-tdr="${key}" data-v="${v}"` })).join("")}</div>`;
+    const field = (label, html) => `<div class="tdr-f"><span class="sa-k">${label}</span>${html}</div>`;
+    const which = tds.length > 1 ? field("Which test drives", `<div class="tu-list">${tds.map(o => TU.checkbox(`${carShort(o.car)} &middot; ${o.slot}`, { checked: st.tds.includes(o.id), value: o.id, attrs: `data-tdr="tds" data-v="${o.id}"` })).join("")}</div>`) : "";
+    const today = TU.sectionCard({ title: tds.length > 1 ? `Today's ${tds.length} test drives` : "Today's test drive", framed: false, attrs: `data-part="today"`,
+      items: tds.map(o => TU.carContext({ title: PCARS[o.car].title, subtitle: `${o.id} &middot; ${video ? "video TD" : MK.hub}`, color: PCARS[o.car].color, right: TU.badge(`Today, ${o.slot}`, { variant: "information" }) })) });
+    const outcome = TU.sectionCard({ title: "What did they say?", attrs: `data-part="outcome"`, items: [TU.choiceTiles("tdr-out", [
+      { value: "confirm", label: "Coming", sub: "Confirm, note their interest", icon: "check-badge-outline" },
+      { value: "resched", label: "Reschedule", sub: "Pick another slot", icon: "calendar-line" },
+      { value: "cancel", label: "Cancel", sub: "Record the reason", icon: "close-line" }], st.out, 3)] });
+    const panels = {
+      confirm: () => TU.sectionCard({ title: "Coming today", subtitle: "Their interest goes to the SA before they arrive", attrs: `data-part="answer"`, items: [
+        field("Interest", chipRow("interest", ["Ready to buy today", "Comparing cars", "Just exploring"], st.interest)),
+        field(video ? "Joining" : "Arriving", chipRow("arrive", ["On time", "About 15 min late", "About 30 min late"], st.arrive)),
+        field("Paying by", chipRow("pay", PAY_MODES.map(([, l]) => l), payLabel(st.pay))),
+        `<div class="tu-list">${TU.checkbox("Bringing a car to trade in", { checked: st.trade, attrs: `data-tdr="trade"` })}</div>`,
+        field("Send the confirmation", `<div class="tu-chips">${[["whatsapp", "WhatsApp"], ["bubble-text-message-chat-outline", "SMS"], ["email-envelope-outline", "Email"]].map(([i, l]) => TU.chip(l, { leadingIcon: i, green: true, active: st.sent.includes(l), trailing: tui("check-outline", "xs"), attrs: `data-tdr="sent" data-v="${l}"` })).join("")}</div>`)] }),
+      resched: () => TU.sectionCard({ title: "Another slot", subtitle: video ? "A new video slot" : `Same hub; the SA and the car move with it`, attrs: `data-part="answer"`, items: [which,
+        field("Day", TU.dateSlots(`data-tdr="day"`, TDR_DAYS.map(([value, label, sub]) => ({ value, label, sub })), st.day)),
+        st.day ? field("Time", TU.timeSlots(`data-tdr="time"`, tdrTimes(st.day), st.time)) : "",
+        field("Why", chipRow("rReason", ["Running late", "Not free today", "Not well", "Something else"], st.rReason))].filter(Boolean) }),
+      cancel: () => TU.sectionCard({ title: "Cancel", subtitle: "The car goes back on sale", attrs: `data-part="answer"`, items: [which,
+        field("Why", TU.choiceTiles("tdr-why", ["Bought elsewhere", "Changed their mind", "Price", "Finance", "Car not right", "Something else"].map(v => ({ value: v, label: v })), st.cReason, 3)),
+        TU.textInput({ label: "Note", value: st.note, placeholder: "Anything the team should know", id: "tdr-note", attrs: "data-tdr-note" }),
+        `<div class="tu-list">${TU.checkbox("Alert them about similar cars", { checked: st.alerts, attrs: `data-tdr="alerts"` })}</div>`,
+        `<div class="tu-btns">${TU.link("Offer another slot instead", { icon: "calendar-line", attrs: `data-choice="tdr-out" data-value="resched"` })}</div>`].filter(Boolean) }),
+    };
+    const o = TDR_OUT[st.out], ok = tdrOk(st);
+    const hint = !st.out ? "Pick what they said" : ok ? { confirm: "Ready to confirm", resched: "Ready to reschedule", cancel: "Ready to cancel" }[st.out] : st.out === "confirm" ? "Note their interest" : st.out === "resched" ? "Pick a day and a time" : "Pick a reason";
+    return callTask(t, 5, "P8r", { dls: true, wide: true, secs: "01:20", steps: TDR_STEPS, cur: "Calling now", prev: "P8", crumb: crumbOf("Tasks", "TD reminder call", `${p.name} - TK-6188`),
+      title: "Today's TD reminder", desc: `${fn} ${video ? "has a video TD" : `has ${tds.length > 1 ? `${tds.length} test drives` : "a test drive"} at ${MK.hub}`} today. Remind them, then record what they said.`,
+      right: TU.badge(o ? o[0] : "Not confirmed yet", { variant: o ? o[1] : "neutral", attrs: `data-part="status"` }),
+      body: `<div class="tu-stack">${today}${outcome}${st.out ? panels[st.out]() : ""}</div>`, hint: `<span>${hint}</span>`,
+      buttons: [["No answer: call back later", "P9", "", "phone-forwarded"], [o ? o[2] : "Pick what they said", o ? o[3] : null, "primary", o ? o[4] : "arrow-right", false, ok ? "" : "disabled"]],
+      cards: [["Say this", "message-square", `<p>&ldquo;Hi ${fn}, it's ${cc} from CARS24. Just checking you're still good for ${video ? "your video test drive" : "your test drive"} today at ${tds[0].slot}?&rdquo;</p>`],
+        ["If they can't make it", "lightbulb", `<p>Offer another slot before a cancel. A cancelled car goes back on sale.</p>`]] });
   },
 
   P9: (t) => {

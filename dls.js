@@ -83,7 +83,7 @@ const TU = {
   },
   // ChoiceTile: a rounded tile, an inset ring once selected. One pick per group
   choiceTiles(group, items, selected, cols = items.length) {
-    return `<div class="tu-tiles" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${items.map(x => `<button type="button" class="tu-tile${x.value === selected ? " on" : ""}" data-choice="${group}" data-value="${x.value}"${x.attrs ? " " + x.attrs : ""}>
+    return `<div class="tu-tiles" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${items.map(x => `<button type="button" class="tu-tile${x.sub || x.icon ? "" : " lbl"}${x.value === selected ? " on" : ""}" data-choice="${group}" data-value="${x.value}"${x.attrs ? " " + x.attrs : ""}>
       ${x.icon ? tui(x.icon, "xl") : ""}<b>${x.label}</b>${x.sub ? `<small>${x.sub}</small>` : ""}</button>`).join("")}</div>`;
   },
   // Checkbox, size md, with its label (and a value on the right when given)
@@ -118,5 +118,13 @@ const TU = {
   // DoSuccessHeader's layout on a light surface: the badge, the title and the line under it
   successHeader({ title, sub }) {
     return `<div class="tu-success"><span class="bd">${tui("circle-check-filled", "2xl")}</span><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  },
+  // DateSlot, desktop-compact: a row of days, the day over the date; TimeSlot, desktop-compact: a grid of times.
+  // items: [{ value, label, sub, disabled }]; the picked one in the brand tone
+  dateSlots(attrs, items, selected) {
+    return `<div class="tu-dslots">${items.map(x => `<button type="button" class="tu-dslot${x.value === selected ? " on" : ""}"${x.disabled ? " disabled" : ""} ${attrs} data-v="${x.value}"><small>${x.label}</small><b>${x.sub}</b></button>`).join("")}</div>`;
+  },
+  timeSlots(attrs, items, selected) {
+    return `<div class="tu-tslots">${items.map(x => `<button type="button" class="tu-tslot${x.value === selected ? " on" : ""}"${x.disabled ? " disabled" : ""} ${attrs} data-v="${x.value}">${x.label}${x.sub ? `<small>${x.sub}</small>` : ""}</button>`).join("")}</div>`;
   },
 };

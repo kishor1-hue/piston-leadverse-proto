@@ -5,7 +5,7 @@ The complete spec behind the PISTON prototype, for the UAE and Australia, on the
 - **Prototype:** https://claude.ai/artifact/TWiP1PVT2sEx7vsug4dbH5
 - **Code:** https://github.com/kishor1-hue/piston-leadverse-proto
 - **Source:** generated from the spec files (`piston-data.js`, `piston-anatomy.js`, `piston.js`) by `tools/gen-spec-md.js`; rerun it after any spec change
-- **Steps:** 33, in 7 phases (P, I, S, T, O, N, M), across 3 tracks, 2 markets and 2 check-in ways
+- **Steps:** 34, in 7 phases (P, I, S, T, O, N, M), across 3 tracks, 2 markets and 2 check-in ways
 
 Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia runs the same journey with its own people, places and copy (Emily, Jack, Liam, Josh): see [Markets](#9-markets-configured-not-rebuilt).
 
@@ -72,7 +72,7 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 | DROPPED | reason recorded |
 | No-show | back to the callback queue (P9) |
 
-**Main path:** P1 → P2 → P4 → P5 → P7 → P8 → I1 → I2 → S1 → S2 → T1 → T2 → T3 → O1 → N2 → N3
+**Main path:** P1 → P2 → P4 → P5 → P7 → P8 → P8r → I1 → I2 → S1 → S2 → T1 → T2 → T3 → O1 → N2 → N3
 
 ### Walk-in hub TD
 
@@ -123,7 +123,7 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 | FOLLOW-UP SCHEDULED | date agreed |
 | DROPPED | reason recorded |
 
-**Main path:** P1 → P2 → P4 → P5 → P6 → P7 → P8 → I1 → T2 → T3 → T4 → T5 → O5 → O7 → N1 → N2 → N3
+**Main path:** P1 → P2 → P4 → P5 → P6 → P7 → P8 → P8r → I1 → T2 → T3 → T4 → T5 → O5 → O7 → N1 → N2 → N3
 
 ## 3. Phases
 
@@ -133,7 +133,7 @@ Examples use the UAE people and cars (Fatima, Ahmed, Khalid, Omar). Australia ru
 - **Owner:** Calling team, then the system
 - **Entry:** An enquiry with a mobile number: an order, or a contact with cars of interest. Self-serve app bookings skip the call and start at P8
 - **Exit:** Every TD from the call booked and the calling task closed, then ready for the visit. Or a deposit taken and the car reserved
-- **Steps:** P1 Lead in the call queue, P2 Orders and cars of interest, P3 Discovery: car listing, P3a Car details (CDP), P3b Compare, P4 TD type per car, P5 Hub TD slot, P6 Video TD slot, P7 Confirm and book, P7d Deposit and reserve, P7f Finance pre-approval, P8 Pre-arrival readiness, P9 Callback and retry
+- **Steps:** P1 Lead in the call queue, P2 Orders and cars of interest, P3 Discovery: car listing, P3a Car details (CDP), P3b Compare, P4 TD type per car, P5 Hub TD slot, P6 Video TD slot, P7 Confirm and book, P7d Deposit and reserve, P7f Finance pre-approval, P8 Pre-arrival readiness, P8r TD reminder call (TDR), P9 Callback and retry
 
 ### I · Introduce
 
@@ -238,6 +238,7 @@ flowchart TD
   P7d["P7d Deposit and reserve"]
   P7f["P7f Finance pre-approval"]
   P8["P8 Pre-arrival readiness"]
+  P8r["P8r TD reminder call TDR"]
   P9["P9 Callback and retry"]
   I1["I1 Welcome and check-in"]
   I2["I2 Token on the ground TV"]
@@ -288,9 +289,14 @@ flowchart TD
   P7d -->|Changes their mind: book a TD instead| P4
   P7d -->|Paying by finance or an own loan: a…| P7f
   P7f -->|Pre-approved, or skipped: back to the…| P2
+  P8 -->|TD day: the reminder call TDR| P8r
   P8 -->|Customer arrives and checks in| I1
   P8 -->|Customer reschedules| P5
   P8 -->|No-show 30 min after the slot: Today…| P9
+  P8r -->|TD CONFIRMED| I1
+  P8r -->|TD RESCHEDULED| P8
+  P8r -->|TD CANCELLED| N7
+  P8r -->|No answer: call back| P9
   P9 -->|Customer picks up: the task resumes at…| P2
   P9 -->|No answer: retry, up to 3 attempts| P9
   P9 -->|DROPPED| N7
@@ -388,6 +394,7 @@ flowchart TD
   P7d["P7d Deposit and reserve"]
   P7f["P7f Finance pre-approval"]
   P8["P8 Pre-arrival readiness"]
+  P8r["P8r TD reminder call TDR"]
   P9["P9 Callback and retry"]
   I1["I1 Welcome and check-in"]
   T2["T2 Needs"]
@@ -442,9 +449,14 @@ flowchart TD
   P7d -->|Changes their mind: book a TD instead| P4
   P7d -->|Paying by finance or an own loan: a…| P7f
   P7f -->|Pre-approved, or skipped: back to the…| P2
+  P8 -->|TD day: the reminder call TDR| P8r
   P8 -->|Customer opens the video link| I1
   P8 -->|Customer reschedules| P6
   P8 -->|Not joined 10 min after the slot: Today…| P9
+  P8r -->|TD CONFIRMED| I1
+  P8r -->|TD RESCHEDULED| P8
+  P8r -->|TD CANCELLED| N7
+  P8r -->|No answer: call back| P9
   P9 -->|Customer picks up: the task resumes at…| P2
   P9 -->|No answer: retry, up to 3 attempts| P9
   P9 -->|DROPPED| N7
@@ -493,6 +505,9 @@ A state is set by one exit of one step. Statuses on the ground TV and the token 
 | ORDER BOOKED | T3 Today's orders or more cars / Recommend and compare | Cars picked: an order each for the current slot, prep requested | Walk-in |
 | VTD BOOKED | P7 Confirm and book | Hub TD and video TD booked; the calling task closes | Video TD |
 | CAR RESERVED | P7d Deposit and reserve | Confirmation uploaded and the car set to Reserved: complete. The order goes to the delivery journey | Booked, Video TD |
+| TD CONFIRMED | P8r TD reminder call (TDR) | Coming: interest noted for the SA, confirmation sent | Booked, Video TD |
+| TD RESCHEDULED | P8r TD reminder call (TDR) | Another slot: the TD moves, readiness is re-planned | Booked, Video TD |
+| TD CANCELLED | P8r TD reminder call (TDR) | Cancelled, with the reason: the car is released | Booked, Video TD |
 | CHECKED IN | I1 Welcome and check-in | OTP verified, Yes to an existing order: today's order is found and checked in at once. A token is issued, an SA is assigned and the Yardie is told to bring the booked car | Booked |
 | CHECKED IN | I1 Welcome and check-in | OTP fails 3 times: the receptionist checks Emirates ID, then finishes the check-in | Booked |
 | CHECKED IN | I1 Welcome and check-in | Mobile verified, Yes to an existing order: today's order found and checked in at once, token issued with the SA's name | Booked |
@@ -1896,6 +1911,7 @@ Customer, car and SA are all ready before the slot starts.
 
 | When | Goes to | State |
 | --- | --- | --- |
+| TD day: the reminder call (TDR) | P8r TD reminder call (TDR) | — |
 | Customer arrives and checks in | I1 Welcome and check-in | — |
 | Customer reschedules | P5 Hub TD slot | — |
 | No-show 30 min after the slot: Today missed TD | P9 Callback and retry | — |
@@ -1904,6 +1920,7 @@ Customer, car and SA are all ready before the slot starts.
 
 | When | Goes to | State |
 | --- | --- | --- |
+| TD day: the reminder call (TDR) | P8r TD reminder call (TDR) | — |
 | Customer opens the video link | I1 Welcome and check-in | — |
 | Customer reschedules | P6 Video TD slot | — |
 | Not joined 10 min after the slot: Today missed TD | P9 Callback and retry | — |
@@ -1949,6 +1966,103 @@ Customer, car and SA are all ready before the slot starts.
 | --- | --- |
 | All green | Ready for the visit |
 | No-show | 30 min after the slot it moves to callbacks (P9) |
+
+#### P8r · TD reminder call (TDR)
+
+- **Tracks:** Booked, Video TD
+- **Owner:** Calling agent
+- **Device:** Leadverse web
+
+**Purpose**
+
+On the TD day the calling team rings the customer to remind them. One page takes whatever they say: they're coming (note how keen they are for the SA), they need another slot, or they cancel. Confirm, Reschedule and Cancel sit side by side; picking one opens only its few inputs.
+
+**Trigger:** TD today: a reminder task in the calling queue, a few hours before the first slot
+
+**Data it reads and writes**
+
+- OMS: the lead's TDs today, with car, slot and hub (or video)
+- Slot planner: open slots at the same hub for the next days
+- Lead: payment mode from the booking call
+- Notification engine: the confirmation with directions, or the new slot
+- Listing: release a cancelled car
+
+**Entry conditions**
+
+- A TD booked for today
+- Not yet checked in
+
+**Exits**
+
+| When | Goes to | State |
+| --- | --- | --- |
+| Coming: interest noted for the SA, confirmation sent | I1 Welcome and check-in | TD CONFIRMED |
+| Another slot: the TD moves, readiness is re-planned | P8 Pre-arrival readiness | TD RESCHEDULED |
+| Cancelled, with the reason: the car is released | N7 Close as dropped | TD CANCELLED |
+| No answer: call back | P9 Callback and retry | — |
+
+**State reached:** TD CONFIRMED
+
+**Screen**
+
+- **Screen:** Tasks › TD reminder call
+- **Build:** New
+- **Pattern:** The calling journey with a last stage, Reminder. Today's TDs on top, then the outcome as three ChoiceTiles (Coming, Reschedule, Cancel); each opens only its inputs. DLS components
+- **Route:** `/tasks?entity=lead&persona=td-reminder-call`
+
+**What changed:** New: the same-day reminder call, as the last stage of the calling journey. Confirm, reschedule or cancel on one page.
+
+**Anatomy**
+
+*Parts of the screen*
+
+| Part | Widget | What it does |
+| --- | --- | --- |
+| Call bar | TELEPHONY | Live call with recording, mute, hold and end. Click-to-call through the telephony provider |
+| Stage bar | STAGE_STEPPER | The calling journey with a last stage, Reminder |
+| Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
+| What they said | @cspl/badge | Not confirmed yet, then Coming, Rescheduling or Cancelling |
+| Today's TDs | @cspl/car-context-card + @cspl/badge | Each TD today: the car, the order, the hub (or video) and the slot |
+| What did they say? | @cspl/choice-tile | Coming, Reschedule, Cancel. Picking one opens only its inputs |
+| The outcome's inputs | @cspl/section-card | Coming: interest, arriving, paying by (@cspl/chip), a trade-in (@cspl/checkbox), the confirmation. Reschedule: which TDs, the day (@cspl/date-slot), the time (@cspl/time-slot), why. Cancel: which TDs, why (@cspl/choice-tile), a note (@cspl/text-input), similar-car alerts |
+| CarGPT | CARGPT_PANEL | Folded to a strip: the line to say, and to offer another slot before a cancel |
+| Footer actions | SHELL_CTAS | The main button follows the outcome: Confirm the TD, Reschedule or Cancel the TD, off until its inputs are in. No answer: call back is under the arrow |
+
+*Fields*
+
+| Field | Type | Required | Source | Rule |
+| --- | --- | --- | --- | --- |
+| What they said | Single select | Yes | Agent | Coming, Reschedule, Cancel |
+| Interest | Single select | Coming | Customer, asked | Ready to buy today, Comparing cars, Just exploring. Goes to the SA |
+| Arriving | Single select | Coming | Customer | On time, about 15 or 30 min late |
+| Paying by | Single select | Coming | Lead, confirmed | Cash, In-house finance, BYOF |
+| Trade-in | Tick | No | Customer | Bringing a car to trade in |
+| Confirmation | Multi select | Coming | Agent | WhatsApp, SMS, email, with the directions |
+| Which TDs | Multi select | With two or more TDs | OMS | All by default |
+| New day and time | Date and time slot | Reschedule | Slot planner, same hub | Past, booked and full slots off |
+| Why (reschedule) | Single select | Reschedule | Customer | Running late, not free today, not well, something else |
+| Why (cancel) | Single select | Cancel | Customer | Bought elsewhere, changed their mind, price, finance, car not right, something else |
+| Note | Text | No | Agent | — |
+| Similar-car alerts | Tick | No | Agent | On by default |
+
+*Actions*
+
+| Action | Calls / event | Result |
+| --- | --- | --- |
+| Confirm the TD | OMS: TD confirmed; interest on the lead for the SA; notification: confirmation with directions | TD CONFIRMED; I1 when they arrive |
+| Reschedule | Slot planner: release the old slot, book the new one; OMS: new slot; yard and SA re-planned; notification: the new slot | TD RESCHEDULED; P8 |
+| Cancel the TD | OMS: TD cancelled with the reason; Listing: the car released; alerts for similar cars if ticked | TD CANCELLED; N7 |
+| Offer another slot instead | None | Switches to Reschedule |
+| No answer: call back later | Callback on the task | P9 |
+
+*Screen states*
+
+| State | Meaning |
+| --- | --- |
+| Not confirmed yet | No outcome picked; the main button is off |
+| Coming | Interest needed before Confirm |
+| Rescheduling | Day and time needed |
+| Cancelling | A reason needed |
 
 #### P9 · Callback and retry
 
@@ -4583,7 +4697,7 @@ The SA meets the customer at their seat. For a walk-in, car finding starts there
 
 > **Feedback:** “Ek level depth: source, screen, entry, exit”
 
-33 steps, each with its source, screen, entry conditions and exit conditions, per track. The same four are given for each flow and each phase.
+34 steps, each with its source, screen, entry conditions and exit conditions, per track. The same four are given for each flow and each phase.
 
 ### Configured per market, built once
 

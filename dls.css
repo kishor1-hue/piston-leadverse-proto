@@ -345,3 +345,24 @@
 .tu-ccc .tu-cb{min-height:0;}
 .tu-ccc > .tu-badge + .tu-cb, .tu-ccc > .tu-badge + .tu-badge{margin-left:4px;}
 .sa-steps{padding:16px 12px 14px;}
+
+/* DateSlot (@cspl/date-slot), desktop-compact: a 68px day tile, the day over the date */
+.tu-dslots{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;}
+.tu-dslot{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:72px; height:68px; padding:12px 16px; border-radius:12px; border:1px solid var(--tu-border-tertiary); background:var(--tu-surface); font-family:inherit; cursor:pointer; flex:none;}
+.tu-dslot small{font-size:14px; line-height:20px; font-weight:500; color:var(--tu-text-secondary);}
+.tu-dslot b{font-size:16px; line-height:24px; font-weight:600; color:var(--tu-text-primary);}
+.tu-dslot.on{border-color:var(--tu-brand); background:var(--tu-brand-25);}
+.tu-dslot.on small, .tu-dslot.on b{color:var(--tu-brand);}
+.tu-dslot:disabled{background:var(--tu-border-tertiary); border-color:transparent; cursor:not-allowed;}
+.tu-dslot:disabled small, .tu-dslot:disabled b{color:var(--tu-text-tertiary);}
+/* TimeSlot (@cspl/time-slot), desktop-compact: 56px time tiles */
+.tu-tslots{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;}
+.tu-tslot{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; height:56px; padding:0 12px; border-radius:12px; border:1px solid var(--tu-border-tertiary); background:var(--tu-surface); font-family:inherit; font-size:15px; font-weight:500; color:var(--tu-text-primary); cursor:pointer;}
+.tu-tslot small{font-size:11px; font-weight:400; color:var(--tu-text-secondary);}
+.tu-tslot.on{border-color:var(--tu-brand); background:var(--tu-brand-25); color:var(--tu-brand);}
+.tu-tslot:disabled{background:var(--tu-border-tertiary); border-color:transparent; color:var(--tu-text-tertiary); cursor:not-allowed;}
+.tu-tslot:disabled small{color:var(--tu-text-tertiary);}
+/* the reminder call: a label over each input */
+.tdr-f{display:flex; flex-direction:column; gap:8px;}
+.tdr-f .tu-chips .tu-chip.on{font-weight:600;}
+.tu-tile.lbl{min-height:44px; justify-content:center;}

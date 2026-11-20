@@ -403,6 +403,7 @@ function mountScreen(root) {
   mountDeposit(root);
   mountPreapproval(root);
   mountSaTask(root);
+  mountTdr(root);
   drawIcons();
 }
 
@@ -457,17 +458,19 @@ function mountPreapproval(root) {
 // checkout. A change goes into the task's state (saState, piston-screens.js) and the stage is drawn again from it,
 // keeping the scroll. Exits (data-go) and chips (data-pick) are the screen's usual handlers
 const SA_PAGES = ["T1", "T2", "T3", "O1", "N2"];
+// a screen kept in state draws itself again, keeping the action area's scroll
+function redrawStage() {
+  const sc = $("#pv-stage .v2-content"), top = sc ? sc.scrollTop : 0;
+  renderStage();
+  const sc2 = $("#pv-stage .v2-content");
+  if (sc2) sc2.scrollTop = top;
+}
 function mountSaTask(root) {
   if (!SA_PAGES.includes(VS.step) || !isHub(VS.track) || !root.querySelector(".v2-content.dls")) return;
   const t = VS.track, st = saState(t);
   const order = (id) => st.orders.find(o => o.id === id);
   const co = () => (st.coOrder ? coState(t, order(st.coOrder)) : null);
-  const redraw = () => {
-    const sc = $("#pv-stage .v2-content"), top = sc ? sc.scrollTop : 0;
-    renderStage();
-    const sc2 = $("#pv-stage .v2-content");
-    if (sc2) sc2.scrollTop = top;
-  };
+  const redraw = redrawStage;
   const toggle = (list, v) => { const i = list.indexOf(v); if (i < 0) list.push(v); else list.splice(i, 1); };
   root.addEventListener("click", (e) => {
     const el = e.target.closest("[data-tab], [data-choice], [data-sa-dl], [data-sa-dlcheck], [data-sa-keep], [data-sa-add], [data-sa-check], [data-sa-next], [data-co-act], [data-co-vas], [data-co-promise], [data-co-coupon]");
@@ -510,6 +513,31 @@ function mountSaTask(root) {
   const disc = root.querySelector("[data-co-disc]"), reason = root.querySelector("#co-reason");
   if (disc) disc.addEventListener("change", () => { const c = co(); if (c) { c.disc = disc.value; redraw(); } });
   if (reason) reason.addEventListener("change", () => { const c = co(); if (c) c.reason = reason.value; });
+}
+
+// the TD reminder call (P8r): what the customer said (Coming, Reschedule, Cancel) and that outcome's inputs go into its
+// state (tdrState, piston-screens.js); the screen is drawn again, so its panel and the footer's main button follow
+function mountTdr(root) {
+  if (VS.step !== "P8r" || !root.querySelector(".v2-content.dls")) return;
+  const st = tdrState(VS.track);
+  root.addEventListener("click", (e) => {
+    const el = e.target.closest('[data-choice="tdr-out"], [data-choice="tdr-why"], [data-tdr]');
+    if (!el || el.disabled) return;
+    e.preventDefault();
+    const d = el.dataset, was = st.out;
+    if (d.choice === "tdr-out") st.out = d.value;
+    else if (d.choice === "tdr-why") st.cReason = d.value;
+    else if (d.tdr === "tds" || d.tdr === "sent") { const list = st[d.tdr], i = list.indexOf(d.v); if (i < 0) list.push(d.v); else list.splice(i, 1); }
+    else if (d.tdr === "trade" || d.tdr === "alerts") st[d.tdr] = !st[d.tdr];
+    else if (d.tdr === "pay") st.pay = PAY_MODES.find(([, l]) => l === d.v)[0];
+    else if (d.tdr === "day") { st.day = d.v; st.time = null; }
+    else st[d.tdr] = d.v;
+    redrawStage();
+    // a newly picked outcome opens its panel under the tiles: bring it into view
+    if (st.out !== was) { const panel = $('#pv-stage [data-part="answer"]'); if (panel) panel.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+  });
+  const note = root.querySelector("[data-tdr-note]");
+  if (note) note.addEventListener("change", () => { st.note = note.value; });
 }
 
 // the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved. Each task's
