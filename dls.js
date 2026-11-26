@@ -29,9 +29,9 @@ const TU = {
     return `<span class="tu-badge ${variant}${size === "s" ? " s" : ""}"${attrs ? " " + attrs : ""}>${icon ? tui(icon, "xs") : ""}${text}</span>`;
   },
   // PaymentDetailsCard breakup rows. items: [{ label, value, highlight, valueAction: { icon, ariaLabel, attrs } }];
-  // "sep" draws the dashed separator. showShadow off when the card sits inside another card
-  paymentDetails(items, { showShadow = true, attrs = "" } = {}) {
-    return `<div class="tu-pay${showShadow ? " shadow" : ""}"${attrs ? " " + attrs : ""}>${items.map(x => x === "sep" ? `<div class="sep"></div>` : `<div class="it${x.highlight ? " hl" : ""}"><span>${x.label}</span><span class="v">${x.valueAction ? `<button type="button" class="va" aria-label="${x.valueAction.ariaLabel}"${x.valueAction.attrs ? " " + x.valueAction.attrs : ""}>${tui(x.valueAction.icon, "sm")}</button>` : ""}${x.value}</span></div>`).join("")}</div>`;
+  // "sep" draws the dashed separator. heading sits on top over a hairline. showShadow off inside another card
+  paymentDetails(items, { heading = "", showShadow = true, attrs = "" } = {}) {
+    return `<div class="tu-pay${showShadow ? " shadow" : ""}"${attrs ? " " + attrs : ""}>${heading ? `<h5 class="hd">${heading}</h5>` : ""}${items.map(x => x === "sep" ? `<div class="sep"></div>` : `<div class="it${x.highlight ? " hl" : ""}"><span>${x.label}</span><span class="v">${x.valueAction ? `<button type="button" class="va" aria-label="${x.valueAction.ariaLabel}"${x.valueAction.attrs ? " " + x.valueAction.attrs : ""}>${tui(x.valueAction.icon, "sm")}</button>` : ""}${x.value}</span></div>`).join("")}</div>`;
   },
   // Chip, size default, rounded. Active is the brand tone, or chipTheme Green (green) for a done state; trailing shows only while active
   chip(label, { leadingIcon, active, trailing, green, attrs = "" } = {}) {

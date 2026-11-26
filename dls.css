@@ -119,6 +119,7 @@
 .tu-pay .va .tui{font-size:14px;}
 .tu-pay .va.ok{color:var(--tu-mint-800);}
 .tu-pay .sep{height:0; margin:2px 0; border-top:1px dashed var(--tu-border-tertiary);}
+.tu-pay .hd{margin:0 0 4px; padding-bottom:8px; border-bottom:.5px solid var(--tu-border-tertiary); font-size:15px; font-weight:600; color:var(--tu-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .tu-pay .it.hl{font-size:15px; font-weight:600; color:var(--tu-text-primary);}
 .tu-pay .it.hl .v{font-weight:600;}
 

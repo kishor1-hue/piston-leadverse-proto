@@ -1065,13 +1065,17 @@ const SCREENS = {
         TU.dropdown({ id: "dp-pay", label: "Payment mode", options: PAY_MODES, value: st.pay, placeholder: "Select payment mode", required: true, attrs: `data-dep-f="pay" data-part="pay-mode"` }),
         `<div class="tu-chips" data-part="channels">${[["whatsapp", "whatsapp", "WhatsApp"], ["email", "email-envelope-outline", "Email"], ["sms", "bubble-text-message-chat-outline", "SMS"]]
           .map(([k, i, l]) => TU.chip(l, { leadingIcon: i, active: st.sent.includes(k), green: true, trailing: `${tui("check-outline", "xs")}Sent`, attrs: `data-dep="send" data-v="${k}"${st.pay ? "" : " disabled"}` })).join("")}</div>`] });
+    // the bank account, always on show for a transfer: the order ID is the reference, the least deposit the amount
+    const copy = (what) => ({ icon: "copy", ariaLabel: `Copy the ${what}`, attrs: "data-copy" });
+    const bank = TU.paymentDetails([...MK.bank, ["Reference", order], ["Amount", money(d.min)]].map(([label, value]) => ({ label, value, valueAction: copy(label.toLowerCase()) })),
+      { heading: "Account details", showShadow: false, attrs: `data-part="bank"` });
     const manual = st.via === "link"
-      ? [TU.badge(`Paid by link: ${money(paid)}, ${DEP_TXN}`, { variant: "success", size: "s", icon: "check-outline" })]
-      : [TU.textInput({ label: `Receipt amount (${ccy})`, value: st.amount, id: "dp-amount", hint: depHint(d), error: depErr(st, d), attrs: `data-dep-f="amount" inputmode="numeric" data-part="receipt-amount"` }),
+      ? [bank, TU.badge(`Paid by link: ${money(paid)}, ${DEP_TXN}`, { variant: "success", size: "s", icon: "check-outline" })]
+      : [bank, TU.textInput({ label: `Receipt amount (${ccy})`, value: st.amount, id: "dp-amount", hint: depHint(d), error: depErr(st, d), attrs: `data-dep-f="amount" inputmode="numeric" data-part="receipt-amount"` }),
         TU.fileUploadCard({ title: "Payment receipt", description: st.receipt ? `payment-receipt.png &middot; 240 KB &middot; uploaded just now` : "JPG, PNG or PDF, up to 5 MB", uploaded: st.receipt, previewLabel: "PNG",
           badge: st.receipt ? TU.badge("Saved to Documents", { variant: "success", size: "s", icon: "check-outline" }) : "",
           cta: st.receipt ? TU.link("Replace", { attrs: `data-dep="receipt"` }) : TU.link("Use a sample", { attrs: `data-dep="receipt"` }), attrs: `data-part="receipt"`, buttonAttrs: `data-dep-upload` })];
-    const confirm = TU.sectionCard({ title: "Payment confirmation", subtitle: `Amount due: ${money(d.total)}. Enter the amount paid and attach the receipt.`, attrs: `data-part="confirm"`,
+    const confirm = TU.sectionCard({ title: "Manual payment confirmation", subtitle: `Amount due: ${money(d.total)}. For a bank transfer, share the account details, then enter the amount paid and attach the receipt.`, attrs: `data-part="confirm"`,
       badge: { label: paid ? (st.via === "link" ? "Paid by link" : "Receipt recorded") : "Awaiting payment", variant: paid ? "success" : "warning", attrs: `data-dep-badge` }, items: [
         `<div class="tu-btns">${TU.button("Refresh payment status", { variant: "secondary", size: "small", icon: "arrow-refresh-renew-outline", attrs: `data-dep="refresh" data-part="refresh"` })}${st.checked && !paid ? `<small class="dep-note">${sent ? "Nothing paid by link yet" : "No link sent yet"}</small>` : ""}</div>`, ...manual] });
     // 3 · reserve: the car's status, the order's payments and its price breakup
@@ -1097,7 +1101,7 @@ const SCREENS = {
       hint: [st.mode && st.state ? "Check the address, then continue" : "Pick the delivery mode and the state", paid ? "Deposit paid: continue to reserve" : "Send the link, or record the receipt", ready ? "Deposit recorded, car reserved" : "Set the car to Reserved"][st.step],
       buttons: [["Book a TD instead", "P4", "", "calendar"], ["Not paid yet: call back", "P9", "", "phone-forwarded"], ["Complete: car reserved", "N3", "primary", "check", false, `data-dep-done${st.step === 2 && ready ? "" : " disabled"}`]],
       cards: [["Say this", "message-square", `<p>&ldquo;I've sent you a secure link for the deposit. Once it's paid, I'll reserve the ${carShort(cid)} for you straight away.&rdquo;</p>`],
-        ["Check", "list-checks", `<p>Paid another way? The amount and the reference ${order} on the receipt must match before you record it.</p>`]] });
+        ["Check", "list-checks", `<p>Paying by bank transfer? The reference must be ${order}, and the amount and reference on the receipt must match before you record it.</p>`]] });
   },
 
   // finance pre-approval: from any call step while the payment mode is finance or an own loan. Skippable; Skip or Done

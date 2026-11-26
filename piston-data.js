@@ -267,9 +267,9 @@ const STEPS = [
   // A convinced customer can skip the TD: the agent takes a deposit on the call and reserves the car
   { id: "P7d", phase: "P", name: "Deposit and reserve", tracks: ["booked", "vtd"], branch: true,
     owner: "Calling agent", device: "desktop",
-    purpose: "A lead does not always need a TD: when the pitch lands and the customer wants the car now, the agent takes a deposit instead. The journey is not fixed: the agent's choice is sent with Next, and the next-step API answers with this step and the deposit stages. One page, three sub-steps on a numbered stepper. 1, the delivery details on the order. 2, the deposit: send a payment link (WhatsApp, email or SMS) and refresh its status, or, when the customer paid another way, enter the receipt amount and upload the receipt. 3, set the car to Reserved, with the order's payments and its price breakup in view, and complete the step.",
+    purpose: "A lead does not always need a TD: when the pitch lands and the customer wants the car now, the agent takes a deposit instead. The journey is not fixed: the agent's choice is sent with Next, and the next-step API answers with this step and the deposit stages. One page, three sub-steps on a numbered stepper. 1, the delivery details on the order. 2, the deposit: send a payment link (WhatsApp, email or SMS) and refresh its status, or, for a bank transfer, share the account details (the order ID is the reference), enter the receipt amount and upload the receipt. 3, set the car to Reserved, with the order's payments and its price breakup in view, and complete the step.",
     source: { trigger: "Pay a deposit, from the Next menu, once at least one car is picked (P2, P3a or P3b)",
-      data: ["OMS: the order for the picked car, created if none exists, with its delivery details and price breakup", "Lead: the customer's address and the payment mode", "Payment service: the deposit link and its status", "Notification engine: WhatsApp, email and SMS", "Docs: the payment receipt, stored on the order", "Market rule: the least deposit (Australia 10% of the amount due; the UAE the token)", "Listing: the car's status (Available, Reserved)"] },
+      data: ["OMS: the order for the picked car, created if none exists, with its delivery details and price breakup", "Lead: the customer's address and the payment mode", "Payment service: the deposit link and its status", "Notification engine: WhatsApp, email and SMS", "Market config: the bank account for deposits by transfer, with the order ID as the reference", "Docs: the payment receipt, stored on the order", "Market rule: the least deposit (Australia 10% of the amount due; the UAE the token)", "Listing: the car's status (Available, Reserved)"] },
     entry: ["A car picked", "The customer wants to pay a deposit"],
     exits: [
       { when: "Deposit paid (by the link, or a receipt recorded) and the car set to Reserved: complete. The order goes to the delivery journey", to: "N3", state: "CAR RESERVED" },
@@ -278,7 +278,7 @@ const STEPS = [
     ],
     state: "CAR RESERVED",
     screen: { name: "TD booking call &rsaquo; Deposit", build: "new",
-      pattern: "The call task with its stages switched to Interest, Discovery, Deposit, Reserved. Inside the page, a numbered stepper with three sub-steps, one on screen at a time: 1 Delivery details; 2 Deposit, in two sections, Send the deposit link and Payment confirmation (refresh, or the receipt amount and the receipt); 3 Reserve, in three, Car status, Payment transactions and Payment breakup. Continue moves on once a sub-step is done; Complete stays off until the deposit is paid and the car is Reserved",
+      pattern: "The call task with its stages switched to Interest, Discovery, Deposit, Reserved. Inside the page, a numbered stepper with three sub-steps, one on screen at a time: 1 Delivery details; 2 Deposit, in two sections, Send the deposit link and Manual payment confirmation (refresh; the bank account, always shown, with the order ID as the reference; the receipt amount and the receipt); 3 Reserve, in three, Car status, Payment transactions and Payment breakup. Continue moves on once a sub-step is done; Complete stays off until the deposit is paid and the car is Reserved",
       route: { booked: "/tasks/TK-6120/deposit", vtd: "/tasks/TK-6127/deposit" } },
     dap: "No deposit on the call today. The token is collected at the hub after the TD (N2).",
     changed: "New: a customer convinced on the call can pay a deposit and reserve the car without a TD.",
@@ -1004,6 +1004,8 @@ const MK = marketTable({
   budgets: ["Under AED 55k", "AED 55k&ndash;65k", "AED 55k&ndash;70k", "AED 65k&ndash;75k", "AED 75k+"],
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to Dubai", "Off-road"],
   token: 5000, privacy: "privacy notice",
+  // the account a deposit by bank transfer goes to; the order ID is the reference
+  bank: [["Name", "CARS24 UAE"], ["IBAN", "AE07 0331 0000 0123 4567 890"]],
   lenders: "the UAE's top lenders", videoOnly: "At another hub: video only",
   // the listing and the car page, as on cars24.ae
   stock: "1,652 used cars in Dubai", per: "/mo", perDiv: 66, perNote: "for 5 yrs, 0 down payment", priceNote: "Listed price", dap: "See what's included", cardTags: ["GCC", "Flood free"],
@@ -1017,6 +1019,7 @@ const MK = marketTable({
   budgets: ["Under $25k", "$25k&ndash;35k", "$27k&ndash;33k", "$32k&ndash;38k", "$40k+"],
   usage: ["City", "Family", "Family weekends", "Long drives", "Commute to the city", "Off-road"],
   token: 1000, privacy: "privacy collection notice",
+  bank: [["Name", "Global Cars Aus Pty Ltd"], ["Account number", "850046"], ["BSB", "032-044"]],
   lenders: "Australia's top lenders", videoOnly: "Interstate: video only",
   // the listing and the car page, as on cars24.com.au
   stock: "1,107 used cars in Australia", per: "/week", perDiv: 202, perNote: "", priceNote: "Excl. Govt charges", dap: "See drive away price", cardTags: [],

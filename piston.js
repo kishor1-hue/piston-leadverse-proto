@@ -563,6 +563,16 @@ function mountDeposit(root) {
   });
   // the stepper's completed steps open from the keyboard too
   root.querySelectorAll("[data-dep-goto]").forEach(x => x.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); x.click(); } }));
+  // the account details copy one value each, for pasting into a message; the icon shows a tick for a moment
+  root.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { navigator.clipboard.writeText(b.parentElement.textContent.trim()).catch(() => {}); } catch (_) { /* no clipboard in this frame */ }
+    const i = b.querySelector(".tui");
+    b.classList.add("ok");
+    i.className = "tui tui-check-outline icon-sm";
+    setTimeout(() => { b.classList.remove("ok"); i.className = "tui tui-copy icon-sm"; }, 1200);
+  }));
   // a real file from the upload button counts as the receipt
   const up = root.querySelector("[data-dep-upload] input");
   if (up) up.addEventListener("change", () => { if (up.files[0]) { st.receipt = true; st.via = ""; redrawStage(); } });
@@ -843,7 +853,7 @@ function renderChanges() {
       <div class="chg-card wide"><div class="q">&ldquo;Break the deposit page into 3 sub-steps inside the same page, a number stepper: delivery details; then send the deposit link (payment mode) and the manual payment confirmation (receipt amount, receipt upload); then the car status, the payment transactions and the payment breakup. Turbo UI&rdquo;</div><h4>The deposit page walks through three numbered sub-steps</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">One long page: send the bank details, upload the confirmation, car status, payments, price breakup</span><span class="k">After</span><span class="seq"><em>1 Delivery details</em> &rarr; <em>2 Deposit</em> (link, or receipt) &rarr; <em>3 Reserve</em> (car status, payments, breakup), on one page</span></div>
         <p><b>A numbered stepper, one sub-step at a time.</b> The DLS Stepper sits at the top of the action area, each marker showing its step's number. Continue moves on once a sub-step is done; a done step turns green with a short summary and opens again on a click. The call's stages above it don't change.</p>
-        <p><b>The deposit, two ways.</b> Send the deposit link: pick the payment mode, then WhatsApp, email or SMS. Refresh payment status records a link payment. Paid another way: enter the receipt amount (at least 10% of the amount due in Australia, the token in the UAE) and upload the receipt.</p>
+        <p><b>The deposit, two ways.</b> Send the deposit link: pick the payment mode, then WhatsApp, email or SMS. Refresh payment status records a link payment. Or by bank transfer, under Manual payment confirmation: the account details are always there (name, account number and BSB in Australia, the IBAN in the UAE, the order ID as the reference, the amount), each with a copy button; then the receipt amount (at least 10% of the amount due in Australia, the token in the UAE) and the receipt.</p>
         <p><b>Reserve with the money in view.</b> Car status (Available or Reserved), the payment transactions and the payment breakup, the paid and outstanding rows taking the deposit. Complete stays off until the deposit is paid and the car is Reserved.</p>
         ${links(stepLink("P7d", "Deposit, Australia", { track: "booked", market: "au" }), stepLink("P7d", "Deposit, UAE", { track: "booked", market: "ae" }), stepLink("P7d", "Deposit, interstate (ACT)", { track: "vtd", market: "au" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;One lead can have two or three TDs. Check the customer in by the UUID, then the SA runs every TD in one task: Interest with Check-in as the first tab, the DL, today's orders or more cars, a section per order with a stepper, then a checkout per car. DLS components, little text. Call the role SA, sales associate&rdquo;</div><h4>The SA's task: one visit, every TD, one car's checkout at a time</h4>
