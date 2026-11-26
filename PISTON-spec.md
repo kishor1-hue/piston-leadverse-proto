@@ -504,7 +504,7 @@ A state is set by one exit of one step. Statuses on the ground TV and the token 
 | ORDER BOOKED | P7 Confirm and book | Hub TD booked; the calling task closes | Booked |
 | ORDER BOOKED | T3 Today's orders or more cars / Recommend and compare | Cars picked: an order each for the current slot, prep requested | Walk-in |
 | VTD BOOKED | P7 Confirm and book | Hub TD and video TD booked; the calling task closes | Video TD |
-| CAR RESERVED | P7d Deposit and reserve | Confirmation uploaded and the car set to Reserved: complete. The order goes to the delivery journey | Booked, Video TD |
+| CAR RESERVED | P7d Deposit and reserve | Deposit paid (by the link, or a receipt recorded) and the car set to Reserved: complete. The order goes to the delivery journey | Booked, Video TD |
 | TD CONFIRMED | P8r TD reminder call (TDR) | Coming: interest noted for the SA, confirmation sent | Booked, Video TD |
 | TD RESCHEDULED | P8r TD reminder call (TDR) | Another slot: the TD moves, readiness is re-planned | Booked, Video TD |
 | TD CANCELLED | P8r TD reminder call (TDR) | Cancelled, with the reason: the car is released | Booked, Video TD |
@@ -1663,17 +1663,18 @@ Read back each booking, book it, and close the calling task.
 
 **Purpose**
 
-A lead does not always need a TD: when the pitch lands and the customer wants the car now, the agent takes a deposit instead. The journey is not fixed: the agent's choice is sent with Next, and the next-step API answers with this step and the deposit stages. Send the bank details from the CRM (WhatsApp, email or SMS). The customer pays and emails a screenshot of the payment to the agent. The agent downloads it, uploads it here as the deposit confirmation, sets the car to Reserved, and completes the step.
+A lead does not always need a TD: when the pitch lands and the customer wants the car now, the agent takes a deposit instead. The journey is not fixed: the agent's choice is sent with Next, and the next-step API answers with this step and the deposit stages. One page, three sub-steps on a numbered stepper. 1, the delivery details on the order. 2, the deposit: send a payment link (WhatsApp, email or SMS) and refresh its status, or, when the customer paid another way, enter the receipt amount and upload the receipt. 3, set the car to Reserved, with the order's payments and its price breakup in view, and complete the step.
 
 **Trigger:** Pay a deposit, from the Next menu, once at least one car is picked (P2, P3a or P3b)
 
 **Data it reads and writes**
 
-- OMS: the order for the picked car, created if none exists
-- Bank details for deposits, per market, with the order as the reference
-- CRM templates: WhatsApp, email and SMS
-- The agent's mailbox: the customer's payment screenshot
-- Docs: the deposit confirmation, stored on the order
+- OMS: the order for the picked car, created if none exists, with its delivery details and price breakup
+- Lead: the customer's address and the payment mode
+- Payment service: the deposit link and its status
+- Notification engine: WhatsApp, email and SMS
+- Docs: the payment receipt, stored on the order
+- Market rule: the least deposit (Australia 10% of the amount due; the UAE the token)
 - Listing: the car's status (Available, Reserved)
 
 **Entry conditions**
@@ -1685,7 +1686,7 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 
 | When | Goes to | State |
 | --- | --- | --- |
-| Confirmation uploaded and the car set to Reserved: complete. The order goes to the delivery journey | N3 Handoff to delivery | CAR RESERVED |
+| Deposit paid (by the link, or a receipt recorded) and the car set to Reserved: complete. The order goes to the delivery journey | N3 Handoff to delivery | CAR RESERVED |
 | Not paid yet: call back to check | P9 Callback and retry | — |
 | Changes their mind: book a TD instead | P4 TD type per car | — |
 | Paying by finance or an own loan: a pre-approval, then back here | P7f Finance pre-approval | — |
@@ -1696,7 +1697,7 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 
 - **Screen:** TD booking call › Deposit
 - **Build:** New
-- **Pattern:** The call task with its stages switched to Interest, Discovery, Deposit, Reserved. Three blocks: send the bank details (WhatsApp, email, SMS), upload the deposit confirmation, set the car status. Complete stays off until the upload and Reserved are both done
+- **Pattern:** The call task with its stages switched to Interest, Discovery, Deposit, Reserved. Inside the page, a numbered stepper with three sub-steps, one on screen at a time: 1 Delivery details; 2 Deposit, in two sections, Send the deposit link and Payment confirmation (refresh, or the receipt amount and the receipt); 3 Reserve, in three, Car status, Payment transactions and Payment breakup. Continue moves on once a sub-step is done; Complete stays off until the deposit is paid and the car is Reserved
 - **Route:** 
   - *Booked:* `/tasks/TK-6120/deposit`
   - *Video TD:* `/tasks/TK-6127/deposit`
@@ -1714,37 +1715,53 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 | Call bar | TELEPHONY | Live call with recording, mute, hold and end. Click-to-call through the telephony provider |
 | Stage bar | STAGE_STEPPER | Switched for a deposit: Interest, Discovery, Deposit, Reserved |
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
-| Deposit amount | @cspl/badge, warning | Set per market; the token amount |
-| Car card | @cspl/car-context-card + @cspl/badge | The car with its status as it is now: Available in green, Reserved in violet; follows the select |
-| 1 · Send the bank details | @cspl/section-card | Badge Sent once a channel is sent. The bank details as @cspl/payment-details-card rows (amount, reference, account; copy on the reference and the account), the channels as @cspl/chip: WhatsApp, email or SMS, green once sent from the CRM |
-| 2 · Deposit confirmation | @cspl/section-card + @cspl/file-upload-card | Badge Not uploaded, then Uploaded. The customer emails a screenshot of the payment; the agent downloads it and uploads it here. Uploaded: the file, its size, Saved to Documents and Replace |
-| Upload | @cspl/file-upload-card, upload button | JPG, PNG or PDF, saved to the order's documents |
+| Deposit | @cspl/badge | The least deposit until it is paid (Australia: 10% of the amount due, in whole hundreds; the UAE: the token), then the amount paid, in green |
+| Sub-steps | @cspl/stepper, default, numbered | 1 Delivery details, 2 Deposit, 3 Reserve, each marker showing its number. A done step turns green with a check and a one-word summary (Pick-up, the amount paid, Reserved) and opens again on a click. Continue moves on once the sub-step is done; Back goes back |
+| 1 · Delivery details | @cspl/section-card | Saved on the order: the delivery mode, the street address, the suburb (area in the UAE) and the state (emirate), prefilled from the lead |
+| Delivery mode | @cspl/dropdown | Pick-up or Home delivery, required |
+| 2 · Send the deposit link | @cspl/section-card | Badge Not sent, then Sent. The payment mode, then the channels |
+| Payment mode | @cspl/dropdown | Cash, In-house finance or BYOF, required before a link goes out; the lead's payment mode follows it |
+| Channels | @cspl/chip | WhatsApp, Email, SMS: each sends the link and turns green with Sent. Off until a payment mode is picked |
+| 2 · Payment confirmation | @cspl/section-card | The amount due, a refresh of the link's payment, or the receipt confirmed by hand. Badge Awaiting payment, then Paid by link or Receipt recorded |
+| Refresh payment status | @cspl/button, secondary | Asks the payment service for the link's payment. Paid: the deposit is recorded and the receipt fields give way to the transaction |
+| Receipt amount | @cspl/text-input | In whole dollars (AUD or AED), as on the receipt; red with Below the minimum under the least deposit |
+| Payment receipt | @cspl/file-upload-card | JPG, PNG or PDF up to 5 MB, saved to the order's documents. With an amount at or over the minimum, the deposit is recorded |
 | 3 · Car status | @cspl/section-card + @cspl/dropdown | Available or Reserved. Reserved takes the car off the website |
-| Payments | @cspl/table | The order's payment entries: type and source, reference and transaction ID, amount, when and by whom, and the status. The deposit by bank transfer is Not paid until the confirmation is uploaded, then Paid |
-| Price breakup | @cspl/table | As on the RM's order screen. Australia: DAP = EGC + government charges (motor vehicle duty, 3 months registration, CTP, transfer and handling fees) + interstate and home delivery charges + VAS, less any discount. The UAE: the car price. Total paid and the outstanding balance move when the deposit is paid |
+| Car card | @cspl/car-context-card + @cspl/badge | The car and the order ID, with its status: Available in green, Reserved in violet; follows the select |
+| Payment transactions | @cspl/table | The order's payment entries: type and source (payment link or bank transfer), reference and transaction ID, amount, when and by whom, and the status. No payment data available until the deposit is recorded |
+| Payment breakup | @cspl/table | As on the RM's order screen. Australia: DAP = EGC + government charges (motor vehicle duty, 3 months registration, CTP, transfer and handling fees) + interstate and home delivery charges + VAS, less any discount. The UAE: the car price. Total paid and the outstanding balance take the deposit |
 | CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
-| Footer actions | SHELL_CTAS | Complete stays off until the confirmation is uploaded and the car is Reserved. Book a TD instead and Not paid yet are under the arrow |
+| Footer actions | SHELL_CTAS | Complete stays off until sub-step 3, with the deposit paid and the car Reserved. Book a TD instead and Not paid yet are under the arrow |
 
 *Fields*
 
 | Field | Type | Required | Source | Rule |
 | --- | --- | --- | --- | --- |
-| Sent by | Multi select | Yes, at least one | Agent | WhatsApp, email, SMS |
-| Deposit confirmation | File | Yes | Downloaded from the agent's email | JPG, PNG or PDF under 10 MB; amount and reference checked by the agent |
+| Delivery mode | Single select | Yes | Order, else Pick-up | Pick-up or Home delivery |
+| Street address | Text | No | Lead | Decides the state-wise price in Australia, also for pick-up |
+| Suburb (area) | Text | No | Lead | Suburb in Australia, area in the UAE |
+| State (emirate) | Single select | Yes | Lead | The market's states or emirates |
+| Payment mode | Single select | Yes, before a link | Agent; the lead's payment mode | Cash, In-house finance or BYOF |
+| Sent by | Multi select | Yes, for a link | Agent | WhatsApp, email, SMS |
+| Amount due | Money | Read only | OMS: the order total | Australia: the drive-away price |
+| Least deposit | Money | Read only | Market rule | Australia: 10% of the amount due, in whole hundreds; the UAE: the token |
+| Receipt amount | Money | Yes, without a link payment | Agent, from the receipt | Whole dollars, at least the least deposit |
+| Payment receipt | File | Yes, without a link payment | The customer | JPG, PNG or PDF up to 5 MB |
 | Car status | Single select | Yes | Agent | Available or Reserved |
-| Deposit | Money | Read only | Market setting | The token amount |
 | Reference | Text | Read only | OMS | The order ID |
-| Payment status | Status | Read only | OMS payments | Not paid, then Paid when the deposit confirmation is recorded |
-| Transaction ID | Text | No | The bank transfer | From the payment confirmation, when it shows one |
+| Payment status | Status | Read only | OMS payments | Paid once the link's payment lands or the receipt is recorded |
+| Transaction ID | Text | Read only | Payment service | For a link payment |
 | Total amount paid, outstanding balance | Money | Read only | OMS: the order total less its payments | The deposit counts toward the price |
 
 *Actions*
 
 | Action | Calls / event | Result |
 | --- | --- | --- |
-| Send (WhatsApp, email, SMS) | CRM templates with the bank details | Stays here |
-| Upload | Docs: deposit confirmation on the order; OMS: the deposit payment entry, Paid | Stays here |
-| Complete: car reserved | OMS: deposit recorded; Listing: the car to Reserved; the call task closes | CAR RESERVED; N3 |
+| Continue | OMS: the delivery details on the order (sub-step 1) | The next sub-step |
+| Send (WhatsApp, email, SMS) | Payment service: a link for the deposit; notification engine | Stays here |
+| Refresh payment status | Payment service: the link's status; OMS: the deposit payment, Paid | Stays here |
+| Upload the receipt | Docs: the receipt on the order; OMS: the deposit payment for the receipt amount, Paid | Stays here |
+| Complete: car reserved | Listing: the car to Reserved; the call task closes | CAR RESERVED; N3 |
 | Book a TD instead | None | P4 |
 | Not paid yet: call back | Callback time on the task | P9 |
 
@@ -1752,9 +1769,10 @@ A lead does not always need a TD: when the pitch lands and the customer wants th
 
 | State | Meaning |
 | --- | --- |
-| Awaiting payment | Bank details Sent, the confirmation Not uploaded, the deposit Not paid in Payments |
-| Deposit paid | The confirmation is Uploaded and saved to Documents; Payments shows it Paid and the breakup's paid and outstanding rows move |
-| Reserved | The car's badge turns Reserved; Complete is on |
+| Delivery details | Sub-step 1 active, prefilled from the lead |
+| Awaiting payment | Sub-step 2: the link Not sent or sent, the deposit Awaiting payment |
+| Deposit paid | Paid by link on a refresh, or Receipt recorded; Continue opens sub-step 3, Payments shows it Paid and the breakup's paid and outstanding rows move |
+| Reserved | The car's badge turns Reserved, the third marker a check; Complete is on |
 
 #### P7f · Finance pre-approval
 
@@ -4472,6 +4490,21 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 
 Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.
 
+#### The deposit page walks through three numbered sub-steps
+
+> **Feedback:** “Break the deposit page into 3 sub-steps inside the same page, a number stepper: delivery details; then send the deposit link (payment mode) and the manual payment confirmation (receipt amount, receipt upload); then the car status, the payment transactions and the payment breakup. Turbo UI”
+
+- **Before:** One long page: send the bank details, upload the confirmation, car status, payments, price breakup
+- **After:** *1 Delivery details* → *2 Deposit* (link, or receipt) → *3 Reserve* (car status, payments, breakup), on one page
+
+**A numbered stepper, one sub-step at a time.** The DLS Stepper sits at the top of the action area, each marker showing its step's number. Continue moves on once a sub-step is done; a done step turns green with a short summary and opens again on a click. The call's stages above it don't change.
+
+**The deposit, two ways.** Send the deposit link: pick the payment mode, then WhatsApp, email or SMS. Refresh payment status records a link payment. Paid another way: enter the receipt amount (at least 10% of the amount due in Australia, the token in the UAE) and upload the receipt.
+
+**Reserve with the money in view.** Car status (Available or Reserved), the payment transactions and the payment breakup, the paid and outstanding rows taking the deposit. Complete stays off until the deposit is paid and the car is Reserved.
+
+*See:* P7d Deposit, Australia · P7d Deposit, UAE · P7d Deposit, interstate (ACT)
+
 #### The SA's task: one visit, every TD, one car's checkout at a time
 
 > **Feedback:** “One lead can have two or three TDs. Check the customer in by the UUID, then the SA runs every TD in one task: Interest with Check-in as the first tab, the DL, today's orders or more cars, a section per order with a stepper, then a checkout per car. DLS components, little text. Call the role SA, sales associate”
@@ -4532,7 +4565,7 @@ Notes on the PISTON board, how the calling team works, the Leadverse TD Journey 
 
 **Offered once a car is picked.** The arrow next to Next holds Customer wants to pay a deposit on the lead view, the car page and the compare. It stays off until a car is picked. The call's stages switch to Interest, Discovery, Deposit, Reserved.
 
-**Three blocks, one gate.** Send the bank details from the CRM by WhatsApp, email or SMS, with the order as the reference. The customer pays and emails a screenshot to the agent, who downloads it and uploads it as the deposit confirmation. Then the car status goes to Reserved. Complete stays off until the upload and Reserved are both done; then the order goes to the delivery journey.
+**Three sub-steps, one gate.** The delivery details, then the deposit (a payment link, or the receipt confirmed by hand), then the car to Reserved. Complete stays off until the deposit is paid and the car is Reserved; then the order goes to the delivery journey.
 
 *See:* P7d Deposit and reserve · P3a Deposit from the car page · P2 Deposit from the lead view
 

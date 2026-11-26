@@ -50,9 +50,11 @@ const TU = {
   carContext({ title, subtitle, color, right = "", attrs = "" }) {
     return `<div class="tu-ccc"${attrs ? " " + attrs : ""}><span class="md" style="background:${color}">${tui("car-outline", "2xl")}</span><div class="cx"><b>${title}</b><small>${subtitle}</small></div>${right}</div>`;
   },
-  // Dropdown, size medium, as a native select so the screen's change handlers keep working
-  dropdown({ id, label, options, value, attrs = "" }) {
-    return `<div class="tu-dd"><label for="${id}">${label}</label><div class="trig"><select id="${id}"${attrs ? " " + attrs : ""}>${options.map(o => `<option${o === value ? " selected" : ""}>${o}</option>`).join("")}</select>${tui("chevron-down-small-outline")}</div></div>`;
+  // Dropdown, size medium, as a native select so the screen's change handlers keep working. options: labels, or
+  // [value, label] pairs. placeholder shows until a value is picked; required puts FieldLabel's red asterisk on the label
+  dropdown({ id, label, options, value, placeholder, required, attrs = "" }) {
+    const opt = (o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${v}"${v === value ? " selected" : ""}>${l}</option>`; };
+    return `<div class="tu-dd"><label for="${id}">${label}${required ? `<span class="rq">*</span>` : ""}</label><div class="trig"><select id="${id}"${placeholder && !value ? ` class="ph"` : ""}${attrs ? " " + attrs : ""}>${placeholder ? `<option value="" disabled${value ? "" : " selected"}>${placeholder}</option>` : ""}${options.map(opt).join("")}</select>${tui("chevron-down-small-outline")}</div></div>`;
   },
   // LinkButton, tone brand, size sm
   link(text, { icon, attrs = "" } = {}) {
@@ -75,10 +77,13 @@ const TU = {
       <div class="items c${cols}">${items.map(([k, v, a]) => `<div class="it"${a ? " " + a : ""}><small>${k}</small><b>${v}</b></div>`).join("")}</div></div>`;
   },
   // Stepper, variant default: a 36px marker per step (an icon, a check once completed), the connector, the label and
-  // description under it. steps: [{ label, description, icon, status: default | active | completed }]
+  // description under it. steps: [{ label, description, icon, number, status: default | active | completed, attrs }]. A
+  // numbered stepper gives each step its number: the marker shows the digit in the marker's own colours (the font's
+  // number-1... glyphs are solid discs, a circle inside the circle), and the check once completed
+  // A step with attrs is clickable (onStepClick with allowStepNavigation): a completed step to go back to
   stepper(steps, attrs = "") {
-    return `<ol class="tu-stepper"${attrs ? " " + attrs : ""}>${steps.map((s, i) => `<li class="st ${s.status || "default"}${s.skip ? " skip" : ""}" data-status="${s.status || "default"}"${s.status === "active" ? ` aria-current="step"` : ""}>
-      <span class="trk"><span class="mk">${tui(s.status === "completed" ? "check-outline" : s.icon || "edit-outline", "lg")}</span>${i < steps.length - 1 ? `<span class="cn"></span>` : ""}</span>
+    return `<ol class="tu-stepper"${attrs ? " " + attrs : ""}>${steps.map((s, i) => `<li class="st ${s.status || "default"}${s.skip ? " skip" : ""}${s.attrs ? " nav" : ""}" data-status="${s.status || "default"}"${s.status === "active" ? ` aria-current="step"` : ""}${s.attrs ? " " + s.attrs : ""}>
+      <span class="trk"><span class="mk">${s.status !== "completed" && s.number ? `<span class="num">${s.number}</span>` : tui(s.status === "completed" ? "check-outline" : s.icon || "edit-outline", "lg")}</span>${i < steps.length - 1 ? `<span class="cn"></span>` : ""}</span>
       <span class="tx"><b>${s.label}</b>${s.description ? `<small>${s.description}</small>` : ""}</span></li>`).join("")}</ol>`;
   },
   // ChoiceTile: a rounded tile, an inset ring once selected. One pick per group
@@ -90,9 +95,9 @@ const TU = {
   checkbox(label, { checked, value = "", sub = "", attrs = "" } = {}) {
     return `<label class="tu-cb${checked ? " on" : ""}"${attrs ? " " + attrs : ""}><span class="box">${tui("check-outline", "sm")}</span><span class="lb">${label}${sub ? `<small>${sub}</small>` : ""}</span>${value ? `<span class="vl">${value}</span>` : ""}</label>`;
   },
-  // TextInput: label over the field
-  textInput({ label, value = "", id, placeholder = "", attrs = "" }) {
-    return `<div class="tu-ti"><label for="${id}">${label}</label><input id="${id}" value="${value}" placeholder="${placeholder}"${attrs ? " " + attrs : ""}></div>`;
+  // TextInput: label over the field; helper text under it, red with the field's border in the error state
+  textInput({ label, value = "", id, placeholder = "", required, hint = "", error = "", attrs = "" }) {
+    return `<div class="tu-ti${error ? " err" : ""}"><label for="${id}">${label}${required ? `<span class="rq">*</span>` : ""}</label><input id="${id}" value="${value}" placeholder="${placeholder}"${attrs ? " " + attrs : ""}>${hint || error ? `<small class="hl" data-ti-hint="${hint}">${error || hint}</small>` : ""}</div>`;
   },
   // Coupon: the brand strip with the value, the card with the title, a dashed divider, the code and the validity
   coupon({ value, title, code, valid, action = "", attrs = "" }) {

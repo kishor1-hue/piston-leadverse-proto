@@ -461,6 +461,40 @@ const CALL_TASK = { booked: "TK-6120", vtd: "TK-6127" };
 const CALL_STEPS = ["Interest", "Discovery", "TD type", "Slots", "Book"];
 // a customer convinced on the call pays a deposit instead: the stages switch
 const DEPOSIT_STEPS = ["Interest", "Discovery", "Deposit", "Reserved"];
+// the deposit page's own sub-steps, on a numbered stepper
+const DEP_STEPS = ["Delivery details", "Deposit", "Reserve"];
+const DEP_MODES = [["pickup", "Pick-up"], ["home", "Home delivery"]];
+const DEP_STATES = { au: ["Victoria", "New South Wales", "Queensland", "South Australia", "Western Australia", "Tasmania", "Australian Capital Territory", "Northern Territory"],
+  ae: ["Dubai", "Abu Dhabi", "Sharjah", "Ajman", "Ras Al Khaimah", "Fujairah", "Umm Al Quwain"] };
+// the customer's address on the lead, per market and track: [street, suburb or area, state or emirate]
+const DEP_ADDR = { au: { booked: ["12 Swan Street", "Richmond", "Victoria"], vtd: ["18 Lonsdale Street", "Braddon", "Australian Capital Territory"] },
+  ae: { booked: ["Villa 14, Street 21", "Al Barsha 2", "Dubai"], vtd: ["Villa 7, Street 12", "Khalifa City", "Abu Dhabi"] } };
+const DEP_TXN = "TXN-48213906";
+// one state per market, track and car, so leaving the page and coming back keeps what the agent did
+const DEP = {};
+function depState(t, cid) {
+  const k = `${ctxKey(t)}-${cid}`;
+  if (!DEP[k]) {
+    const [street, area, state] = DEP_ADDR[CTX.market][t] || DEP_ADDR[CTX.market].booked;
+    DEP[k] = { step: 0, max: 0, mode: "pickup", street, area, state, pay: "", sent: [], checked: false, via: "", amount: "", receipt: false, status: "Available" };
+  }
+  return DEP[k];
+}
+// the amount due is the order total; the least deposit is 10% of it in Australia, in whole hundreds, and the token in the UAE
+function depDue(cid) {
+  const total = orderPrice(cid).total;
+  return { total, min: CTX.market === "au" ? Math.floor(total * 0.1 / 100) * 100 : MK.token };
+}
+const depNum = (v) => +String(v || "").replace(/[^0-9]/g, "");
+const depHint = (d) => CTX.market === "au" ? `Minimum ${money(d.min)}, 10% of the amount due. Enter the amount on the receipt, in whole dollars.` : `Minimum ${money(d.min)}, the token amount. Enter the amount on the receipt.`;
+const depErr = (st, d) => st.amount !== "" && depNum(st.amount) < d.min ? `Below the minimum ${money(d.min)}` : "";
+// what is paid: the link's payment (the minimum), or a receipt for at least the minimum; 0 until then
+function depPaid(st, d) {
+  if (st.via === "link") return d.min;
+  const n = depNum(st.amount);
+  return st.receipt && n >= d.min ? n : 0;
+}
+const depCanNext = (st, d) => st.step === 0 ? !!(st.mode && st.state) : st.step === 1 ? depPaid(st, d) > 0 : false;
 function callStages(t, idx, cur, list = CALL_STEPS) {
   const done = t === "vtd"
     ? { Interest: "4 cars, 4 orders", Discovery: "Not needed", "TD type": "2 hub, 2 video", Slots: "Hub + video", Book: "Booked", Deposit: "Paid", Reserved: "Car reserved" }
@@ -481,8 +515,8 @@ function payTrade(t) {
 }
 // the order's price breakup, as on the RM's order screen (rm-flow). Australia: EGC plus the government charges (duty at
 // 4.223% of the price, 3 months' registration, CTP, transfer, handling) is the drive-away price (DAP); the UAE has the
-// car price. Nothing is paid until the deposit lands; mountDeposit moves the paid and outstanding rows
-function priceBreakup(cid) {
+// car price. Nothing is paid until the deposit lands: paid is what the deposit step recorded
+function priceBreakup(cid, paid = 0) {
   const price = PCARS[cid].price, au = CTX.market === "au";
   const g = { duty: Math.round(price * 0.04223), rego: 173, ctp: 147, transfer: 46, handling: 599 };
   const govt = au ? g.duty + g.rego + g.ctp + g.transfer + g.handling : 0, total = price + govt;
@@ -492,8 +526,8 @@ function priceBreakup(cid) {
       row("Transfer fee", money(g.transfer), "sub"), row("Handling fee", money(g.handling), "sub"), row("Interstate charges", money(0)), row("Home delivery charges", money(0))]
     : [row("Car price", money(price))];
   rows.push(row("Discount value", "&mdash;"), row("VAS", money(0)), row("Total amount to be paid", money(total), "sum"),
-    row("Total amount paid", money(0), "", "data-bk-paid"), row("Outstanding balance", money(total), "due", "data-bk-due"));
-  return TU.dataTable({ attrs: `data-bk-total="${total}" data-bk-deposit="${MK.token}"`, columns: [{ key: "item", label: "Item" }, { key: "amount", label: "Amount", align: "right" }], rows });
+    row("Total amount paid", money(paid), "", "data-bk-paid"), row("Outstanding balance", money(total - paid), total - paid ? "due" : "due paid", "data-bk-due"));
+  return TU.dataTable({ columns: [{ key: "item", label: "Item" }, { key: "amount", label: "Amount", align: "right" }], rows });
 }
 // the pre-approval, under the arrow on every call step; off unless the payment mode is finance or an own loan
 const PRE_ITEM = (id) => ["Run a finance pre-approval", "P7f", "", "landmark", false, `data-from="${id}" data-needs="[data-paymode].fin" title="For In-house finance or BYOF"`];
@@ -1006,41 +1040,64 @@ const SCREENS = {
       buttons: [["Change a slot", vtd ? "P6" : "P5", "", "calendar"], [vtd ? "Book both and close the task" : "Book and close the task", "P8", "primary", "calendar-check"]] });
   },
 
-  // deposit instead of a TD: send the bank details, upload the payment confirmation the customer emails, reserve the car.
-  // The action area is on Turbo UI (the DLS): a section card per task, then the order's payments and its price breakup
+  // deposit instead of a TD: one page, three sub-steps on a numbered DLS Stepper (depState, above). 1 the delivery
+  // details; 2 the deposit, by a payment link or confirmed by hand from the receipt; 3 reserve the car, with the
+  // order's payments and its price breakup. mountDeposit (piston.js) changes the state and draws the page again
   P7d: (t) => {
     const p = PEOPLE[t], fn = first(t), cid = PICKED.car || p.car, c = PCARS[cid];
-    const order = cid === p.car ? p.id : "BK-88219";
-    const agent = PSTAFF.cc.name.split(" ")[0].toLowerCase();
-    const copy = (what) => ({ icon: "copy", ariaLabel: `Copy the ${what}`, attrs: "data-copy" });
-    const send = TU.sectionCard({ title: "1 &middot; Send the bank details", subtitle: "From the CRM, with the amount and the order as the reference",
-      badge: { label: "Sent", variant: "success", attrs: "data-dep-badge=\"send\"" }, attrs: `data-part="send"`, items: [
-        TU.paymentDetails([{ label: "Deposit", value: money(MK.token), highlight: true }, { label: "Reference", value: order, valueAction: copy("reference") }, "sep",
-          { label: "Account name", value: "CARS24 UAE" }, { label: "IBAN", value: "AE07 0331 0000 0123 4567 890", valueAction: copy("account") }], { showShadow: false }),
-        `<div class="tu-chips">${[["whatsapp", "WhatsApp"], ["email-envelope-outline", "Email"], ["bubble-text-message-chat-outline", "SMS"]]
-          .map(([i, l], k) => TU.chip(l, { leadingIcon: i, active: k === 0, trailing: `${tui("check-outline", "xs")}Sent`, green: true, attrs: `data-pick="multi" data-dep-send` })).join("")}</div>`] });
-    const upload = TU.sectionCard({ title: "2 &middot; Upload the deposit confirmation", subtitle: `${fn} emails the payment screenshot to ${agent}@${MK.site}. Download it and upload it here.`,
-      badge: { label: "Not uploaded", variant: "warning", attrs: "data-dep-badge=\"upload\"" }, items: [
-        TU.fileUploadCard({ title: "Deposit confirmation", description: "JPG, PNG or PDF &middot; click to browse",
-          badge: TU.badge("Saved to Documents", { variant: "success", size: "s", icon: "check-outline", attrs: "data-upload-badge hidden" }),
-          cta: TU.link("Use a sample", { attrs: "data-upload-sample" }) + TU.link("Replace", { attrs: "data-upload-replace hidden" }),
-          attrs: `data-part="confirmation"`, buttonAttrs: `data-upload data-part="upload"` })] });
-    const status = TU.sectionCard({ title: "3 &middot; Car status", subtitle: "Reserved takes the car off the website and holds it for the customer", attrs: `data-part="status"`, items: [
-      TU.carContext({ title: c.title, subtitle: `Appointment ${c.appt}`, color: c.color, right: TU.badge("Available", { variant: "success", attrs: `data-status-pill data-part="car"` }) }),
-      TU.dropdown({ id: "dp-status", label: "Status", options: ["Available", "Reserved"], value: "Available", attrs: "data-car-status" })] });
-    // the payment entry: the deposit by bank transfer, Not paid until the confirmation is uploaded
-    const payments = TU.sectionCard({ title: "Payments", framed: false, attrs: `data-part="payments"`, items: [TU.dataTable({ attrs: "data-dep-payments",
-      columns: [{ key: "type", label: "Payment type", subTextKey: "source" }, { key: "ref", label: "Reference", subTextKey: "txn" }, { key: "amount", label: "Amount", align: "right" },
-        { key: "paid", label: "Paid", subTextKey: "by" }, { key: "status", label: "Status", isBadge: true }],
-      rows: [{ type: "DEPOSIT", source: "Bank transfer", ref: order, txn: "Transaction ID &mdash;", amount: money(MK.token), paid: "&mdash;", by: "&nbsp;", status: { label: "Not paid", variant: "warning" },
-        $cell: { paid: "data-pay-paid", status: "data-pay-status" } }] })] });
-    const breakup = TU.sectionCard({ title: "Price breakup", framed: false, attrs: `data-part="breakup"`, items: [priceBreakup(cid)] });
-    return callTask(t, 2, "P7d", { dls: true, secs: "07:45", steps: DEPOSIT_STEPS, cur: "Awaiting payment", prev: "P2", title: `Take a deposit for the ${carShort(cid)}`,
-      desc: `${fn} wants the ${c.title} now, no test drive (order ${order}). Send the bank details, upload the confirmation they email, reserve the car.`,
-      right: TU.badge(`${money(MK.token)} deposit`, { variant: "warning", icon: "wallet-3-outline", attrs: `data-part="amount"` }),
-      body: `<div class="tu-stack">${send}${upload}${status}${payments}${breakup}</div>`, hint: `<span data-dep-hint>Upload the deposit confirmation</span>`,
-      buttons: [["Book a TD instead", "P4", "", "calendar"], ["Not paid yet: call back", "P9", "", "phone-forwarded"], ["Complete: car reserved", "N3", "primary", "check", false, "data-dep-done disabled"]],
-      cards: [["Say this", "message-square", `<p>&ldquo;I've sent our bank details on WhatsApp. Once it's paid, email the screenshot to me and I'll reserve the ${carShort(cid)} for you straight away.&rdquo;</p>`], ["Check", "list-checks", `<p>The amount and the reference ${order} on the screenshot must match before you reserve the car.</p>`]] });
+    const order = cid === p.car ? p.id : "BK-88219", st = depState(t, cid), d = depDue(cid), paid = depPaid(st, d);
+    const au = CTX.market === "au", ccy = au ? "AUD" : "AED";
+    const stepper = TU.stepper(DEP_STEPS.map((label, i) => {
+      const done = i < st.step || (i === 2 && paid && st.status === "Reserved");
+      return { label, number: i + 1, status: done ? "completed" : i === st.step ? "active" : "default",
+        description: done ? [DEP_MODES.find(([k]) => k === st.mode)[1], `${money(paid)} paid`, "Reserved"][i] : "",
+        attrs: i !== st.step && i <= st.max ? `data-dep-goto="${i}" role="button" tabindex="0"` : "" };
+    }), `data-dep-steps`);
+    // 1 · the delivery details, saved on the order
+    const delivery = TU.sectionCard({ title: "Delivery details", subtitle: "Saved on the order.", attrs: `data-part="delivery"`, items: [
+      TU.dropdown({ id: "dp-mode", label: "Delivery mode", options: DEP_MODES, value: st.mode, required: true, attrs: `data-dep-f="mode" data-part="mode"` }),
+      TU.textInput({ label: "Street address", value: st.street, id: "dp-street", hint: au ? "The customer's address. It decides the state-wise price, also for pick-up." : "The customer's address, for the documents and any home delivery.", attrs: `data-dep-f="street"` }),
+      `<div class="tu-row2">${TU.textInput({ label: MK.area, value: st.area, id: "dp-area", attrs: `data-dep-f="area"` })}${TU.dropdown({ id: "dp-state", label: au ? "State" : "Emirate", options: DEP_STATES[CTX.market], value: st.state, required: true, attrs: `data-dep-f="state"` })}</div>`] });
+    // 2 · the deposit: a payment link, or a payment confirmed by hand from its receipt
+    const sent = st.sent.length > 0;
+    const link = TU.sectionCard({ title: "Send the deposit link", subtitle: "A secure payment link for the deposit.", attrs: `data-part="send"`,
+      badge: sent ? { label: "Sent", variant: "success" } : { label: "Not sent", variant: "neutral" }, items: [
+        TU.dropdown({ id: "dp-pay", label: "Payment mode", options: PAY_MODES, value: st.pay, placeholder: "Select payment mode", required: true, attrs: `data-dep-f="pay" data-part="pay-mode"` }),
+        `<div class="tu-chips" data-part="channels">${[["whatsapp", "whatsapp", "WhatsApp"], ["email", "email-envelope-outline", "Email"], ["sms", "bubble-text-message-chat-outline", "SMS"]]
+          .map(([k, i, l]) => TU.chip(l, { leadingIcon: i, active: st.sent.includes(k), green: true, trailing: `${tui("check-outline", "xs")}Sent`, attrs: `data-dep="send" data-v="${k}"${st.pay ? "" : " disabled"}` })).join("")}</div>`] });
+    const manual = st.via === "link"
+      ? [TU.badge(`Paid by link: ${money(paid)}, ${DEP_TXN}`, { variant: "success", size: "s", icon: "check-outline" })]
+      : [TU.textInput({ label: `Receipt amount (${ccy})`, value: st.amount, id: "dp-amount", hint: depHint(d), error: depErr(st, d), attrs: `data-dep-f="amount" inputmode="numeric" data-part="receipt-amount"` }),
+        TU.fileUploadCard({ title: "Payment receipt", description: st.receipt ? `payment-receipt.png &middot; 240 KB &middot; uploaded just now` : "JPG, PNG or PDF, up to 5 MB", uploaded: st.receipt, previewLabel: "PNG",
+          badge: st.receipt ? TU.badge("Saved to Documents", { variant: "success", size: "s", icon: "check-outline" }) : "",
+          cta: st.receipt ? TU.link("Replace", { attrs: `data-dep="receipt"` }) : TU.link("Use a sample", { attrs: `data-dep="receipt"` }), attrs: `data-part="receipt"`, buttonAttrs: `data-dep-upload` })];
+    const confirm = TU.sectionCard({ title: "Payment confirmation", subtitle: `Amount due: ${money(d.total)}. Enter the amount paid and attach the receipt.`, attrs: `data-part="confirm"`,
+      badge: { label: paid ? (st.via === "link" ? "Paid by link" : "Receipt recorded") : "Awaiting payment", variant: paid ? "success" : "warning", attrs: `data-dep-badge` }, items: [
+        `<div class="tu-btns">${TU.button("Refresh payment status", { variant: "secondary", size: "small", icon: "arrow-refresh-renew-outline", attrs: `data-dep="refresh" data-part="refresh"` })}${st.checked && !paid ? `<small class="dep-note">${sent ? "Nothing paid by link yet" : "No link sent yet"}</small>` : ""}</div>`, ...manual] });
+    // 3 · reserve: the car's status, the order's payments and its price breakup
+    const status = TU.sectionCard({ title: "Car status", subtitle: "Reserved takes the car off the website and holds it for the customer.", attrs: `data-part="status"`, items: [
+      TU.carContext({ title: c.title, subtitle: `Order ID: ${order}`, color: c.color, right: TU.badge(st.status, { variant: st.status === "Reserved" ? "information" : "success", attrs: `data-part="car"` }) }),
+      TU.dropdown({ id: "dp-status", label: "Status", options: ["Available", "Reserved"], value: st.status, required: true, attrs: "data-dep-f=\"status\"" })] });
+    const payRow = st.via === "link"
+      ? { type: "DEPOSIT", source: "Payment link", ref: order, txn: `Transaction ID ${DEP_TXN}`, amount: money(paid), paid: "Just now", by: "Customer", status: { label: "Paid", variant: "success" } }
+      : { type: "DEPOSIT", source: "Bank transfer", ref: order, txn: "Receipt on the order", amount: money(paid), paid: "Just now", by: "Agent", status: { label: "Paid", variant: "success" } };
+    const payments = TU.sectionCard({ title: "Payment transactions", framed: false, attrs: `data-part="payments"`, items: [paid
+      ? TU.dataTable({ columns: [{ key: "type", label: "Payment type", subTextKey: "source" }, { key: "ref", label: "Reference", subTextKey: "txn" }, { key: "amount", label: "Amount", align: "right" },
+          { key: "paid", label: "Paid", subTextKey: "by" }, { key: "status", label: "Status", isBadge: true }], rows: [payRow] })
+      : TU.noData({ title: "No payment data available" })] });
+    const breakup = TU.sectionCard({ title: "Payment breakup", framed: false, attrs: `data-part="breakup"`, items: [priceBreakup(cid, paid)] });
+    const panes = [delivery, link + confirm, status + payments + breakup];
+    const nav = `<div class="tu-btns">${st.step ? TU.button("Back", { variant: "tertiary", size: "medium", icon: "arrow-left-outline", attrs: `data-dep="back"` }) : ""}<span class="sp"></span>${st.step < 2
+      ? TU.button(st.step ? "Continue to reserve" : "Continue to the deposit", { variant: "primary", size: "medium", iconAfter: "arrow-right-outline", attrs: `data-dep="next"${depCanNext(st, d) ? "" : " disabled"}` }) : ""}</div>`;
+    const ready = paid && st.status === "Reserved";
+    return callTask(t, 2, "P7d", { dls: true, secs: "07:45", steps: DEPOSIT_STEPS, cur: ["Delivery details", paid ? "Deposit paid" : "Awaiting payment", ready ? "Ready to complete" : "Reserve the car"][st.step], prev: "P2",
+      title: `Take a deposit for the ${carShort(cid)}`, desc: `${fn} wants the ${c.title} now, no test drive (order ${order}).`,
+      right: TU.badge(paid ? `${money(paid)} paid` : `Min. ${money(d.min)} deposit`, { variant: paid ? "success" : "warning", icon: "wallet-3-outline", attrs: `data-part="amount"` }),
+      body: `<div class="tu-stack"><div class="tu-sec framed sa-steps" data-part="dep-steps">${stepper}</div>${panes[st.step]}${nav}</div>`,
+      hint: [st.mode && st.state ? "Check the address, then continue" : "Pick the delivery mode and the state", paid ? "Deposit paid: continue to reserve" : "Send the link, or record the receipt", ready ? "Deposit recorded, car reserved" : "Set the car to Reserved"][st.step],
+      buttons: [["Book a TD instead", "P4", "", "calendar"], ["Not paid yet: call back", "P9", "", "phone-forwarded"], ["Complete: car reserved", "N3", "primary", "check", false, `data-dep-done${st.step === 2 && ready ? "" : " disabled"}`]],
+      cards: [["Say this", "message-square", `<p>&ldquo;I've sent you a secure link for the deposit. Once it's paid, I'll reserve the ${carShort(cid)} for you straight away.&rdquo;</p>`],
+        ["Check", "list-checks", `<p>Paid another way? The amount and the reference ${order} on the receipt must match before you record it.</p>`]] });
   },
 
   // finance pre-approval: from any call step while the payment mode is finance or an own loan. Skippable; Skip or Done

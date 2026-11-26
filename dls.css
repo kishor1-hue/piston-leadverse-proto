@@ -25,7 +25,7 @@
   --tu-mint-50:#EFFFF7; --tu-mint-800:#368C61; --tu-mint-900:#2A6B4A;
   --tu-green-100:#DCFCE7; --tu-green-600:#00A63E;
   --tu-amber-50:#FFFBEB; --tu-amber-600:#E17100; --tu-amber-700:#BB4D00;
-  --tu-red-50:#FEF2F2; --tu-red-700:#C10007;
+  --tu-red-50:#FEF2F2; --tu-red-500:#FB2C36; --tu-red-700:#C10007;
   --tu-pink-50:#FFE8F7; --tu-pink-400:#FD49C0;
   --tu-neutral-500:#737373;
   --tu-shadow-lg:0 10px 15px -3px rgba(0,0,0,.1);
@@ -41,7 +41,7 @@
   --tu-mint-50:#12301F; --tu-mint-800:#6EE7A0; --tu-mint-900:#6EE7A0;
   --tu-green-100:#12301F; --tu-green-600:#34B26A;
   --tu-amber-50:#332711; --tu-amber-600:#F2C14E; --tu-amber-700:#F2C14E;
-  --tu-red-50:#3A1A1D; --tu-red-700:#FCA5A5;
+  --tu-red-50:#3A1A1D; --tu-red-500:#F87171; --tu-red-700:#FCA5A5;
   --tu-pink-50:#3B1529; --tu-pink-400:#F472B6;
   --tu-neutral-500:#98A2B8;
 }
@@ -96,6 +96,7 @@
 .tui-calendar-line::before{content:"\ebe5";}
 .tui-camera-picture-image-outline::before{content:"\eadd";}
 .tui-microphone-outline::before{content:"\ebaa";}
+.tui-arrow-refresh-renew-outline::before{content:"\ea91";}
 /* icons:end */
 
 /* Badge (@cspl/badge), size xs, curve radius; tones subtle */
@@ -130,6 +131,7 @@
 .tu-chip.on{background:var(--tu-brand-25); border-color:var(--tu-brand); color:var(--tu-brand);}
 .tu-chip.green.on{background:var(--tu-green-100); border-color:var(--tu-mint-800); color:var(--tu-text-primary);}
 .tu-chip.on .ok{display:inline-flex;}
+.tu-chip:disabled, .tu-chip:disabled:hover{background:var(--tu-surface); border-color:var(--tu-border-tertiary); color:var(--tu-text-tertiary); box-shadow:none; cursor:not-allowed;}
 
 /* FileUploadCard (@cspl/file-upload-card): the surface, a text column and the 80px dashed upload button */
 .tu-fuc{display:flex; flex-direction:column; gap:12px; padding:12px; border-radius:16px; border:.5px solid var(--tu-border-tertiary); background:var(--tu-surface);}
@@ -250,6 +252,9 @@
 .tu-stepper .st.completed .tx b{font-weight:600; color:var(--tu-mint-800);}
 .tu-stepper .tx small{font-size:12px; line-height:16px; font-weight:500; color:var(--tu-neutral-500);}
 .tu-stepper .st.skip{opacity:.5;}
+.tu-stepper .mk .num{font-size:15px; line-height:1; font-weight:600; font-variant-numeric:tabular-nums;}
+.tu-stepper .st.nav{cursor:pointer;}
+.tu-stepper .st.nav:hover .tx b{text-decoration:underline;}
 
 /* ChoiceTile (@cspl/choice-tile): a 16px-radius tile with the hairline ring, the dark ring once selected */
 .tu-tiles{display:grid; gap:8px;}
@@ -276,6 +281,13 @@
 .tu-ti input, .tu-ti textarea{height:44px; padding:0 14px; border-radius:12px; border:1px solid var(--tu-border-secondary); background:var(--tu-surface); color:var(--tu-text-primary); font-family:inherit; font-size:15px; min-width:0;}
 .tu-ti textarea{height:72px; padding:10px 14px; resize:none;}
 .tu-ti input:focus, .tu-ti textarea:focus{outline:none; border-color:var(--tu-brand);}
+/* FieldLabel's required asterisk; TextInput and Dropdown helper text (fs-130, slate-500), red in the error state */
+.dls .rq{margin-left:2px; color:var(--tu-red-500);}
+.tu-ti .hl, .tu-dd .hl{font-size:13px; line-height:1.36; color:var(--tu-text-secondary);}
+.tu-ti.err input, .tu-ti.err input:focus{border-color:var(--tu-red-500);}
+.tu-ti.err .hl{color:var(--tu-red-500);}
+.tu-dd select.ph{color:var(--tu-text-tertiary);}
+.tu-dd select option{color:var(--tu-text-primary);}
 .tu-row2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
 .tu-row3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px;}
 
@@ -345,6 +357,7 @@
 .tu-ccc .tu-cb{min-height:0;}
 .tu-ccc > .tu-badge + .tu-cb, .tu-ccc > .tu-badge + .tu-badge{margin-left:4px;}
 .sa-steps{padding:16px 12px 14px;}
+.dep-note{font-size:13px; color:var(--tu-text-secondary);}
 
 /* DateSlot (@cspl/date-slot), desktop-compact: a 68px day tile, the day over the date */
 .tu-dslots{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;}

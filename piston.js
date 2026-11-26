@@ -540,56 +540,51 @@ function mountTdr(root) {
   if (note) note.addEventListener("change", () => { st.note = note.value; });
 }
 
-// the deposit step: Complete stays off until the confirmation is uploaded and the car is set to Reserved. Each task's
-// card badge follows it (sent, uploaded); the upload records the deposit as paid in Payments, and the price breakup's
-// paid and outstanding rows move with it
+// the deposit page (P7d): three sub-steps on a numbered stepper, kept in its state (depState, piston-screens.js). A pick,
+// a send, a refresh, an upload or a step change goes into the state and the page is drawn again. Typing (the address,
+// the receipt amount) only updates the state, plus the amount's error and Continue, so a click right after still lands
 function mountDeposit(root) {
-  const done = root.querySelector("[data-dep-done]");
-  if (!done) return;
-  const up = root.querySelector("[data-upload]"), status = root.querySelector("[data-car-status]"), hint = root.querySelector("[data-dep-hint]");
-  const card = up.closest(".tu-fuc"), sample = card.querySelector("[data-upload-sample]"), replace = card.querySelector("[data-upload-replace]");
-  const bk = root.querySelector("[data-bk-total]");
-  const badge = (k, label, variant) => root.querySelectorAll(`[data-dep-badge="${k}"]`).forEach(x => { x.textContent = label; x.className = `tu-badge ${variant}`; });
-  const sync = () => {
-    const sent = !!root.querySelector("[data-dep-send].on"), uploaded = up.classList.contains("done"), reserved = status.value === "Reserved";
-    done.disabled = !(uploaded && reserved);
-    badge("send", sent ? "Sent" : "Not sent", sent ? "success" : "neutral");
-    badge("upload", uploaded ? "Uploaded" : "Not uploaded", uploaded ? "success" : "warning");
-    root.querySelectorAll("[data-status-pill]").forEach(x => { x.textContent = status.value; x.className = `tu-badge ${reserved ? "information" : "success"}`; });
-    root.querySelectorAll("[data-pay-status]").forEach(x => { x.innerHTML = `<span class="tu-badge ${uploaded ? "success" : "warning"}">${uploaded ? "Paid" : "Not paid"}</span>`; });
-    root.querySelectorAll("[data-pay-paid]").forEach(x => { x.innerHTML = uploaded ? `<span class="p">Just now</span><span class="s">Agent</span>` : `<span class="p">\u2014</span><span class="s">&nbsp;</span>`; });
-    if (bk) {
-      const total = +bk.dataset.bkTotal, paid = uploaded ? +bk.dataset.bkDeposit : 0;
-      bk.querySelector("[data-bk-paid] td:last-child .p").textContent = money(paid);
-      bk.querySelector("[data-bk-due] td:last-child .p").textContent = money(total - paid);
-      bk.querySelector("[data-bk-due]").classList.toggle("paid", total - paid === 0);
-    }
-    if (hint) hint.textContent = uploaded && reserved ? "Deposit recorded, car reserved" : !uploaded ? "Upload the deposit confirmation" : "Set the car to Reserved";
-  };
-  const setFile = (name, size) => {
-    up.classList.add("done");
-    card.querySelector("[data-fuc-type]").textContent = (name.split(".").pop() || "file").toUpperCase();
-    card.querySelector("[data-fuc-desc]").textContent = `${name} \u00b7 ${size} \u00b7 uploaded just now`;
-    card.querySelector("[data-upload-badge]").hidden = false;
-    sample.hidden = true;
-    replace.hidden = false;
-    sync();
-  };
-  replace.addEventListener("click", (e) => { e.preventDefault(); up.querySelector("input").click(); });
-  up.querySelector("input").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) setFile(f.name, `${Math.max(1, Math.round(f.size / 1024))} KB`); });
-  sample.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setFile("deposit-confirmation.png", "240 KB"); });
-  root.querySelectorAll("[data-dep-send]").forEach(x => x.addEventListener("click", sync));
-  // the reference and the account copy for pasting into a message; the icon shows a tick for a moment
-  root.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", (e) => {
-    e.stopPropagation();
-    try { navigator.clipboard.writeText(b.parentElement.textContent.trim()).catch(() => {}); } catch (_) { /* no clipboard in this frame */ }
-    const i = b.querySelector(".tui");
-    b.classList.add("ok");
-    i.className = "tui tui-check-outline icon-sm";
-    setTimeout(() => { b.classList.remove("ok"); i.className = "tui tui-copy icon-sm"; }, 1200);
-  }));
-  status.addEventListener("change", sync);
-  sync();
+  if (VS.step !== "P7d" || !root.querySelector("[data-dep-steps]")) return;
+  const t = VS.track, cid = PICKED.car || PEOPLE[t].car, st = depState(t, cid), d = depDue(cid);
+  const go = (i) => { st.step = i; st.max = Math.max(st.max, i); };
+  root.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-dep], [data-dep-goto]");
+    if (!el || el.disabled) return;
+    e.preventDefault();
+    const a = el.dataset.dep;
+    if (el.dataset.depGoto) st.step = +el.dataset.depGoto;
+    else if (a === "next" && depCanNext(st, d)) go(st.step + 1);
+    else if (a === "back") st.step = Math.max(0, st.step - 1);
+    else if (a === "send") { const i = st.sent.indexOf(el.dataset.v); if (i < 0) st.sent.push(el.dataset.v); else st.sent.splice(i, 1); }
+    // the link's payment shows on a refresh once a link went out: the customer pays the minimum by the link
+    else if (a === "refresh") { st.checked = true; if (st.sent.length && !st.receipt) st.via = "link"; }
+    else if (a === "receipt") { st.receipt = true; st.via = ""; }
+    redrawStage();
+  });
+  // the stepper's completed steps open from the keyboard too
+  root.querySelectorAll("[data-dep-goto]").forEach(x => x.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); x.click(); } }));
+  // a real file from the upload button counts as the receipt
+  const up = root.querySelector("[data-dep-upload] input");
+  if (up) up.addEventListener("change", () => { if (up.files[0]) { st.receipt = true; st.via = ""; redrawStage(); } });
+  root.querySelectorAll("[data-dep-f]").forEach(f => {
+    const k = f.dataset.depF;
+    if (f.tagName === "SELECT") f.addEventListener("change", () => {
+      st[k] = f.value;
+      if (k === "pay") setPayMode(t, f.value);
+      redrawStage();
+    });
+    else f.addEventListener("input", () => {
+      st[k] = f.value;
+      if (k !== "amount") return;
+      const err = depErr(st, d), box = f.closest(".tu-ti"), hl = box.querySelector(".hl"), paid = depPaid(st, d);
+      box.classList.toggle("err", !!err);
+      hl.textContent = err || hl.dataset.tiHint;
+      const next = root.querySelector('[data-dep="next"]');
+      if (next) next.disabled = !depCanNext(st, d);
+      const b = root.querySelector("[data-dep-badge]");
+      if (b) { b.textContent = paid ? "Receipt recorded" : "Awaiting payment"; b.className = `tu-badge ${paid ? "success" : "warning"}`; }
+    });
+  });
 }
 
 // Two devices on one stage talk through state events. A phone tap (data-sync="key" sends an answer, data-sync-event
@@ -845,6 +840,12 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;Break the deposit page into 3 sub-steps inside the same page, a number stepper: delivery details; then send the deposit link (payment mode) and the manual payment confirmation (receipt amount, receipt upload); then the car status, the payment transactions and the payment breakup. Turbo UI&rdquo;</div><h4>The deposit page walks through three numbered sub-steps</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">One long page: send the bank details, upload the confirmation, car status, payments, price breakup</span><span class="k">After</span><span class="seq"><em>1 Delivery details</em> &rarr; <em>2 Deposit</em> (link, or receipt) &rarr; <em>3 Reserve</em> (car status, payments, breakup), on one page</span></div>
+        <p><b>A numbered stepper, one sub-step at a time.</b> The DLS Stepper sits at the top of the action area, each marker showing its step's number. Continue moves on once a sub-step is done; a done step turns green with a short summary and opens again on a click. The call's stages above it don't change.</p>
+        <p><b>The deposit, two ways.</b> Send the deposit link: pick the payment mode, then WhatsApp, email or SMS. Refresh payment status records a link payment. Paid another way: enter the receipt amount (at least 10% of the amount due in Australia, the token in the UAE) and upload the receipt.</p>
+        <p><b>Reserve with the money in view.</b> Car status (Available or Reserved), the payment transactions and the payment breakup, the paid and outstanding rows taking the deposit. Complete stays off until the deposit is paid and the car is Reserved.</p>
+        ${links(stepLink("P7d", "Deposit, Australia", { track: "booked", market: "au" }), stepLink("P7d", "Deposit, UAE", { track: "booked", market: "ae" }), stepLink("P7d", "Deposit, interstate (ACT)", { track: "vtd", market: "au" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;One lead can have two or three TDs. Check the customer in by the UUID, then the SA runs every TD in one task: Interest with Check-in as the first tab, the DL, today's orders or more cars, a section per order with a stepper, then a checkout per car. DLS components, little text. Call the role SA, sales associate&rdquo;</div><h4>The SA's task: one visit, every TD, one car's checkout at a time</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Handshake &rarr; Consent &rarr; DL &rarr; Walkaround &rarr; Drive &rarr; End &rarr; Debrief &rarr; Token, one car after another</span><span class="k">After</span><span class="seq"><em>T1 Interest</em> &rarr; <em>T2 DL</em> &rarr; <em>T3 Cars</em> &rarr; <em>O1 Test drives, a section per order</em> &rarr; <em>N2 Checkout, one car</em></span></div>
         <p><b>Found by the check-in UUID.</b> Check-in gives the visit a UUID; the SA's task opens on the lead it belongs to, with every order the lead has today. A booking can carry two or three TDs; they all run in this one task.</p>
@@ -869,7 +870,7 @@ function renderChanges() {
         <div class="ba"><span class="k">Before</span><span class="seq">Every call ends in a TD booking: TD type &rarr; Slots &rarr; Book</span><span class="k">After</span><span class="seq">A car picked (P2, P3a or P3b) &rarr; Next menu: <em>Customer wants to pay a deposit</em> &rarr; <em>P7d Deposit and reserve</em> &rarr; delivery (N3)</span></div>
         <p><b>The pitch decides, not a fixed path.</b> A lead does not always need a TD. Each Next sends the step's input (the cars picked, TD or deposit) to the journey's next-step API, which answers with the next step and the stages to show: TD type, Slots, Book for a test drive; Deposit, Reserved for a deposit. The screens follow the answer, so a new outcome is a new answer from the API, not a new build.</p>
         <p><b>Offered once a car is picked.</b> The arrow next to Next holds Customer wants to pay a deposit on the lead view, the car page and the compare. It stays off until a car is picked. The call's stages switch to Interest, Discovery, Deposit, Reserved.</p>
-        <p><b>Three blocks, one gate.</b> Send the bank details from the CRM by WhatsApp, email or SMS, with the order as the reference. The customer pays and emails a screenshot to the agent, who downloads it and uploads it as the deposit confirmation. Then the car status goes to Reserved. Complete stays off until the upload and Reserved are both done; then the order goes to the delivery journey.</p>
+        <p><b>Three sub-steps, one gate.</b> The delivery details, then the deposit (a payment link, or the receipt confirmed by hand), then the car to Reserved. Complete stays off until the deposit is paid and the car is Reserved; then the order goes to the delivery journey.</p>
         ${links(stepLink("P7d", "Deposit and reserve", { track: "booked" }), stepLink("P3a", "Deposit from the car page"), stepLink("P2", "Deposit from the lead view", { track: "vtd" }))}</div>
       <div class="chg-card wide"><div class="q">&ldquo;Orders and cars of interest should show finance (pre-approved or not), the wishlist, past and future orders: context and detail. Break discovery down: the car listing with filters and appointment ID search, compare 2 or 3 in a grid on the same page, and a car page like cars24.com.au&rdquo;</div><h4>The call sees the whole customer, and discovery works like the website</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">P2 Orders and cars of interest &rarr; P3 Discovery (stepper pills)</span><span class="k">After</span><span class="seq"><em>P2 Orders, finance and cars</em> (context tiles, detail tabs) &rarr; <em>P3 Car listing</em> &rarr; <em>P3a Car details</em> or <em>P3b Compare</em> on the same page</span></div>
