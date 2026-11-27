@@ -608,6 +608,50 @@ function coState(t, o) {
   if (!st.co[o.id]) st.co[o.id] = { step: 0, delivery: "hub", vas: [], coupon: null, disc: "", reason: "Price match", promise: [], pay: saPay(t), pre: t === "walkin" ? "link" : "done", preSent: false, method: "bank", receipt: false, stripe: "idle", sent: ["sms"], confirmed: false };
   return st.co[o.id];
 }
+// the order's money at the checkout: price, delivery, VAS, discount, the BYOF handling fee, the total, the deposit
+// asked for (the BYOF deposit, else the market's) and what is paid
+function coTotals(t, o, co) {
+  const pr = orderPrice(o.car), coupon = SA_DAY[t].coupons.find(x => x.code === co.coupon);
+  const vas = co.vas.reduce((a, i) => a + SA_VAS[i][1], 0), del = co.delivery === "home" ? SA_RULES.delivery : 0;
+  const disc = (coupon ? +coupon.value.replace(/\D/g, "") : 0) + (+String(co.disc).replace(/\D/g, "") || 0);
+  const fee = byofOn(co) ? BYOF.fee : 0, total = pr.total + vas + del + fee - disc;
+  const dep = byofOn(co) ? Math.min(byofAmt(co), total) || BYOF.min : MK.token;
+  return { pr, vas, del, disc, fee, total, dep, paid: co.receipt || co.stripe === "paid" ? dep : 0 };
+}
+// BYOF (bring your own finance) at the Payment step, Australia: state in co.byof, changed by mountSaTask (piston.js)
+const byofOn = (co) => co.pay === "own" && !!BYOF.lenders;
+function byofOf(co) {
+  if (!co.byof) co.byof = { deposit: String(BYOF.min), how: "", broker: "", lender: "", other: "", rate: "", weekly: "", callback: false };
+  return co.byof;
+}
+const byofAmt = (co) => +String(byofOf(co).deposit).replace(/\D/g, "") || 0;
+function byofErr(co, max) {
+  const v = byofAmt(co);
+  return !v ? "Enter the deposit" : v < BYOF.min ? `At least ${money(BYOF.min)}` : v > max ? `At most ${money(max)}, the order total` : "";
+}
+function byofOk(co, max) {
+  const b = byofOf(co);
+  return !byofErr(co, max) && !!b.how && !!b.lender && (b.how !== "broker" || !!b.broker.trim()) && (b.lender !== "Other" || !!b.other.trim());
+}
+// the BYOF questions under the payment mode tiles: the deposit on the brand tint, then the loan
+function byofForm(co, max) {
+  const b = byofOf(co), v = byofAmt(co), err = byofErr(co, max);
+  const lender = b.lender === "Other" ? (b.other.trim() || "their") : b.lender;
+  return `<div class="byof" data-part="byof">
+    <div class="byof-dep"><h5>Bring your own finance</h5><p>Pre-approved by their own lender; CARS24 works with the lender from here.</p>
+      <div class="amt"><span>How much deposit can they pay</span>${TU.textInput({ label: "Deposit", id: "byof-dep", value: v ? money(v) : "", placeholder: money(BYOF.min), error: err, attrs: `data-byof-in="deposit" inputmode="numeric" aria-label="Deposit"` })}</div>
+      ${TU.rangeSlider({ id: "byof-range", min: BYOF.min, max, step: BYOF.step, value: Math.max(BYOF.min, Math.min(max, v || BYOF.min)), minLabel: money(BYOF.min), maxLabel: money(max), attrs: `data-byof-range aria-label="Deposit"` })}
+      <span class="ref">100% refundable if they change their mind</span></div>
+    ${TU.radios({ label: "How are they organising the loan?", items: BYOF.how, value: b.how, required: true, attrs: `data-byof="how"` })}
+    ${b.how === "broker" ? TU.textInput({ label: "Broker name", id: "byof-broker", value: b.broker, placeholder: "Text", required: true, attrs: `data-byof-in="broker"` }) : ""}
+    ${TU.dropdown({ id: "byof-lender", label: "Who is the lender", options: BYOF.lenders, value: b.lender, placeholder: "Select the lender", required: true, attrs: "data-byof-lender" })}
+    ${b.lender === "Other" ? TU.textInput({ label: "Lender name", id: "byof-other", value: b.other, placeholder: "Text", required: true, attrs: `data-byof-in="other"` }) : ""}
+    ${b.how === "broker" ? `<div class="tu-row2">${TU.textInput({ label: "What's their interest rate?", id: "byof-rate", value: b.rate, placeholder: "9%", attrs: `data-byof-in="rate" inputmode="decimal"` })}${TU.textInput({ label: "What's their weekly repayment?", id: "byof-weekly", value: b.weekly, placeholder: `${money(10)}/week`, attrs: `data-byof-in="weekly" inputmode="numeric"` })}</div>` : ""}
+    ${b.how && b.how !== "broker" && b.lender ? TU.info(`Paying the loan off early? Check whether the ${lender} loan has early repayment fees. CARS24 Finance lenders have flexible terms with no early exit charges.`, { state: "brand",
+      cta: b.callback ? TU.badge("Callback requested: CARS24 Finance calls them", { variant: "success", icon: "check-outline" }) : TU.link("Request a callback", { attrs: `data-byof="callback"` }), attrs: `data-part="byof-nudge"` }) : ""}
+    ${TU.info(`A ${money(BYOF.fee)} handling fee applies with an outside lender, for the extra processing and coordination. It is on the order summary.`, { attrs: `data-part="byof-fee"` })}
+  </div>`;
+}
 const saStatus = (o) => o.booked ? ["Booking confirmed", "success"] : o.step === 4 ? ["In checkout", "information"] : o.step === 3 ? ["TD done", "success"] : o.step === 2 ? ["On test drive", "warning"] : o.step === 1 ? ["Key handover", "information"] : ["Car ready", "neutral"];
 
 // one order's section on the test drives page: its stepper, then the current step's controls
@@ -637,7 +681,8 @@ function saOrder(t, o, first) {
 
 // the checkout of one order: the stepper, the step's panel, and Back and Continue
 function saCheckout(t, o) {
-  const co = coState(t, o), d = SA_DAY[t], c = PCARS[o.car], pr = orderPrice(o.car), fin = co.pay === "fin";
+  const co = coState(t, o), d = SA_DAY[t], c = PCARS[o.car], pr = orderPrice(o.car), fin = co.pay === "fin", tot = coTotals(t, o, co);
+  const byofBlock = co.step === 4 && byofOn(co) && !byofOk(co, tot.total);
   const steps = SA_CO.map(([label, icon], i) => ({ label, icon, status: i === 5 && !fin ? "default" : i < co.step || (i === 7 && co.confirmed) ? "completed" : i === co.step ? "active" : "default",
     description: i === 5 && !fin ? "Not needed" : "", skip: i === 5 && !fin }));
   const pane = (i, html) => `<div class="sa-pane" data-co-pane="${i}"${i === co.step ? "" : " hidden"}>${html}</div>`;
@@ -649,9 +694,9 @@ function saCheckout(t, o) {
         <div class="tu-btns">${co.preSent ? TU.badge("Link sent: the customer fills it", { variant: "success", icon: "check-outline" }) : TU.button("Send the pre-approval link", { variant: "primary", size: "medium", icon: "send-line", attrs: `data-co-act="pre-send"` })}</div></div>`)}
       ${TU.tabPanel("pre", "now", co.pre, `<div class="sa-pane"><div class="tu-row2">${TU.textInput({ label: "Full name", value: PEOPLE[t].name, id: "pa-n" })}${TU.textInput({ label: "Mobile", value: PEOPLE[t].phone, id: "pa-m" })}${TU.textInput({ label: "Email", value: PEOPLE[t].email, id: "pa-e" })}${TU.textInput({ label: "Licence no.", value: PEOPLE[t].dl, id: "pa-dl" })}${TU.textInput({ label: "Amount to finance", value: money(pr.total - MK.token), id: "pa-a" })}${TU.textInput({ label: "Monthly income", placeholder: "Ask the customer", id: "pa-i" })}</div>
         <div class="tu-btns">${co.preRun ? TU.badge("Pre-approval run: the result is on the lead", { variant: "success", icon: "check-outline" }) : TU.button("Run pre-approval", { variant: "primary", size: "medium", attrs: `data-co-act="pre-run"` })}</div></div>`)}`;
-  const deposit = `<div class="tu-btns"><span class="sa-k">Deposit ${money(MK.token)}</span><span class="sp"></span>${TU.badge(paid ? "Paid" : "Not paid", { variant: paid ? "success" : "warning" })}</div>
+  const deposit = `<div class="tu-btns"><span class="sa-k">Deposit ${money(tot.dep)}${byofOn(co) ? " &middot; BYOF" : ""}</span><span class="sp"></span>${TU.badge(paid ? "Paid" : "Not paid", { variant: paid ? "success" : "warning" })}</div>
     <div class="tu-ptiles">${TU.paymentTile({ name: "Bank transfer", sub: "Upload the receipt", icon: "bank-outline", value: "bank", group: "co-method", selected: co.method === "bank" })}${TU.paymentTile({ name: "Stripe", sub: "Share the payment link; Stripe confirms it", icon: "credit-card-2-card-payment-outline", value: "stripe", group: "co-method", selected: co.method === "stripe" })}</div>
-    ${co.method === "bank" ? `${TU.paymentDetails([{ label: "Account name", value: "CARS24 UAE" }, { label: "IBAN", value: "AE07 0331 0000 0123 4567 890" }, { label: "Reference", value: o.id }], { showShadow: false })}
+    ${co.method === "bank" ? `${TU.paymentDetails([...MK.bank.map(([label, value]) => ({ label, value })), { label: "Reference", value: o.id }, { label: "Amount", value: money(tot.dep) }], { showShadow: false })}
       ${TU.fileUploadCard({ title: "Deposit receipt", description: co.receipt ? "receipt.png &middot; 240 KB &middot; uploaded just now" : "JPG, PNG or PDF", uploaded: co.receipt, badge: co.receipt ? TU.badge("Saved to Documents", { variant: "success", size: "s", icon: "check-outline" }) : "", cta: co.receipt ? "" : TU.link("Use a sample", { attrs: `data-co-act="receipt"` }), previewLabel: "PNG" })}`
     : `<div class="tu-chips">${[["bubble-text-message-chat-outline", "SMS"], ["email-envelope-outline", "Email"], ["whatsapp", "WhatsApp"]].map(([i, l], k) => TU.chip(l, { leadingIcon: i, active: k === 0, green: true, trailing: tui("check-outline", "xs"), attrs: `data-pick="multi"` })).join("")}</div>
       <div class="tu-btns">${co.stripe === "idle" ? TU.button("Share the Stripe link", { variant: "primary", size: "medium", icon: "link", attrs: `data-co-act="stripe-send"` }) : co.stripe === "sent" ? `${TU.badge("Waiting for Stripe", { variant: "warning", icon: "clock-timer-outline" })}<span class="sp"></span>${TU.link("Simulate the Stripe webhook", { attrs: `data-co-act="stripe-paid"` })}` : TU.badge("Paid by Stripe", { variant: "success", icon: "check-outline" })}</div>`}`;
@@ -663,23 +708,21 @@ function saCheckout(t, o) {
       <div class="tu-row2">${TU.textInput({ label: "Extra discount", value: co.disc, placeholder: money(0), id: "co-disc", attrs: `data-co-disc inputmode="numeric"` })}${TU.dropdown({ id: "co-reason", label: "Reason", options: ["Price match", "Loyalty", "Manager's discretion"], value: co.reason })}</div>
       <div class="tu-btns">${TU.badge(`A manager approves above ${money(SA_RULES.discountLimit)}`, { variant: "neutral", icon: "lock-private-outline" })}</div>`)}
     ${pane(3, `<div class="tu-list">${SA_PROMISES.map((n, i) => TU.checkbox(n, { checked: co.promise.includes(i), attrs: `data-co-promise="${i}"` })).join("")}</div>${TU.textInput({ label: "Anything else promised", placeholder: "For example: a second key", id: "co-other" })}`)}
-    ${pane(4, TU.choiceTiles("co-pay", PAY_MODES.map(([value, label]) => ({ value, label, sub: value === "fin" ? "CARS24 Finance" : value === "own" ? "Their own lender" : "No loan", icon: value === "cash" ? "money-hand-coins-pay-outline" : value === "fin" ? "bank-outline" : "coin-dollar-currency-money-outline" })), co.pay, 3))}
+    ${pane(4, TU.choiceTiles("co-pay", PAY_MODES.map(([value, label]) => ({ value, label, sub: value === "fin" ? "CARS24 Finance" : value === "own" ? "Their own lender" : "No loan", icon: value === "cash" ? "money-hand-coins-pay-outline" : value === "fin" ? "bank-outline" : "coin-dollar-currency-money-outline" })), co.pay, 3) + (byofOn(co) ? byofForm(co, tot.total) : ""))}
     ${pane(5, fin ? pre : "")}
     ${pane(6, deposit)}
-    ${pane(7, `${TU.successHeader({ title: "Booking confirmed", sub: `${o.id} &middot; ${c.title} &middot; deposit ${money(MK.token)} paid` })}
+    ${pane(7, `${TU.successHeader({ title: "Booking confirmed", sub: `${o.id} &middot; ${c.title} &middot; deposit ${money(tot.dep)} paid${byofOn(co) ? ` &middot; the rest from ${byofOf(co).lender === "Other" ? byofOf(co).other : byofOf(co).lender}` : ""}` })}
       <div class="tu-btns"><span class="sp"></span>${TU.button("Check out another car", { variant: "secondary", size: "medium", attrs: `data-go="O1"` })}${TU.button("Hand off to delivery", { variant: "primary", size: "medium", iconAfter: "arrow-right-outline", attrs: `data-go="N3"` })}</div>`)}
-    ${co.step < 7 ? `<div class="tu-btns">${co.step ? TU.button("Back", { variant: "tertiary", size: "medium", icon: "arrow-left-outline", attrs: `data-co-act="back"` }) : ""}<span class="sp"></span>${TU.button(co.step === 6 ? "Confirm the booking" : "Continue", { variant: "primary", size: "medium", iconAfter: "arrow-right-outline", attrs: `data-co-act="next"${co.step === 6 && !paid ? " disabled" : ""}` })}</div>` : ""}`;
+    ${co.step < 7 ? `<div class="tu-btns">${co.step ? TU.button("Back", { variant: "tertiary", size: "medium", icon: "arrow-left-outline", attrs: `data-co-act="back"` }) : ""}<span class="sp"></span>${TU.button(co.step === 6 ? "Confirm the booking" : "Continue", { variant: "primary", size: "medium", iconAfter: "arrow-right-outline", attrs: `data-co-act="next"${(co.step === 6 && !paid) || byofBlock ? " disabled" : ""}` })}</div>` : ""}`;
   return `<div class="tu-stack"><div class="tu-sec framed sa-steps" data-part="checkout">${TU.stepper(steps, `data-co-steps`)}</div>
     <div class="sa-co">${TU.sectionCard({ title: SA_CO[co.step][2], attrs: `data-part="co-step"`, badge: co.confirmed ? { label: "Done", variant: "success" } : { label: `Step ${co.step + 1} of 8`, variant: "information" }, items: [body] })}${sum}</div></div>`;
 }
 // the order summary beside the checkout: the price, delivery, VAS, discount, then the deposit and what is left
 function saSummary(t, o, co) {
-  const pr = orderPrice(o.car), coupon = SA_DAY[t].coupons.find(x => x.code === co.coupon);
-  const vas = co.vas.reduce((a, i) => a + SA_VAS[i][1], 0), del = co.delivery === "home" ? SA_RULES.delivery : 0;
-  const disc = (coupon ? +coupon.value.replace(/\D/g, "") : 0) + (+String(co.disc).replace(/\D/g, "") || 0);
-  const total = pr.total + vas + del - disc, paid = co.receipt || co.stripe === "paid" ? MK.token : 0;
+  const { pr, vas, del, disc, fee, total, paid } = coTotals(t, o, co);
   return TU.sectionCard({ title: "Order summary", subtitle: `${carShort(o.car)} &middot; ${o.id}`, attrs: `data-part="summary"`, items: [
-    TU.paymentDetails([{ label: pr.label, value: money(pr.total) }, { label: "Delivery", value: money(del) }, { label: "VAS", value: money(vas) }, { label: "Discount", value: disc ? `&minus; ${money(disc)}` : "&mdash;" }, "sep",
+    TU.paymentDetails([{ label: pr.label, value: money(pr.total) }, { label: "Delivery", value: money(del) }, { label: "VAS", value: money(vas) }, { label: "Discount", value: disc ? `&minus; ${money(disc)}` : "&mdash;" },
+      ...(fee ? [{ label: "BYOF handling fee", value: money(fee) }] : []), "sep",
       { label: "Total", value: money(total), highlight: true }, { label: "Deposit paid", value: money(paid) }, { label: "Outstanding", value: money(total - paid) }], { showShadow: false })] });
 }
 
@@ -772,7 +815,7 @@ function saCheckoutPage(t) {
   st.coOrder = o.id;
   const co = coState(t, o);
   return saPage(t, { id: "N2", title: `Checkout: ${carShort(o.car)}`, desc: `${o.id} &middot; one car at a time`,
-    right: TU.badge(co.confirmed ? "Booking confirmed" : `Deposit ${money(MK.token)}`, { variant: co.confirmed ? "success" : "warning", icon: co.confirmed ? "check-outline" : "wallet-3-outline" }),
+    right: TU.badge(co.confirmed ? "Booking confirmed" : `Deposit ${money(coTotals(t, o, co).dep)}`, { variant: co.confirmed ? "success" : "warning", icon: co.confirmed ? "check-outline" : "wallet-3-outline" }),
     body: saCheckout(t, o),
     footer: foot(t, "N2", "Exit: deposit paid, booking confirmed", [["Pays later: keep the link live", "N4", "", "clock"], ["Back to the test drives", "O1", "", "arrow-left"], ["Hand off to delivery", "N3", "primary", "arrow-right", true, co.confirmed ? "" : "disabled"]]),
     gptOpts: { cards: [["Say this", "message-square", `<p>&ldquo;The deposit holds the ${carShort(o.car)} for you while we finish the paperwork.&rdquo;</p>`]] } });

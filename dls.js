@@ -99,6 +99,17 @@ const TU = {
   textInput({ label, value = "", id, placeholder = "", required, hint = "", error = "", type = "text", attrs = "" }) {
     return `<div class="tu-ti${error ? " err" : ""}"><label for="${id}">${label}${required ? `<span class="rq">*</span>` : ""}</label><input id="${id}" type="${type}" value="${value}" placeholder="${placeholder}"${attrs ? " " + attrs : ""}>${hint || error ? `<small class="hl" data-ti-hint="${hint}">${error || hint}</small>` : ""}</div>`;
   },
+  // RadioButton group, size md, variant default: the label over a row of radios, the checked one filled in the brand
+  // tone with the white dot. items: [value, label] pairs; each radio carries attrs and data-v="value"
+  radios({ label, items, value, required, attrs = "" }) {
+    return `<div class="tu-radios" role="radiogroup" aria-label="${label}"><span class="lbl">${label}${required ? `<span class="rq">*</span>` : ""}</span><div class="row">${items.map(([v, l]) =>
+      `<button type="button" role="radio" aria-checked="${v === value}" class="tu-radio${v === value ? " on" : ""}" ${attrs} data-v="${v}"><span class="rd"></span>${l}</button>`).join("")}</div></div>`;
+  },
+  // RangeSlider, horizontal, one handle: the track filled in the brand tone up to the value, the min and max under it
+  rangeSlider({ id, min, max, value, step = 1, minLabel, maxLabel, attrs = "" }) {
+    const p = max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0;
+    return `<div class="tu-range"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}" style="--p:${p}%"${attrs ? " " + attrs : ""}><div class="ends"><span>${minLabel ?? min}</span><span>${maxLabel ?? max}</span></div></div>`;
+  },
   // Coupon: the brand strip with the value, the card with the title, a dashed divider, the code and the validity
   coupon({ value, title, code, valid, action = "", attrs = "" }) {
     return `<div class="tu-coupon"${attrs ? " " + attrs : ""}><span class="dec"><span>${value}</span></span><div class="cd"><b>${title}</b><span class="dv"></span>
@@ -126,8 +137,8 @@ const TU = {
   },
   // InformationMessage, with its background: an icon in the state's tone and the message. state: general | brand |
   // positive | warning | negative
-  info(text, { state = "general", icon = "info-outline", attrs = "" } = {}) {
-    return `<div class="tu-info ${state}"${attrs ? " " + attrs : ""}>${tui(icon, "base")}<p>${text}</p></div>`;
+  info(text, { state = "general", icon = "info-outline", cta = "", attrs = "" } = {}) {
+    return `<div class="tu-info ${state}"${attrs ? " " + attrs : ""}>${tui(icon, "base")}<div class="tx"><p>${text}</p>${cta}</div></div>`;
   },
   // Modal: the dimmed backdrop, then the card with its title bar (title, close) and the slate body. It covers the
   // screen it is drawn in; closeAttrs go on the close button and the backdrop

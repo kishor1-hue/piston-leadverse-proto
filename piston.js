@@ -473,7 +473,7 @@ function mountSaTask(root) {
   const redraw = redrawStage;
   const toggle = (list, v) => { const i = list.indexOf(v); if (i < 0) list.push(v); else list.splice(i, 1); };
   root.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-tab], [data-choice], [data-sa-dl], [data-sa-dlcheck], [data-sa-keep], [data-sa-add], [data-sa-check], [data-sa-next], [data-co-act], [data-co-vas], [data-co-promise], [data-co-coupon]");
+    const el = e.target.closest("[data-tab], [data-choice], [data-sa-dl], [data-sa-dlcheck], [data-sa-keep], [data-sa-add], [data-sa-check], [data-sa-next], [data-co-act], [data-co-vas], [data-co-promise], [data-co-coupon], [data-byof]");
     if (!el || el.disabled) return;
     e.preventDefault();
     const d = el.dataset, c = co();
@@ -495,6 +495,7 @@ function mountSaTask(root) {
     else if (d.coVas && c) toggle(c.vas, +d.coVas);
     else if (d.coPromise && c) toggle(c.promise, +d.coPromise);
     else if (d.coCoupon && c) c.coupon = d.coCoupon;
+    else if (d.byof && c) { const b = byofOf(c); if (d.byof === "how") b.how = d.v; else if (d.byof === "callback") b.callback = true; }
     else if (d.coAct && c) {
       const fin = c.pay === "fin";
       if (d.coAct === "next") {
@@ -513,6 +514,37 @@ function mountSaTask(root) {
   const disc = root.querySelector("[data-co-disc]"), reason = root.querySelector("#co-reason");
   if (disc) disc.addEventListener("change", () => { const c = co(); if (c) { c.disc = disc.value; redraw(); } });
   if (reason) reason.addEventListener("change", () => { const c = co(); if (c) c.reason = reason.value; });
+  // BYOF: the lender redraws (Other and the nudge follow it); typing only updates the state, the deposit's error and
+  // slider, and Continue, in place, so a click right after still lands; letting go of the slider redraws
+  const c0 = co();
+  if (!c0 || !byofOn(c0)) return;
+  const o0 = order(st.coOrder), next = root.querySelector('[data-co-act="next"]');
+  const sync = () => {
+    const c = co(), max = coTotals(t, o0, c).total, err = byofErr(c, max);
+    const ti = root.querySelector("#byof-dep").closest(".tu-ti"), hl = ti.querySelector(".hl");
+    ti.classList.toggle("err", !!err);
+    if (err && !hl) ti.insertAdjacentHTML("beforeend", `<small class="hl">${err}</small>`); else if (hl) { if (err) hl.textContent = err; else hl.remove(); }
+    if (next) next.disabled = !byofOk(c, max);
+  };
+  const lender = root.querySelector("[data-byof-lender]");
+  if (lender) lender.addEventListener("change", () => { byofOf(co()).lender = lender.value; redraw(); });
+  root.querySelectorAll("[data-byof-in]").forEach(inp => inp.addEventListener("input", () => {
+    byofOf(co())[inp.dataset.byofIn] = inp.value;
+    if (inp.dataset.byofIn !== "deposit") return sync();
+    const r = root.querySelector("[data-byof-range]"), v = byofAmt(co());
+    if (r && v) { r.value = Math.max(+r.min, Math.min(+r.max, v)); r.style.setProperty("--p", `${((r.value - r.min) / (r.max - r.min)) * 100}%`); }
+    sync();
+  }));
+  const range = root.querySelector("[data-byof-range]");
+  if (range) {
+    range.addEventListener("input", () => {
+      byofOf(co()).deposit = range.value;
+      range.style.setProperty("--p", `${((range.value - range.min) / (range.max - range.min)) * 100}%`);
+      root.querySelector("#byof-dep").value = money(+range.value);
+      sync();
+    });
+    range.addEventListener("change", redraw);
+  }
 }
 
 // the TD reminder call (P8r): what the customer said (Coming, Reschedule, Cancel) and that outcome's inputs go into its
@@ -850,6 +882,11 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;In the checkout, when the payment mode is BYOF, ask these questions: the deposit they can pay, how they are organising the loan (broker, direct lender, novated lease), the lender, and for a broker the rate and weekly repayment; then the same journey&rdquo;</div><h4>BYOF at the checkout asks about the loan, then goes on to the deposit</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">Payment mode BYOF &rarr; <em>Deposit</em> of the market's fixed amount</span><span class="k">After</span><span class="seq">Payment mode BYOF &rarr; <em>the deposit they can pay</em>, <em>the loan</em>, <em>the lender</em> &rarr; <em>Deposit</em> of that amount &rarr; <em>Confirmed</em></span></div>
+        <p><b>The deposit is theirs to pick.</b> From $500 up to the order total, typed or on the slider, and 100% refundable. The Deposit step, the bank details and the summary use that amount.</p>
+        <p><b>The loan.</b> Broker, Direct lender or Novated lease, then the lender (CBA, Westpac, Now Finance, ANZ, Money3, Plenti, Latitude, Branded Financial, NAB, OMM, Other). A broker loan asks the broker's name, the interest rate and the weekly repayment. A direct lender or a novated lease gets the early-repayment nudge, with Request a callback for CARS24 Finance. Continue stays off until the required answers are in.</p>
+        <p><b>The fee.</b> The $500 handling fee for an outside lender is a line on the order summary. Australia only: in the UAE, BYOF still goes straight to the deposit.</p></div>
       <div class="chg-card wide"><div class="q">&ldquo;One more persona, Delivery: the final payment is settled and the delivery is booked. Before the car is marked delivered the customer may add or remove VAS, add or remove a discount, change the rego to 3, 6 or 12 months. Screens: car prep status (read-only, other teams), VAS, rego, discount, invoice update, booking confirmation, then the balance and the delivery mode, with a warning popup for a free delivery exception; pick-up is marked delivered with the actual date, home delivery creates a logistics task. A new page route&rdquo;</div><h4>A new page: the Delivery persona</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">The journey stopped at N3, the hand-off to delivery</span><span class="k">After</span><span class="seq"><em>D1 Car prep (read-only)</em> &rarr; <em>D2 VAS</em> &rarr; <em>D3 Rego</em> &rarr; <em>D4 Discount</em> &rarr; <em>D5 Invoice</em> &rarr; <em>D6 Confirmation</em> &rarr; <em>D7 Balance and handover</em>, at <a class="linklike" href="delivery.html">/delivery</a></span></div>
         <p><b>Happy path first.</b> The car is ready, nothing changes: check the four gates, then hand it over. D2 to D4 only matter when the customer asks; each shows what was booked, and the DAP and the balance move as soon as something changes.</p>

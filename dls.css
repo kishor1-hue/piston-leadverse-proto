@@ -356,6 +356,16 @@
 .sa-pane{display:flex; flex-direction:column; gap:14px;}
 .sa-pane[hidden]{display:none !important;}
 .sa-k{font-size:13px; font-weight:600; color:var(--tu-text-primary);}
+/* BYOF at the checkout: the deposit on the brand tint, then the loan questions */
+.byof{display:flex; flex-direction:column; gap:16px; padding-top:4px; border-top:1px solid var(--tu-border-tertiary);}
+.byof-dep{display:flex; flex-direction:column; gap:10px; padding:16px; border-radius:16px; background:var(--tu-brand-50);}
+.byof-dep h5{margin:0; font-size:16px; font-weight:600; color:var(--tu-text-primary);}
+.byof-dep > p{margin:0; font-size:13px; line-height:18px; color:var(--tu-text-secondary);}
+.byof-dep .amt{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
+.byof-dep .amt > span{padding-top:11px; font-size:14px; color:var(--tu-text-primary);}
+.byof-dep .amt .tu-ti{width:150px; flex:none;}
+.byof-dep .amt .tu-ti label{display:none;}
+.byof-dep .ref{font-size:13px; font-weight:500; color:var(--tu-brand);}
 .sa-total{display:flex; align-items:center; justify-content:space-between; padding:4px 2px; font-size:14px; color:var(--tu-text-secondary);}
 .sa-total b{font-size:15px; color:var(--tu-text-primary);}
 .sa-note{display:flex; align-items:flex-start; gap:8px; font-size:14px; color:var(--tu-text-primary);}
@@ -388,7 +398,8 @@
 
 /* InformationMessage (@cspl/information-message), with background: fs-130, the icon in the state's feedback tone */
 .tu-info{display:flex; align-items:flex-start; gap:8px; padding:8px 12px; border-radius:8px; background:var(--tu-surface-subtle); color:var(--tu-text-secondary);}
-.tu-info p{margin:0; flex:1; min-width:0; font-size:13px; line-height:18px;}
+.tu-info .tx{flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:6px;}
+.tu-info p{margin:0; font-size:13px; line-height:18px;}
 .tu-info .tui{margin-top:1px; color:var(--tu-text-secondary);}
 .tu-info.brand{background:var(--tu-brand-50);} .tu-info.brand .tui{color:var(--tu-brand);}
 .tu-info.positive{background:var(--tu-mint-50);} .tu-info.positive .tui{color:var(--tu-mint-900);}
@@ -405,3 +416,23 @@
 .tu-modal .x{display:inline-flex; border:none; background:none; padding:0; cursor:pointer; color:var(--tu-text-primary);}
 .tu-modal .bdy{display:flex; flex-direction:column; gap:16px; padding:16px 24px 20px; background:var(--tu-surface-subtle); font-size:15px; line-height:1.4; color:var(--tu-text-primary);}
 .tu-modal .bdy p{margin:0;}
+
+/* RadioButton (@cspl/radio-button), md, default: a 20px ring, checked filled in the brand tone with the white dot */
+.tu-radios{display:flex; flex-direction:column; gap:10px;}
+.tu-radios .lbl{font-size:14px; color:var(--tu-text-primary);}
+.tu-radios .row{display:flex; flex-wrap:wrap; gap:8px 24px;}
+.tu-radio{display:inline-flex; align-items:center; gap:8px; border:none; background:none; padding:0; font-family:inherit; font-size:14px; color:var(--tu-text-primary); cursor:pointer;}
+.tu-radio .rd{position:relative; width:20px; height:20px; flex:none; border-radius:9999px; border:1px solid var(--tu-border-secondary); background:var(--tu-surface); transition:background-color .2s;}
+.tu-radio.on .rd{background:var(--tu-brand); border-color:var(--tu-brand);}
+.tu-radio.on .rd::after{content:""; position:absolute; inset:5px; border-radius:9999px; background:#fff;}
+.tu-radio:hover .rd{opacity:.9;}
+
+/* RangeSlider (@cspl/range-slider), horizontal, one handle: the slate track filled to the value, a white handle */
+.tu-range{display:flex; flex-direction:column; gap:6px;}
+.tu-range input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:6px; margin:8px 0; border-radius:9999px; cursor:pointer;
+  background:linear-gradient(to right, var(--tu-brand) var(--p, 0%), var(--tu-surface-tertiary) var(--p, 0%));}
+.tu-range input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:22px; height:22px; border-radius:9999px; background:#fff; border:1px solid var(--tu-border-secondary); box-shadow:0 1px 4px rgba(15,23,42,.18);}
+.tu-range input[type=range]::-moz-range-thumb{width:22px; height:22px; border-radius:9999px; background:#fff; border:1px solid var(--tu-border-secondary); box-shadow:0 1px 4px rgba(15,23,42,.18);}
+.tu-range input[type=range]::-moz-range-track{background:transparent;}
+.tu-range input[type=range]:focus-visible{outline:2px solid var(--tu-brand); outline-offset:4px;}
+.tu-range .ends{display:flex; justify-content:space-between; font-size:13px; color:var(--tu-text-secondary);}

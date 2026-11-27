@@ -653,9 +653,9 @@ const STEPS = [
   },
   { id: "N2", phase: "N", name: { hub: "Checkout", vtd: "Collect token" }, tracks: ["booked", "walkin", "vtd"],
     owner: { hub: "SA", vtd: "VTD operator" }, device: { hub: "tablet", vtd: "video" },
-    purpose: { hub: "Check out one car, start to end, with a stepper inside the page: the address and the delivery mode, VAS, a discount, the sales promise, the payment mode, the pre-approval for In-house finance, the deposit, then the booking confirmation. Another TD'd car is checked out the same way, from the test drives page.", vtd: "Send a payment link while the customer is still on the call." },
+    purpose: { hub: "Check out one car, start to end, with a stepper inside the page: the address and the delivery mode, VAS, a discount, the sales promise, the payment mode (for BYOF in Australia, the deposit they can pay and their loan: broker, direct lender or novated lease, and the lender), the pre-approval for In-house finance, the deposit, then the booking confirmation. Another TD'd car is checked out the same way, from the test drives page.", vtd: "Send a payment link while the customer is still on the call." },
     source: { trigger: { hub: "Disposition Pay deposit on an order (O1)", vtd: "Decision: ready to buy" },
-      data: { hub: ["OMS: the order, price and price breakup", "Customer address", "VAS catalogue", "Coupons and discount rules (approval above a limit)", "Sales promise checklist", "Finance service: pre-approval, prefilled when it exists, or the link to send", "Payments: bank transfer (receipt upload) or Stripe (link, confirmed by webhook)"], vtd: ["Payment service: Noon, DAPI, CBD UAE", "OMS: token amount for this order", "Notification engine: payment link"] } },
+      data: { hub: ["OMS: the order, price and price breakup", "Customer address", "VAS catalogue", "Coupons and discount rules (approval above a limit)", "Sales promise checklist", "Finance service: pre-approval, prefilled when it exists, or the link to send", "Finance service: BYOF details (the deposit, loan type, lender, broker, rate, weekly repayment) and the callback request", "Payments: bank transfer (receipt upload) or Stripe (link, confirmed by webhook)"], vtd: ["Payment service: Noon, DAPI, CBD UAE", "OMS: token amount for this order", "Notification engine: payment link"] } },
     entry: { hub: ["Disposition Pay deposit", "Car still available"], vtd: ["Ready to buy", "Car still available"] },
     exits: {
       hub: [{ when: "Deposit paid: the booking is confirmed", to: "N3", state: "BOOKING CONFIRMED" }, { when: "Another TD'd car to check out: back to the test drives", to: "O1" }, { when: "Customer leaves before paying: the link stays live, follow-up set", to: "N4" }],
@@ -663,7 +663,7 @@ const STEPS = [
     },
     state: { hub: "BOOKING CONFIRMED", vtd: "TOKEN PAID" },
     screen: { name: { hub: "SA task &rsaquo; Checkout", vtd: "Next step &rsaquo; Token" }, build: "new",
-      pattern: { hub: "One car's checkout: a Stepper (Delivery, VAS, Discount, Sales promise, Payment mode, Pre-approval, Deposit, Confirmed), the step's DLS controls, and the order summary beside them", vtd: "QR, bank transfer or payment link. Status comes from the gateway, with no manual Mark as paid" },
+      pattern: { hub: "One car's checkout: a Stepper (Delivery, VAS, Discount, Sales promise, Payment mode, Pre-approval, Deposit, Confirmed), the step's DLS controls, and the order summary beside them. BYOF opens its questions under the payment mode tiles", vtd: "QR, bank transfer or payment link. Status comes from the gateway, with no manual Mark as paid" },
       route: { booked: "/tasks/sa/BK-88213?page=checkout", walkin: "/tasks/sa/VS-2041?page=checkout", vtd: "/test-drives/BK-88190?stage=next-step&step=token" } },
     dap: { hub: "Read-only. The customer pays the token in the consumer app and DAP shows TOKEN_PAYMENT_SUCCESS; VAS, discount and delivery are set later by the RM.", vtd: "Read-only. The customer pays in the consumer app and DAP shows TOKEN_PAYMENT_SUCCESS." },
     changed: { hub: "The SA checks out the car in the visit: delivery, VAS, discount, promise, payment mode, pre-approval and the deposit, then the booking is confirmed. One car at a time.", vtd: null },
@@ -857,6 +857,13 @@ const SA_PROMISES = ["New tyres", "Paint scratches and dents repaired", "Periodi
 // offer the pre-approval.
 // In-house finance is CARS24's own; BYOF is bring your own finance (their own loan)
 const PAY_MODES = [["cash", "Cash"], ["fin", "In-house finance"], ["own", "BYOF"]];
+// BYOF at the checkout (N2), Australia: the deposit they can pay (from min up to the order total), how the loan is
+// organised, the lender, and the handling fee for an outside lender. A broker loan asks the broker, the rate and the
+// weekly repayment; a direct lender or a novated lease gets the early-repayment nudge to CARS24 Finance. The UAE has
+// no BYOF questions yet: BYOF there skips straight to the deposit, as before
+const BYOF = marketTable({}, { au: { min: 500, fee: 500, step: 100,
+  how: [["broker", "Broker"], ["direct", "Direct lender"], ["novated", "Novated lease"]],
+  lenders: ["CBA", "Westpac", "Now Finance", "ANZ", "Money3", "Plenti", "Latitude", "Branded Financial", "NAB", "OMM", "Other"] } });
 // One form in every market; the questions come from the market (in the build, tenant config from the finance
 // service). Items: sec (heading), pills, in (input), sel (select), date, month, freq (an amount and how often),
 // check, reveal (a check that shows a field), slider, pair (two side by side), hint, consent.

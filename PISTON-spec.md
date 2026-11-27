@@ -3743,7 +3743,7 @@ Agree what happens next. No visit ends without a next step.
 
 *Booked and walk-in:*
 
-Check out one car, start to end, with a stepper inside the page: the address and the delivery mode, VAS, a discount, the sales promise, the payment mode, the pre-approval for In-house finance, the deposit, then the booking confirmation. Another TD'd car is checked out the same way, from the test drives page.
+Check out one car, start to end, with a stepper inside the page: the address and the delivery mode, VAS, a discount, the sales promise, the payment mode (for BYOF in Australia, the deposit they can pay and their loan: broker, direct lender or novated lease, and the lender), the pre-approval for In-house finance, the deposit, then the booking confirmation. Another TD'd car is checked out the same way, from the test drives page.
 
 *Video TD:*
 
@@ -3763,6 +3763,7 @@ Send a payment link while the customer is still on the call.
 - Coupons and discount rules (approval above a limit)
 - Sales promise checklist
 - Finance service: pre-approval, prefilled when it exists, or the link to send
+- Finance service: BYOF details (the deposit, loan type, lender, broker, rate, weekly repayment) and the callback request
 - Payments: bank transfer (receipt upload) or Stripe (link, confirmed by webhook)
 
 *Video TD:*
@@ -3811,7 +3812,7 @@ Send a payment link while the customer is still on the call.
   - *Video TD:* Next step › Token
 - **Build:** New
 - **Pattern:** 
-  - *Booked and walk-in:* One car's checkout: a Stepper (Delivery, VAS, Discount, Sales promise, Payment mode, Pre-approval, Deposit, Confirmed), the step's DLS controls, and the order summary beside them
+  - *Booked and walk-in:* One car's checkout: a Stepper (Delivery, VAS, Discount, Sales promise, Payment mode, Pre-approval, Deposit, Confirmed), the step's DLS controls, and the order summary beside them. BYOF opens its questions under the payment mode tiles
   - *Video TD:* QR, bank transfer or payment link. Status comes from the gateway, with no manual Mark as paid
 - **Route:** 
   - *Booked:* `/tasks/sa/BK-88213?page=checkout`
@@ -3836,8 +3837,8 @@ Send a payment link while the customer is still on the call.
 | Lead pane | LEFT_PANE | Status pill, AI summary, contact actions (call, WhatsApp, chat, email), finance and documents. The same pane on every step |
 | Stage bar | STAGE_STEPPER | Done stages in green, the current one in violet; the second line shows progress |
 | Checkout stepper | @cspl/stepper | Delivery, VAS, Discount, Promise, Payment, Pre-approval (In-house finance only), Deposit, Confirmed |
-| The step | @cspl/section-card | Address (@cspl/address-card) and delivery (@cspl/choice-tile); VAS (@cspl/checkbox); coupons (@cspl/coupon) and a discount (@cspl/text-input, @cspl/dropdown); the sales promise; the payment mode; the pre-approval (@cspl/fetched-info-card, or send the link); the deposit (@cspl/payment-method-tile: bank transfer with the receipt, or Stripe) |
-| Order summary | @cspl/payment-details-card | Price, delivery, VAS, discount, total, deposit paid, outstanding; moves with every choice |
+| The step | @cspl/section-card | Address (@cspl/address-card) and delivery (@cspl/choice-tile); VAS (@cspl/checkbox); coupons (@cspl/coupon) and a discount (@cspl/text-input, @cspl/dropdown); the sales promise; the payment mode, and for BYOF the deposit (@cspl/text-input, @cspl/range-slider), the loan (@cspl/radio-button), the lender (@cspl/dropdown), the early-repayment nudge and the fee (@cspl/information-message); the pre-approval (@cspl/fetched-info-card, or send the link); the deposit (@cspl/payment-method-tile: bank transfer with the receipt, or Stripe) |
+| Order summary | @cspl/payment-details-card | Price, delivery, VAS, discount, the BYOF handling fee, total, deposit paid, outstanding; moves with every choice |
 | CarGPT | CARGPT_PANEL | Suggestions for this step, chat with / to mention a record, and live transcription from Start TD |
 | Footer actions | SHELL_CTAS | Hand off to delivery stays off until the booking is confirmed |
 
@@ -3866,6 +3867,13 @@ Send a payment link while the customer is still on the call.
 | Reason | Single select | With a discount | SA | Price match, loyalty, manager's discretion |
 | Sales promise | Multi select and text | No | SA | Tyres, paint and dents, service, brakes, anything else |
 | Payment mode | Single select | Yes | Lead, confirmed | Cash, In-house finance, BYOF |
+| BYOF deposit | Money and slider | BYOF | Customer, entered by the SA | From $500 up to the order total; 100% refundable. The Deposit step asks for it |
+| Loan organised by | Radio | BYOF | Customer | Broker, Direct lender, Novated lease |
+| Broker name | Text | Broker | Customer | Who arranged the loan |
+| Lender | Single select | BYOF | Customer | CBA, Westpac, Now Finance, ANZ, Money3, Plenti, Latitude, Branded Financial, NAB, OMM, Other |
+| Lender name | Text | Lender Other | Customer | When the lender isn't listed |
+| Interest rate | Percent | No | Customer | Broker loans: what the broker quoted |
+| Weekly repayment | Money | No | Customer | Broker loans |
 | Pre-approval | Info card or link | In-house finance only | Finance service | Prefilled when on file; else send the link by SMS or email, or fill it now |
 | Deposit method | Single select | Yes | SA | Bank transfer or Stripe |
 | Receipt | File | Bank transfer | Customer, uploaded by the SA | Saved to Documents |
@@ -3888,6 +3896,7 @@ Send a payment link while the customer is still on the call.
 | Apply a coupon | Offers: apply to the order | Stays here |
 | Send the pre-approval link | Notification engine | Stays here |
 | Run pre-approval | Finance service | Stays here |
+| Request a callback | Finance service: a callback task for CARS24 Finance (BYOF, direct lender or novated lease) | Stays here |
 | Share the Stripe link | Stripe: payment link | Waiting for Stripe |
 | Stripe confirms | Stripe webhook; OMS: deposit paid | Paid |
 | Upload the receipt | Docs; finance checks it | Paid |
@@ -3912,6 +3921,7 @@ Send a payment link while the customer is still on the call.
 | --- | --- |
 | Step n of 8 | The stepper and the badge |
 | Pre-approval not needed | Skipped for Cash and BYOF |
+| BYOF incomplete | Continue stays off until the deposit is in range, the loan type and lender are picked, and a broker or Other has its name |
 | Waiting for Stripe | No manual Mark as paid |
 | Paid | Confirm the booking turns on |
 | Booking confirmed | Hand off to delivery turns on |
@@ -4493,6 +4503,19 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 ## 10. What changed after review
 
 Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.
+
+#### BYOF at the checkout asks about the loan, then goes on to the deposit
+
+> **Feedback:** “In the checkout, when the payment mode is BYOF, ask these questions: the deposit they can pay, how they are organising the loan (broker, direct lender, novated lease), the lender, and for a broker the rate and weekly repayment; then the same journey”
+
+- **Before:** Payment mode BYOF → *Deposit* of the market's fixed amount
+- **After:** Payment mode BYOF → *the deposit they can pay*, *the loan*, *the lender* → *Deposit* of that amount → *Confirmed*
+
+**The deposit is theirs to pick.** From $500 up to the order total, typed or on the slider, and 100% refundable. The Deposit step, the bank details and the summary use that amount.
+
+**The loan.** Broker, Direct lender or Novated lease, then the lender (CBA, Westpac, Now Finance, ANZ, Money3, Plenti, Latitude, Branded Financial, NAB, OMM, Other). A broker loan asks the broker's name, the interest rate and the weekly repayment. A direct lender or a novated lease gets the early-repayment nudge, with Request a callback for CARS24 Finance. Continue stays off until the required answers are in.
+
+**The fee.** The $500 handling fee for an outside lender is a line on the order summary. Australia only: in the UAE, BYOF still goes straight to the deposit.
 
 #### A new page: the Delivery persona
 
