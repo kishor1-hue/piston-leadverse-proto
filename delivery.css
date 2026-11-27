@@ -1,0 +1,8 @@
+/* The Delivery persona page: the PISTON viewer layout (piston.css) and the DLS (dls.css), plus these few parts */
+.dv-back{text-decoration:none;}
+.dv-gates{flex-direction:row; flex-wrap:wrap; align-items:center; gap:8px; padding:14px 20px;}
+.dv-gates > b{font-size:15px; font-weight:600; color:var(--tu-text-primary); margin-right:6px;}
+.dv-age{font-size:12px; color:var(--tu-text-secondary);}
+.dv-dim{font-size:13px; color:var(--tu-text-secondary);}
+.tu-table tr.chg td{background:var(--tu-amber-50);}
+.dls .tu-sec .tu-tiles{margin-top:0;}

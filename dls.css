@@ -97,6 +97,11 @@
 .tui-camera-picture-image-outline::before{content:"\eadd";}
 .tui-microphone-outline::before{content:"\ebaa";}
 .tui-arrow-refresh-renew-outline::before{content:"\ea91";}
+.tui-cross-large-outline::before{content:"\ec5b";}
+.tui-truck-delivery-outline::before{content:"\e9c6";}
+.tui-store-outline::before{content:"\ec3d";}
+.tui-caution-outline::before{content:"\e926";}
+.tui-page-check-signed-document-outline::before{content:"\eb1e";}
 /* icons:end */
 
 /* Badge (@cspl/badge), size xs, curve radius; tones subtle */
@@ -380,3 +385,23 @@
 .tdr-f{display:flex; flex-direction:column; gap:8px;}
 .tdr-f .tu-chips .tu-chip.on{font-weight:600;}
 .tu-tile.lbl{min-height:44px; justify-content:center;}
+
+/* InformationMessage (@cspl/information-message), with background: fs-130, the icon in the state's feedback tone */
+.tu-info{display:flex; align-items:flex-start; gap:8px; padding:8px 12px; border-radius:8px; background:var(--tu-surface-subtle); color:var(--tu-text-secondary);}
+.tu-info p{margin:0; flex:1; min-width:0; font-size:13px; line-height:18px;}
+.tu-info .tui{margin-top:1px; color:var(--tu-text-secondary);}
+.tu-info.brand{background:var(--tu-brand-50);} .tu-info.brand .tui{color:var(--tu-brand);}
+.tu-info.positive{background:var(--tu-mint-50);} .tu-info.positive .tui{color:var(--tu-mint-900);}
+.tu-info.warning{background:var(--tu-amber-50);} .tu-info.warning .tui{color:var(--tu-amber-700);}
+.tu-info.negative{background:var(--tu-red-50);} .tu-info.negative .tui{color:var(--tu-red-700);}
+.tu-info b{color:var(--tu-text-primary); font-weight:600;}
+
+/* Modal (@cspl/modal): neutral-950 backdrop at 60%, a 16px card, the title bar (fs-200) over the slate-50 body */
+.tu-modal{position:absolute; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;}
+.tu-modal .bk{position:absolute; inset:0; background:#0A0A0A; opacity:.6;}
+.tu-modal .ct{position:relative; width:480px; max-width:calc(100% - 48px); border-radius:16px; overflow:hidden; background:var(--tu-surface); box-shadow:0 24px 48px -12px rgba(16,24,40,.3);}
+.tu-modal .hd{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:16px 24px; border-bottom:1px solid var(--tu-border-tertiary);}
+.tu-modal .hd h5{margin:0; font-size:20px; line-height:1.3; font-weight:600; color:var(--tu-text-primary);}
+.tu-modal .x{display:inline-flex; border:none; background:none; padding:0; cursor:pointer; color:var(--tu-text-primary);}
+.tu-modal .bdy{display:flex; flex-direction:column; gap:16px; padding:16px 24px 20px; background:var(--tu-surface-subtle); font-size:15px; line-height:1.4; color:var(--tu-text-primary);}
+.tu-modal .bdy p{margin:0;}

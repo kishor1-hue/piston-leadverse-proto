@@ -80,3 +80,15 @@ The page opens in the white theme, which is what Leadverse uses. The Light / Dar
 
 - [Test Drive Console](https://github.com/kishor1-hue/test-drive-console): the first Leadverse prototype of the DAP test drive journey.
 - History up to this split lives in [da-panel-leadverse-proto](https://github.com/kishor1-hue/da-panel-leadverse-proto), where PISTON was the `piston/` folder.
+
+## The Delivery persona (`delivery.html`, `/delivery`)
+
+A second page, after the PISTON journey ends (N3, hand-off to delivery): the order is settled and the delivery is booked (Australia). Seven steps on the Leadverse task, the action area on Turbo UI:
+
+- **D1 Car prep status**, read-only: the four delivery gates (Finance GFD, Contract signed, Registered, Refurb GFD), the HubSpot pipelines on the order, then RWC, Refurb and detail, VAS operations and Registration.
+- **D2 VAS, D3 Rego (3, 6 or 12 months), D4 Discount**: only what the customer asks to change; the DAP and the balance move straight away.
+- **D5 Invoice**: booked against now; one new tax invoice, and a re-signed contract when the DAP changed.
+- **D6 Booking confirmation**: must go out when anything changed.
+- **D7 Balance and handover**: collect the balance (payment link or receipt) or note the refund; pick-up is marked delivered with the actual date; home delivery (the fee, or the free delivery exception behind a warning popup) creates a logistics task whose handover closes it.
+
+The top bar switches the scenario: Car ready, or Car not ready (QC rework, so Refurb GFD is open). Code: `delivery.js` (state, screens, spec), `delivery.css`; it reuses `piston-data.js`, `piston-screens.js` and `dls.js`.

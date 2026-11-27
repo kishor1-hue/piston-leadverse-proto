@@ -96,8 +96,8 @@ const TU = {
     return `<label class="tu-cb${checked ? " on" : ""}"${attrs ? " " + attrs : ""}><span class="box">${tui("check-outline", "sm")}</span><span class="lb">${label}${sub ? `<small>${sub}</small>` : ""}</span>${value ? `<span class="vl">${value}</span>` : ""}</label>`;
   },
   // TextInput: label over the field; helper text under it, red with the field's border in the error state
-  textInput({ label, value = "", id, placeholder = "", required, hint = "", error = "", attrs = "" }) {
-    return `<div class="tu-ti${error ? " err" : ""}"><label for="${id}">${label}${required ? `<span class="rq">*</span>` : ""}</label><input id="${id}" value="${value}" placeholder="${placeholder}"${attrs ? " " + attrs : ""}>${hint || error ? `<small class="hl" data-ti-hint="${hint}">${error || hint}</small>` : ""}</div>`;
+  textInput({ label, value = "", id, placeholder = "", required, hint = "", error = "", type = "text", attrs = "" }) {
+    return `<div class="tu-ti${error ? " err" : ""}"><label for="${id}">${label}${required ? `<span class="rq">*</span>` : ""}</label><input id="${id}" type="${type}" value="${value}" placeholder="${placeholder}"${attrs ? " " + attrs : ""}>${hint || error ? `<small class="hl" data-ti-hint="${hint}">${error || hint}</small>` : ""}</div>`;
   },
   // Coupon: the brand strip with the value, the card with the title, a dashed divider, the code and the validity
   coupon({ value, title, code, valid, action = "", attrs = "" }) {
@@ -123,6 +123,17 @@ const TU = {
   // DoSuccessHeader's layout on a light surface: the badge, the title and the line under it
   successHeader({ title, sub }) {
     return `<div class="tu-success"><span class="bd">${tui("circle-check-filled", "2xl")}</span><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  },
+  // InformationMessage, with its background: an icon in the state's tone and the message. state: general | brand |
+  // positive | warning | negative
+  info(text, { state = "general", icon = "info-outline", attrs = "" } = {}) {
+    return `<div class="tu-info ${state}"${attrs ? " " + attrs : ""}>${tui(icon, "base")}<p>${text}</p></div>`;
+  },
+  // Modal: the dimmed backdrop, then the card with its title bar (title, close) and the slate body. It covers the
+  // screen it is drawn in; closeAttrs go on the close button and the backdrop
+  modal({ title, body, closeAttrs = "", attrs = "" }) {
+    return `<div class="dls tu-modal" role="dialog" aria-modal="true" aria-label="${title}"${attrs ? " " + attrs : ""}><div class="bk"${closeAttrs ? " " + closeAttrs : ""}></div>
+      <div class="ct"><div class="hd"><h5>${title}</h5><button type="button" class="x" aria-label="Close"${closeAttrs ? " " + closeAttrs : ""}>${tui("cross-large-outline", "lg")}</button></div><div class="bdy">${body}</div></div></div>`;
   },
   // DateSlot, desktop-compact: a row of days, the day over the date; TimeSlot, desktop-compact: a grid of times.
   // items: [{ value, label, sub, disabled }]; the picked one in the brand tone

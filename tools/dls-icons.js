@@ -8,7 +8,8 @@ const NAMES = ["check-outline", "whatsapp", "email-envelope-outline", "bubble-te
   "receipt-check-outline", "link", "send-line", "notepad-notes-outline", "circle-check-filled", "info-outline", "arrow-right-outline", "arrow-left-outline",
   "plus-large-outline", "close-line", "calendar-check-outline", "sparkle-filled", "wishlist-outline", "arrow-right-left-sort1-switchhorizontal-outline",
   "coin-dollar-currency-money-outline", "money-hand-coins-pay-outline", "lock-private-outline", "people-circle-user-circle-avatar-profile-outline",
-  "calendar-line", "camera-picture-image-outline", "microphone-outline", "arrow-refresh-renew-outline"];
+  "calendar-line", "camera-picture-image-outline", "microphone-outline", "arrow-refresh-renew-outline",
+  "cross-large-outline", "truck-delivery-outline", "store-outline", "caution-outline", "page-check-signed-document-outline"];
 const css = fs.readFileSync(path.join(process.argv[2], "packages/theme/src/icons-generated.css"), "utf8");
 const rules = NAMES.map(n => {
   const m = css.match(new RegExp(`--turbo-ui-icon-${n.replace(/[-]/g, "\\-")}:\\s*("[^"]+")`));

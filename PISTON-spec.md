@@ -4494,6 +4494,19 @@ One journey, one check-in form, one set of states. A market changes defaults, do
 
 Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.
 
+#### A new page: the Delivery persona
+
+> **Feedback:** “One more persona, Delivery: the final payment is settled and the delivery is booked. Before the car is marked delivered the customer may add or remove VAS, add or remove a discount, change the rego to 3, 6 or 12 months. Screens: car prep status (read-only, other teams), VAS, rego, discount, invoice update, booking confirmation, then the balance and the delivery mode, with a warning popup for a free delivery exception; pick-up is marked delivered with the actual date, home delivery creates a logistics task. A new page route”
+
+- **Before:** The journey stopped at N3, the hand-off to delivery
+- **After:** *D1 Car prep (read-only)* → *D2 VAS* → *D3 Rego* → *D4 Discount* → *D5 Invoice* → *D6 Confirmation* → *D7 Balance and handover*, at /delivery
+
+**Happy path first.** The car is ready, nothing changes: check the four gates, then hand it over. D2 to D4 only matter when the customer asks; each shows what was booked, and the DAP and the balance move as soon as something changes.
+
+**One invoice, one confirmation.** Every change lands on one new tax invoice, booked against now line by line. A new DAP re-sends the contract on DocuSign, and the car can't go until it is signed. The updated booking confirmation must go out when anything changed.
+
+**The car isn't ready.** The hub handover is blocked. Home delivery costs the fee unless the delivery associate gives the free delivery exception, behind a warning popup. Home delivery creates a logistics task; their handover marks the delivery done and records the actual date.
+
 #### The deposit page walks through three numbered sub-steps
 
 > **Feedback:** “Break the deposit page into 3 sub-steps inside the same page, a number stepper: delivery details; then send the deposit link (payment mode) and the manual payment confirmation (receipt amount, receipt upload); then the car status, the payment transactions and the payment breakup. Turbo UI”

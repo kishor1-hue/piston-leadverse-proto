@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Delivery Persona</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css?v=20261127a">
+<link rel="stylesheet" href="piston.css?v=20261127a">
+<link rel="stylesheet" href="dls.css?v=20261127a">
+<link rel="stylesheet" href="delivery.css?v=20261127a">
+<script src="theme.js?v=20261127a"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.462.0/dist/umd/lucide.js"></script>
+</head>
+<body class="pv">
+
+<header class="pv-top">
+  <div class="pv-brand">
+    <div class="pv-letters" aria-hidden="true"><button class="on" type="button" tabindex="-1">D</button></div>
+    <div class="pv-title"><b>Delivery persona &middot; after the final payment</b><span>Australia, on the Leadverse design and Turbo UI</span></div>
+  </div>
+  <div class="pv-seg" id="dv-scen" role="tablist" aria-label="Scenario">
+    <button type="button" data-scen="ready"><span class="tdot" style="background:#1FAA59"></span>Car ready</button>
+    <button type="button" data-scen="notready"><span class="tdot" style="background:#C9820A"></span>Car not ready</button>
+  </div>
+  <div class="pv-spacer"></div>
+  <a class="pv-navbtn dv-back" href="./#au-booked-N3">&larr; PISTON journey</a>
+  <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch theme"></button>
+</header>
+
+<main class="pv-main">
+  <section class="pv-view pv-walk on">
+    <nav class="pv-rail" id="dv-rail" aria-label="Delivery steps"></nav>
+    <section class="pv-stagewrap" aria-label="Screen">
+      <div class="pv-stagehead" id="dv-stagehead"></div>
+      <div class="pv-stage" id="dv-stage"></div>
+      <div class="pv-stagefoot" id="dv-stagefoot"></div>
+    </section>
+    <aside class="pv-spec" id="dv-spec" aria-label="Step spec"></aside>
+  </section>
+</main>
+
+<script src="piston-data.js?v=20261127a"></script>
+<script src="dls.js?v=20261127a"></script>
+<script src="piston-screens.js?v=20261127a"></script>
+<script src="delivery.js?v=20261127a"></script>
+</body>
+</html>
