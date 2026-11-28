@@ -1,0 +1,96 @@
+/* The Yardie persona page: the PISTON viewer layout (piston.css), the DLS (dls.css) and delivery.css, plus these parts */
+.pv-seg button .icon{width:14px; height:14px;}
+.pv-seg button:disabled{opacity:.45; cursor:not-allowed;}
+
+/* the Yardie's phone: Leadverse mobile, the yard task with the two stages on top */
+.ydm{background:var(--v-panel);}
+.ydm-stg{flex:none; display:flex; gap:6px; padding:8px 12px; border-bottom:1px solid var(--v-line);}
+.ydm-stg .s{flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:10px; border:1px solid var(--v-line); background:var(--v-panel); font-family:inherit; text-align:left; cursor:pointer;}
+.ydm-stg .s.cur{border-color:var(--v-primary); background:var(--v-primary-soft);}
+.ydm-stg .s.done{border-color:var(--v-green-line); background:var(--v-green-soft);}
+.ydm-stg .n{width:22px; height:22px; flex:none; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--v-fill); color:var(--v-muted); font-size:11px; font-weight:700;}
+.ydm-stg .s.cur .n{background:var(--v-primary); color:#fff;}
+.ydm-stg .s.done .n{background:var(--v-green); color:#fff;}
+.ydm-stg .n .icon{width:12px; height:12px; stroke-width:3;}
+.ydm-stg .t{min-width:0; display:flex; flex-direction:column;}
+.ydm-stg .t b{font-size:11.5px; line-height:1.2; color:var(--v-ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ydm-stg .dots{display:flex; gap:3px; margin-top:4px;}
+.ydm-stg .dots i{width:16px; height:4px; border-radius:2px; background:var(--v-line-2);}
+.ydm-stg .dots i.done{background:var(--v-green);}
+.ydm-stg .dots i.on{background:var(--v-primary);}
+.ydm-body{flex:1; min-height:0; overflow-y:auto; padding:12px 14px 16px; background:var(--v-canvas);}
+.ydm-h{display:flex; align-items:flex-start; gap:8px; margin-bottom:12px;}
+.ydm-h small{display:block; font-size:11px; font-weight:600; color:var(--tu-text-secondary); text-transform:uppercase; letter-spacing:.05em;}
+.ydm-h h3{margin:2px 0 0; font-size:18px; line-height:1.25; font-weight:600; color:var(--tu-text-primary);}
+.ydm-h p{margin:4px 0 0; font-size:12.5px; line-height:1.45; color:var(--tu-text-secondary);}
+.ydm-back{flex:none; width:30px; height:30px; margin-top:2px; border-radius:9px; border:1px solid var(--v-line); background:var(--v-panel); color:var(--v-ink); display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.ydm-foot{flex:none; padding:8px 14px 18px; border-top:1px solid var(--v-line); background:var(--v-panel);}
+.ydm-hint{display:block; font-size:11.5px; color:var(--v-muted); text-align:center; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ydm .ph-btn .icon{width:17px; height:17px;}
+/* the DLS at phone width */
+.ydm .tu-stack{gap:12px;}
+.ydm .tu-sec{gap:12px;}
+.ydm .tu-sec.framed{padding:14px; border-radius:14px;}
+.ydm .tu-sec .hd h4{font-size:15px;}
+.ydm .tu-sec .hd p{font-size:12.5px;}
+.ydm .tu-fic .items.c3{grid-template-columns:repeat(2,minmax(0,1fr));}
+.ydm .tu-fic .it b{font-size:13px; line-height:18px;}
+.ydm .tu-ccc .md{width:64px; height:44px;}
+.ydm .tu-ccc .md .tui{font-size:22px;}
+.ydm .tu-ccc .cx b{font-size:13.5px;}
+.ydm .tu-radios .row{gap:10px 14px;}
+.ydm .tu-btns > .tu-btn.medium{flex:1; justify-content:center;}
+.ydm .tu-tslot{height:48px; font-size:14px;}
+.ydm .tu-info p{font-size:13px;}
+.ydm .tu-table{font-size:12px;}
+
+/* the photo tiles and the checklist */
+.yd-photos{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px;}
+.ydm .yd-photos{grid-template-columns:repeat(2,minmax(0,1fr));}
+.yd-photo{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; height:84px; border:1.5px dashed var(--tu-border-secondary); border-radius:12px; background:var(--tu-surface); font-family:inherit; color:var(--tu-text-primary); cursor:pointer;}
+.yd-photo .tui{color:var(--tu-text-secondary); margin-bottom:2px;}
+.yd-photo b{font-size:13px; font-weight:600;}
+.yd-photo small{font-size:11px; color:var(--tu-text-secondary);}
+.yd-photo.on{border-style:solid; border-color:var(--tu-mint-800); background:var(--tu-mint-50);}
+.yd-photo.on .tui, .yd-photo.on small{color:var(--tu-mint-800);}
+.yd-checks{display:flex; flex-direction:column; gap:6px;}
+
+/* Leadverse web: the car in the pane, the stages as links */
+.yd-carav{color:rgba(15,23,43,.55);}
+.yd-carav .icon{width:18px; height:18px;}
+.yd-stgd{cursor:pointer;}
+.dls .tu-stepper .st.nav{cursor:pointer;}
+
+/* the spec: the properties this step's tap updates, live */
+.yp-sec h4 .yp-n{margin-left:auto; font-size:10.5px; letter-spacing:0; background:var(--lv-soft); color:var(--lv-soft-ink); border-radius:10px; padding:1px 7px;}
+.yp-list{display:flex; flex-direction:column; gap:6px;}
+.yp-row{border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--surface);}
+.yp-row.now{border-color:var(--lv); box-shadow:0 0 0 3px var(--lv-soft);}
+.yp-row.upd{background:var(--ok-bg); border-color:transparent;}
+.yp-k{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.yp-obj{display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted);}
+.yp-obj .icon{width:11px; height:11px;}
+.yp-k b{font-size:12.5px; color:var(--ink);}
+.yp-k code{margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--muted);}
+.yp-v{display:flex; align-items:center; gap:6px; margin-top:5px; font-size:12px; line-height:1.35; color:var(--ink);}
+.yp-v .icon{width:12px; height:12px; flex:none; color:var(--faint);}
+.yp-v .b{color:var(--muted);}
+.yp-v .a{font-weight:600;}
+.yp-v em{margin-left:auto; flex:none; font-style:normal; font-size:9.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--faint);}
+.yp-row.upd em{color:var(--ok-ink);}
+.yp-row.now em{color:var(--lv);}
+.yp-all{margin-top:10px; font-size:12.5px;}
+
+/* the Properties view */
+.yp-tbl{min-width:860px;}
+.yp-tbl code{font-family:var(--mono); font-size:11px; color:var(--muted);}
+.yp-tbl tr.upd td{background:var(--ok-bg);}
+.yp-st{display:inline-block; font-size:10.5px; font-weight:700; border-radius:10px; padding:2px 8px; white-space:nowrap;}
+.yp-st.upd{background:var(--ok-bg); color:var(--ok-ink);}
+.yp-st.now{background:var(--lv-soft); color:var(--lv-soft-ink);}
+.yp-st.later{background:var(--surface-2); color:var(--muted);}
+.bp-phead .pv-gl .icon{width:14px; height:14px;}
+
+@media (max-width: 760px){
+  .yd-photos{grid-template-columns:repeat(2,minmax(0,1fr));}
+}

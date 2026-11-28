@@ -882,6 +882,11 @@ function renderChanges() {
     <h1 class="doc-h">What changed after review</h1>
     <p class="doc-sub">Notes on the PISTON board, how the calling team works, the Leadverse TD Journey design file, Australia, and the latest walk through the ground journey. Here is what each one does to the journey and to the screens.</p>
     <div class="chg-cards">
+      <div class="chg-card wide"><div class="q">&ldquo;A form, a journey view where the Yardie collects the car to prepare it, then drops it with the key handover: two stages, mobile and desktop friendly, with the properties each one updates&rdquo;</div><h4>A new page: the Yardie persona</h4>
+        <div class="ba"><span class="k">Before</span><span class="seq">S2 Car to the hub: two taps on the Yardie's phone, Picked up and At the hub</span><span class="k">After</span><span class="seq"><em>1 Collect and prep</em>: Y1 Pick up, Y2 Prep, Y3 Park ready &rarr; <em>2 Drop and key handover</em>: Y4 Drive over, Y5 Park at the hub, Y6 Key handover, at <a class="linklike" href="yardie.html">/yardie</a></span></div>
+        <p><b>Collect and prep, the day before.</b> Scan the key tag (or type the plate), the odometer, the fuel and a photo of each side; tick the six-item prep checklist with the fuel at least half, or report an issue, which puts the car on hold with a Refurb ticket; park in the ready row and put the key back in its slot. The booking's car readiness turns green.</p>
+        <p><b>Drop and key handover, at check-in.</b> The Bring task arrives with the token and the SA. Scan the key, drive over, park at a bay (the target one preselected), check the odometer and any new marks, then hand the key to the SA, confirmed by the 4-digit code on the SA's tablet. The order goes to CAR AT HUB, the ground TV to Car ready.</p>
+        <p><b>The properties.</b> The spec beside each screen lists what its tap updates, live from the form: the yard tasks, the car, the key, the TD order, the ground TV and the SA's task. The Properties view lists all of them. The page switches between the Yardie's phone and Leadverse web, in the UAE or Australia.</p></div>
       <div class="chg-card wide"><div class="q">&ldquo;In the checkout, when the payment mode is BYOF, ask these questions: the deposit they can pay, how they are organising the loan (broker, direct lender, novated lease), the lender, and for a broker the rate and weekly repayment; then the same journey&rdquo;</div><h4>BYOF at the checkout asks about the loan, then goes on to the deposit</h4>
         <div class="ba"><span class="k">Before</span><span class="seq">Payment mode BYOF &rarr; <em>Deposit</em> of the market's fixed amount</span><span class="k">After</span><span class="seq">Payment mode BYOF &rarr; <em>the deposit they can pay</em>, <em>the loan</em>, <em>the lender</em> &rarr; <em>Deposit</em> of that amount &rarr; <em>Confirmed</em></span></div>
         <p><b>The deposit is theirs to pick.</b> From $500 up to the order total, typed or on the slider, and 100% refundable. The Deposit step, the bank details and the summary use that amount.</p>
@@ -1080,6 +1085,9 @@ function render() {
   if (VS.view === "fields") renderFields();
   if (VS.view === "changes") renderChanges();
   writeHash();
+  // the Yardie persona opens in the same market
+  const yl = document.getElementById("pv-yardie");
+  if (yl) yl.href = `yardie.html#${VS.market}-phone-Y1`;
   drawIcons();
   if (VS.view === "walk") { fitStage(); drawPins(); }
 }

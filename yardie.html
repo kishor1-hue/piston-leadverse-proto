@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yardie Persona</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css?v=20261128a">
+<link rel="stylesheet" href="piston.css?v=20261128a">
+<link rel="stylesheet" href="dls.css?v=20261128a">
+<link rel="stylesheet" href="delivery.css?v=20261128a">
+<link rel="stylesheet" href="yardie.css?v=20261128a">
+<script src="theme.js?v=20261128a"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.462.0/dist/umd/lucide.js"></script>
+</head>
+<body class="pv">
+
+<header class="pv-top">
+  <div class="pv-brand">
+    <div class="pv-letters" aria-hidden="true"><button class="on" type="button" tabindex="-1">Y</button></div>
+    <div class="pv-title"><b>Yardie persona &middot; collect, prep, drop and key handover</b><span>UAE and Australia, Leadverse mobile and web, on Turbo UI</span></div>
+  </div>
+  <div class="pv-seg" id="yd-markets" role="tablist" aria-label="Market">
+    <button type="button" data-market="ae"><span class="mk">AE</span>UAE</button>
+    <button type="button" data-market="au"><span class="mk">AU</span>Australia</button>
+  </div>
+  <div class="pv-seg" id="yd-devs" role="tablist" aria-label="Device">
+    <button type="button" data-dev="phone"><i data-lucide="smartphone" class="icon"></i>Phone</button>
+    <button type="button" data-dev="desktop"><i data-lucide="monitor" class="icon"></i>Desktop</button>
+  </div>
+  <div class="pv-spacer"></div>
+  <div class="pv-seg" id="yd-views" role="tablist" aria-label="View">
+    <button type="button" data-view="walk">Journey</button>
+    <button type="button" data-view="props">Properties</button>
+  </div>
+  <a class="pv-navbtn dv-back" href="./#booked-S2">&larr; PISTON journey</a>
+  <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch theme"></button>
+</header>
+
+<main class="pv-main">
+  <section class="pv-view pv-walk on" id="yd-walk">
+    <nav class="pv-rail" id="yd-rail" aria-label="Yardie steps"></nav>
+    <section class="pv-stagewrap" aria-label="Screen">
+      <div class="pv-stagehead" id="yd-stagehead"></div>
+      <div class="pv-stage" id="yd-stage"></div>
+      <div class="pv-stagefoot" id="yd-stagefoot"></div>
+    </section>
+    <aside class="pv-spec" id="yd-spec" aria-label="Step spec"></aside>
+  </section>
+  <section class="pv-view" id="yd-propsview"><div class="pv-doc" id="yd-props"></div></section>
+</main>
+
+<script src="piston-data.js?v=20261128a"></script>
+<script src="dls.js?v=20261128a"></script>
+<script src="piston-screens.js?v=20261128a"></script>
+<script src="yardie.js?v=20261128a"></script>
+</body>
+</html>

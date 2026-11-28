@@ -102,6 +102,19 @@
 .tui-store-outline::before{content:"\ec3d";}
 .tui-caution-outline::before{content:"\e926";}
 .tui-page-check-signed-document-outline::before{content:"\eb1e";}
+/* the Yardie persona */
+.tui-qr-code::before{content:"\e913";}
+.tui-fuel-outline::before{content:"\ebe7";}
+.tui-map-pin-flat-route-outline::before{content:"\e996";}
+.tui-arrow-navigation-outline::before{content:"\eb61";}
+.tui-broom-sparkle-clean-brush-outline::before{content:"\e94e";}
+.tui-tyre-pressure-outline::before{content:"\ec0e";}
+.tui-odometer-line::before{content:"\ec22";}
+.tui-garage-outline::before{content:"\eaa6";}
+.tui-handshake-outline::before{content:"\e90f";}
+.tui-checklist-list-outline::before{content:"\ea6f";}
+.tui-maintenance-outline::before{content:"\ec06";}
+.tui-number-plate::before{content:"\e924";}
 /* icons:end */
 
 /* Badge (@cspl/badge), size xs, curve radius; tones subtle */

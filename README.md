@@ -92,3 +92,12 @@ A second page, after the PISTON journey ends (N3, hand-off to delivery): the ord
 - **D7 Balance and handover**: collect the balance (payment link or receipt) or note the refund; pick-up is marked delivered with the actual date; home delivery (the fee, or the free delivery exception behind a warning popup) creates a logistics task whose handover closes it.
 
 The top bar switches the scenario: Car ready, or Car not ready (QC rework, so Refurb GFD is open). Code: `delivery.js` (state, screens, spec), `delivery.css`; it reuses `piston-data.js`, `piston-screens.js` and `dls.js`.
+
+## The Yardie persona (`yardie.html`, `/yardie`)
+
+A third page, for the Yardie who brings a booked car from the yard to the SA (PISTON P8 and S2, in full). Two stages, six steps, in the UAE or Australia, on the Yardie's phone (Leadverse mobile) or on Leadverse web, the action area on Turbo UI:
+
+- **Stage 1, collect and prep (the day before the TD).** Y1 Pick up: scan the key tag or type the plate, the odometer, the fuel, a photo of each side. Y2 Prep: a six-item checklist and the fuel at least half; or report an issue, which puts the car on hold with a Refurb ticket and tells the RM and the SA (N6). Y3 Park ready: a ready-row spot and the key box slot; the booking's car readiness turns green.
+- **Stage 2, drop and key handover (when the customer checks in).** Y4 Drive over: the Bring task with the token and the SA, scan the key. Y5 Park at the hub: a bay (the target one preselected), the odometer and any new marks; the order goes to CAR AT HUB and the TV to Car ready. Y6 Key handover: to the SA, confirmed by the 4-digit code on the SA's tablet; the spare key stays in the key box.
+
+The spec beside each screen lists the properties its tap updates (the yard tasks, the car, the key, the TD order, the ground TV, the SA's task), live from the form; the Properties view lists all of them. Code: `yardie.js` (state, screens, properties, spec), `yardie.css`; it reuses `piston-data.js`, `piston-screens.js` and `dls.js`.
